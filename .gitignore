@@ -1,0 +1,38 @@
+# Python caches and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Local environments and machine-specific configuration
+.venv/
+.conda/
+.env
+.env.*
+!.env.example
+*.local.yaml
+*.local.yml
+*.local.json
+*.local.toml
+
+# Private project workspaces, datasets, runs, and exports
+projects/
+runs/
+artifacts/
+reports/
+*.parquet
+*.h5
+*.hdf5
+*.zarr/
+*.mp4
+*.mkv
+*.avi
+
+# Generated local logs and temporary files
+*.log
+*.tmp
+*.swp
+

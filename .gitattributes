@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+# Binary data and media must not be normalized as text.
+*.parquet binary
+*.h5 binary
+*.hdf5 binary
+*.mp4 binary
+*.mkv binary
+*.avi binary
+*.stl binary
+*.glb binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+

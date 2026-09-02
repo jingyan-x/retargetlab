@@ -1,6 +1,6 @@
 # EEF 轨迹本体化工具：产品规划 v2
 
-> **文档状态：现行唯一基线（2026-08-27 生效）。** 本文经四轮评审修订后取代 [`current-product-plan.md`](./current-product-plan.md)；后者转为历史归档。开发、拆任务与验收以本文为准。
+> **文档状态：现行唯一产品基线（2026-09-02 第七轮）。** 本文取代 [`current-product-plan.md`](./current-product-plan.md)；后者转为历史归档。产品范围以本文为准，代码结构与验收细节以 [`engineering-plan-v1.md`](./engineering-plan-v1.md) v1.2 为准；若发现真实冲突，先修文档再编码，不静默选择其一。
 >
 > **与 v1 规划的关系：** 产品定位不变，九条核心属性一条不删。变化集中在三处——输出对象从「轨迹」改为「数据集」、主形态从「单条工作台」改为「批量流水线」、AI 的第一战场从「自动修复」改为「自动接入」。此外把治理级机制（认证等级、自治挡位、审批门禁、完整版本对象图）整体移出首版，理由见 §13。
 >
@@ -35,7 +35,30 @@
 > 5. **M0 的「跨后端 FK 一致性」名不副实（§5.3）**：Pink 建在 Pinocchio 上，M0 没有第二个独立 FK 实现。拆为内部约定一致性 + 独立 golden cases（M0）+ 真跨后端（M3）。
 > 6. **M1 拆为 M1a/M1b/M1c（§12）**：数值闭环 → 数据集闭环 → 留出集验收与结构冻结，每段各有可展示、可回退的产物。
 >
-> **2026-08-31 开工前一致性清理。** 本次不改变产品范围，只清除第四轮修订遗留的四处执行歧义：OpenArm 资产核实统一归入 M-1；阈值统一为 M3 全量后才冻结；Panda 双臂降为需重新过闸门的备用候选；里程碑改用交付优先级和停止点，不再绑定“暑假”这一失效日期。
+> **2026-08-31 开工前一致性清理。** 本次不改变产品范围，只清除第四轮修订遗留的四处执行歧义：OpenArm 资产核实统一归入 M-1；当时暂定阈值待 M3 全量后冻结（**已被第六轮的范围化认证取代**）；Panda 双臂降为需重新过闸门的备用候选；里程碑改用交付优先级和停止点，不再绑定“暑假”这一失效日期。
+>
+> **2026-08-31 第五轮修订（开工前上游与本地事实复核）。** 前四轮的技术事实核实停在 2026-08-27，且从未核对过本地实际持有的资产。本轮把上游依赖、本地私有样本与 OpenArm 资产快照逐项核过，改的全部是**事实**，不是设计。九项逐条见 §14.1「第五轮修订」——
+> 1. **`lerobot` v3 已进稳定版（§3.2）**：0.6.1 于 2026-08-03 发布，`meta/tasks.parquet` 确定，文档与代码的分歧已消失。「须钉 main commit」作废，改钉 `lerobot==0.6.1`。
+> 2. **`DatasetConfig` 没有 `exclude_episodes`（§7.1.5）**：0.6.1 的字段是 `repo_id`（必填）/ `root` / `episodes`，另有新增的 `episode_filter`。原文第一步的构造写法跑不起来，已改写。白名单机制本身不受影响。
+> 3. **Python 版本与安装边界（§5.2）**：`lerobot` 要求 `>=3.12`，Pinocchio 的 `pin` wheel **没有 Windows 版**。第五轮先定 WSL2 + Python 3.12，**开发地点已由第七轮改为实验室远程 Linux + conda Python 3.12**；`lerobot` 仍必须是可选 extra。
+> 4. **那 20 个 episode 是均匀抽样，不是质量筛选（§2.2、§6.3）**：`summary.json` 写明 `numpy.linspace(0, 1666, 20)`、`mode: keep`，报告 CSV 只有一列 episode 序号，没有任何质量指标。**原文据此论证「样本偏乐观」的前提是错的**；第五轮仍假设将来取得全量，**该假设已由第六轮删除**，现采用 `sample_validated` 范围化认证。
+> 5. **M-1 抽样会污染 `held_out`（§12）**：原定「20 ep × 30 帧」覆盖全部 20 条，而 T2 摆位由该抽样排名选出并一路用到 M1c 验收。已改为 **12 ep（`calibration`）× 50 帧**，总量仍是预先登记的 600 帧。
+> 6. **OpenArm 资产的实际状态好得多，但有两个坑（§11、§12）**：本地资产快照已有 `openarm_description@1.0.1-1-gab816fc`（**带本地修改**）、已生成的 `openarm_bimanual.urdf`、一份 `openarm.srdf` 相邻对屏蔽表、完整的 collision STL。坑是：生成的 URDF 里 mesh 全是**绝对路径**，且 **collision 几何被替换成 `<sphere radius="0.0003"/>`**，真 mesh 那行被注释掉——这份 URDF 上跑不了任何有意义的碰撞检查。
+> 7. **`action_lookahead=5` 死参数（§2.3、§14.2）**：上游三个转换脚本都声明了 `action_lookahead: int = 5` 却**在函数体内从未使用**，`action` 直接取自原始 `trajectory.json` 的同帧字段。所以转换阶段没有移位，§2.3 的结论**站得住**；但它的默认值恰好是 5，而 §2.3 的两条论证只排除了「表示层 artifact」，**没有排除「上游按 lookahead 构造」**。确认动作因此要具体到采集端 recorder，不是泛泛「问一句」。
+> 8. **数据里有两条规划没登记的通道（§3.3）**：`action.position/.velocity/.effort`（源关节**指令**通道）和逐帧 `control_mode` 字符串列。前者提供一条**不需要源 URDF** 的跟踪延迟独立复核路径，价值不低。
+> 9. **索引 0 = 左臂已被交叉证实（§3.3）**：`info.json` 的 `names` 显示 `observation.state` 是 `[gripper_0, epos_0_qw..qz, epos_0_xyz, gripper_1, ...]`，而并列的 `observation.state.position` 是 `[Larm1..7_Joint, Lgripper_Joint, Rarm1..7_Joint, Rgripper_Joint]`。两条通道同序，`0 = 左` 可直接标 `EXPLICIT`，不必在 M1a 再确认一次。
+>
+> **本轮教训与第三轮同源：** 第三轮的教训是「先测数据再定契约」，本轮补上后半句——**先核对手上已经有的东西，再假设它需要自己造。** M-1 原以为要从 xacro 现搭工具链，实际现成 URDF、SRDF 和 collision mesh 都在手边；反过来，原以为已经稳的 `command_timing` 结论，旁边正躺着一个默认值为 5 的死参数。
+>
+> **2026-08-31 第六轮修订（代码冻结前收口）。** 本轮把“可以讨论”收成“可以编码”，不扩大范围：
+> 1. **数据边界固定**：首版只使用有权访问的 20 ep 私有样本，项目内别名 `private-sample-20`；公司全量数据不在可访问范围，删除所有获取不可访问上游材料的阻塞项。数据本体、内部路径和来源标识不得进入 Git。
+> 2. **留出划分固定**：明确写出 12/8 的 episode 索引与源索引，M1c 前禁止读取 `held_out` 的数值内容。
+> 3. **OpenArm 资产自给闭环**：本地 xacro 的 4 处差异已确认只是路径替换；夹爪类型与运动学可由 xacro/URDF 直接确定。以 xacro 为权威、`origin` URDF 为参照，生成“真实 collision + 动态 finger + 可移植路径”的固化 URDF，不再等口头确认。
+> 4. **`action` 来源本地旁证**：已读到的 recorder 快照均为“记录本周期目标，再发送同一目标”；精确生产 revision 未知只作为 provenance 限制，不阻塞实现，M1a 仍做纯关节空间复核。
+> 5. **求解与导出契约补齐**：Pink 只返回可观察的收敛/失败状态，不声称证明全局不可达；QP 固定 OSQP；夹爪 canonical 语义、OpenArm 物理关节布局、T2、视频 hardlink→copy 降级均写死。
+> 6. **阈值改为范围化认证**：M1c 可标 `sample_validated`，其效力只覆盖 `private-sample-20`；不再虚构未来公司全量数据。“全分布冻结”不是当前路线承诺。
+>
+> **2026-09-02 第七轮修订（remote-first 与首轮预检闭合）。** 主开发现场改为已实测连通的实验室远程 Linux；Windows 只作 Remote-SSH 客户端。另补齐四个真正影响第一次结果的空位：M-1 nominal/relaxed 可达定义、`SolveOptions` 最小字段与默认值、T2 的 81→9 确定性候选预算、harness 资产断言/环境检查脚本的唯一落点。公司样本是否允许复制到实验室主机仍需单独授权，不能由“远程开发”自动推出。
 
 ---
 
@@ -106,7 +129,7 @@
 
 ## 2. 参考数据基线
 
-首个正式适配目标是学长提供的真实数据（`0529_accessory_newSop_1682ep_dual_eef_fk_tcp`，抽样 20 episode 版本）。以下为实测事实，设计以此为锚。
+首个正式适配目标是一份经授权可本地使用、但不可随开源仓库分发的 20 episode 私有样本，项目内统一称为 **`private-sample-20`**。以下为对该可访问样本的实测事实，设计以此为锚。真实路径、公司内部数据集名与数据本体只能通过本地配置注入，禁止写入 Git、测试夹具、日志样例和 CI 产物。
 
 ### 2.1 实测结构
 
@@ -114,7 +137,7 @@
 |---|---|
 | 格式 | LeRobot `codebase_version: v3.0` |
 | `robot_type` | `"generic"`（源机器人已匿名化） |
-| 规模 | 抽样 20 ep / 13746 帧 / 30 fps / 1 task；全量 1682 ep |
+| 规模 | **可访问范围：20 ep / 13,746 帧 / 30 fps / 1 task**；元数据表明它由一个更大的上游语料等间距抽取，但上游语料不在本项目权限与验收范围内 |
 | 相机 | `head`、`left`、`right` 三路，1080×1920，mjpeg |
 | 数据布局 | `data/chunk-000/file-000.parquet` 合并存储；视频按 `videos/{key}/chunk-000/file-{ep}.mp4` |
 | EEF 通道 | `observation.state` / `action`，shape 16，布局 `[gripper, qw, qx, qy, qz, x, y, z] × 2` |
@@ -144,9 +167,23 @@
 
 **四元数符号连续性需要检查。** 右臂 `qw ∈ [-0.03, 0.56]` 跨越零点，存在 `q` 与 `-q` 交替导致插值跳变的风险。规范化阶段必须做符号连续化。
 
-**上游已有批量筛选流程。** `episode_report_filter` 记录了「从 1682 条里按规则保留 20 条、生成报告 CSV、视频复制并重编号」。这直接印证主形态是**批量处理 + 质量报告 + 筛选**，不是逐条人工审核。
+**上游那 20 条是均匀抽样，不是质量筛选（2026-08-31 更正，此前四轮都写错了）。** 核对 `analysis/episode_report_filter/summary.json` 的原文：
 
-### 2.3 `state` 与 `action` 的实测时间关系（2026-08-27 全量实测）
+```json
+"sampling": "20 episode indices selected uniformly with numpy.linspace(0, 1666, 20, dtype=int)",
+"mode": "keep",
+"source_episodes": 1667,  "source_frames": 1001908,
+"kept_episodes": 20,      "kept_frames": 13746
+```
+
+配套的 `selected_source_episodes.csv` 只有一列 `episode_index`（`0, 87, 175, 263, …`，等间距），**没有任何质量指标列**。所以 `episode_report_filter` 这个名字具有误导性：它做的是「按下标均匀取 20 条 + 视频复制重编号」，不是「按规则筛掉差的」。
+
+两个推论必须一起改：
+
+- **不能再用它论证「主形态是批量处理 + 质量报告 + 筛选」。** 批量流水线由产品目标本身决定，不依赖对不可访问上游语料的规模假设。
+- **更重要的是 §6.3 与 §14.1 反复引用的「这 20 条偏向质量好的样本、阈值必然偏乐观」是错的。** 它是等间距样本，不是质量筛选。当前能得出的边界只是：20 条样本不足以代表上游长尾，因此 M1c 的阈值只能声明对 `private-sample-20` 有效，不能外推为全分布结论。
+
+### 2.3 `state` 与 `action` 的实测时间关系（2026-08-27，可访问样本全量）
 
 前两轮修订把这一项列为「未知，必须问人」。**现已对全部 20 episode / 13,746 帧做了实测，不再是推测。**
 
@@ -175,6 +212,28 @@ state[t+4~5]        ≈ action[t]        → 手臂跟踪延迟 ≈ 133–167 ms
 
 1. **延迟在 EEF 空间和关节空间同时出现，且最佳偏移一致。** 如果这只是坐标系、TCP 或四元数约定的错误，两个空间不会给出同一个 `k`。所以它是**真实的执行器跟踪延迟，不是表示层的 artifact**。
 2. 曲线在 `k=4` 有单一极小值且两侧单调，不是噪声下的偶然最优。
+
+**但这两条论证有一个它们排不掉的替代假设（2026-08-31 复核发现）。** 它们排除的是「表示层 artifact」，即坐标系 / TCP / 四元数约定写错。它们**排不掉**另一种可能：`action` 根本就是上游**从 state 流按固定前瞻构造出来的**。若真如此，两个空间当然给出同一个 `k`，因为那本来就是同一份数据平移了 `k` 帧——两条论证会全部通过，结论却完全相反。
+
+这个假设不是凭空设想的。复核上游转换脚本时发现：
+
+```python
+# scripts/data_transfer/moqi_to_lerobot.py:445  （.old.py 与 _by_tasks.py 同样如此）
+def to_parquet_rows(traj, episode_index, task_index=0, action_lookahead: int = 5):
+```
+
+**默认值恰好是 5，与实测的 4–5 帧吻合。**
+
+所幸逐行读完函数体后可以确认：**`action_lookahead` 声明了但从未被使用**，函数体内 `action_vec = build_vector(item, "action")` 直接取自原始 `trajectory.json` 同一帧的 `action` 字段，没有任何移位。**因此 §2.3 的结论在「LeRobot 转换」这一层成立。**
+
+采集端代码也可以自行分析，不必把它变成人员依赖。当前能访问的 `main_v4` / `main_v5` recorder 快照都显示同一顺序：读取实际状态，把**本控制周期目标**写进 `action`，再向控制器发送同一个目标；未看到固定前瞻或从未来 state 回填的逻辑。这与转换脚本和数据统计彼此旁证。
+
+- 证据登记为 **`DATA_DERIVED + LOCAL_CODE_CORROBORATED`**，`evidence_scope=private-sample-20 + available-recorder-snapshots`；
+- 精确生产 recorder revision 仍未知，所以面向外部只能表述为“当前可访问证据支持真实跟踪延迟”，不能声称已审计公司生产链；
+- `action_lookahead=5` 在可访问转换脚本中是死参数，作为 provenance 限制记录即可，**不再是开工问题或外部确认任务**；
+- M1a 仍运行纯关节空间偏移扫描，防止实现或数据 revision 变化后静默继承旧结论。
+
+**这正是第三轮那条教训的反面案例：** 第三轮的结论是「实测胜过文档推理」，本轮补上限定条件——**实测只能证伪它测得到的假设。** 一份构造出来的数据，和一份带真实延迟的数据，在纯统计意义上可以长得一模一样；区分它们需要的不是更多测量，是去读产生这份数据的代码。
 
 **夹爪语义一并被解出：** 对齐后 `state_gripper ≈ 5 × action_gripper − 3`，左 R²≈0.968、右 R²≈0.942。这证实 `state` 侧是**实际关节角**、`action` 侧是 `[0,1]` 归一化指令，并给出可用的仿射关系——推论出开合度分数 `aperture ≈ (state_gripper + 3) / 5`。目标侧的精确映射仍需 OpenArm 自己的夹爪限位与方向（§7.1.4）。
 
@@ -214,13 +273,26 @@ HDF5、Zarr、Parquet 都是**容器**，不是 schema。同样的后缀，内�
 | | 管什么 | 认证粒度 | 例子 |
 |---|---|---|---|
 | `StorageAdapter` | 目录结构、分片路径模板、元数据文件的读写 | **格式版本级** | `lerobot-v3` |
-| `DataProfile`（即固化的 `MappingSpec`） | `observation.state` / `action` 每一维是什么、单位、坐标系、夹爪方向 | **数据集 revision 级** | `0529_accessory_newSop_1682ep@<hash>` |
+| `DataProfile`（即固化的 `MappingSpec`） | `observation.state` / `action` 每一维是什么、单位、坐标系、夹爪方向 | **数据集 revision 级** | `private-sample-20@<manifest-hash>` |
 
 **理由（已核实）：** LeRobot v3 规范定义的只有目录布局、`meta/info.json`（features 的 shape/dtype、fps、路径模板）、`meta/stats.json`、`meta/tasks.*`、`meta/episodes/`。**它不规定 `observation.state` 和 `action` 各维的语义，也不规定两者的时间关系。** 因此两份都合法的 v3 数据集，其 `action` 可以一个是绝对位姿、一个是关节增量。「支持 LeRobot v3.0」只是一句关于**容器**的话，和「支持 HDF5」在逻辑上是同一类陈述，只是范围更窄。
 
 **因此认证声明必须写成两句：**「`StorageAdapter` 支持 LeRobot v3.0 布局」+「`DataProfile` 认证于数据集 X 的 revision Y」。
 
-还要钉住第三个东西：**下游读取端的版本**。核实时发现 LeRobot 官方 v3 文档写的任务文件是 `meta/tasks.jsonl`，而 main 分支代码里是 `meta/tasks.parquet`（`DEFAULT_TASKS_PATH`）——同一个「v3」在文档和实现之间已经有分歧，且 v3 尚未进入稳定版（官方说明 v3 将随 `lerobot >= 0.4.0` 发布，在此之前需用 main 分支）。所以 `DataAdapter` 的认证记录必须包含**测试时所用的 `lerobot` commit**，否则 §12 M1 的出口条件「导出的数据集能被 LeRobot 正常加载」是一个会随上游漂移的标准。
+还要钉住第三个东西：**下游读取端的版本**。此前（2026-08-27）核实时 v3 尚未进稳定版，官方文档写 `meta/tasks.jsonl`、main 分支代码写 `meta/tasks.parquet`，两者分歧，结论是「必须钉 main commit」。
+
+**2026-08-31 复核后这一条已经变了，且是往好的方向变：**
+
+| | 2026-08-27 | 2026-08-31 复核 |
+|---|---|---|
+| 稳定版 | v3 未进稳定版，需用 main 分支 | **`lerobot` 0.6.1 已发布**（2026-08-03） |
+| 任务文件 | 文档 `.jsonl` / 代码 `.parquet`，有分歧 | **`DEFAULT_TASKS_PATH = "meta/tasks.parquet"`**，`.jsonl` 已明确降为 `LEGACY_TASKS_PATH`；分歧消失 |
+| 钉法 | 钉 commit | **钉发布版本 `lerobot==0.6.1`** |
+| 交叉印证 | —— | 手上那份真实数据集的 `meta/` 下就是 `tasks.parquet`，与 0.6.1 一致 |
+
+所以 `DataAdapter` 的认证记录里那一项写 `lerobot==0.6.1`（版本号，不是 commit）。这解决了 §14.2 第 9 项，也让 §12 M1 的出口条件不再是一个会随上游漂移的标准。
+
+**但它同时引入一个安装边界问题，见 §5.2：`lerobot` 0.6.1 要求 Python `>=3.12`，且会拉进 torch / torchvision / gymnasium / opencv 共 200 余个依赖。** 因此它只能是**可选 extra**，绝不能进核心安装——否则与 §1.6「装得上 > 功能多、首次运行不应要求 CUDA」正面冲突。核心的 `normalize` / `solve` / `diagnose` 一律通过 `pyarrow` 直接读写 parquet，不 import `lerobot`；只有导出适配与 §7.1.5 的出口验收才需要它。
 
 ### 3.3 MappingSpec 结构
 
@@ -232,7 +304,7 @@ mapping_spec:
   name: lerobot-v3-dual-eef-absolute
   container: parquet
   storage_adapter: lerobot-v3          # 只声明容器布局
-  dataset_id: 0529_accessory_newSop_1682ep_dual_eef_fk_tcp
+  dataset_id: private-sample-20
   dataset_revision: "<sha256>"         # 语义认证钉在这一层，见 §3.2
 
   # ---- episode 与帧的组织方式 ----
@@ -289,14 +361,13 @@ mapping_spec:
 
   # ---- 坐标语义 ----
   coordinate:
-    source_frame: source_robot_base_waist_fixed
+    source_frame: dataset_native
     handedness: right
     trajectory_mode: absolute          # absolute | delta
     source_frame_note: >
-      源 EEF 由源机器人 FK 得到，腰部固定于
-      Waist1=0.23, Waist2=19.48deg, Waist3=0。
-      该原点客观存在但未记录，属 MISSING（§3.4 的 T1），须问人或从 reference 反推，
-      不得用搜索代替。目标机器人相对该原点的摆位是另一件事（T2）。
+      dataset_native 是对输入数值坐标系的项目内显式命名，不声称知道其真实场地身份。
+      已知腰部固定值只作为 provenance。目标机器人 base 相对 dataset_native 的变换是 T2，
+      必须在 recipe 中显式给出并由 M-1 的预登记规则选定。
 
   # ---- state 与 action 的关系：必填，不得按通道名默认对齐 ----
   state_action_relation:
@@ -315,12 +386,21 @@ mapping_spec:
     - { column: task_index,   kind: label }
     - { column: timestamp,    kind: time }
     - { column: next.done,    kind: flag }
+    - { column: index,        kind: index }
+    - { column: control_mode, kind: label }   # 逐帧 string 列，2026-08-31 补登记
 
   # ---- 源本体参考通道（不参与求解，用于对照与诊断）----
+  # 实测 info.json：四条源关节通道的 names 均为
+  # [Larm1..7_Joint, Lgripper_Joint, Rarm1..7_Joint, Rgripper_Joint]，shape 16。
   reference:
     source_joint_position:
-      column: observation.state.position
+      column: observation.state.position     # 实际测得的关节角
       joint_names: [Larm1_Joint, ..., Rgripper_Joint]
+    source_joint_command:                    # 2026-08-31 补登记，原文漏了
+      column: action.position                # 关节空间的指令通道
+      joint_names: [Larm1_Joint, ..., Rgripper_Joint]
+    # observation.state.velocity/.effort 与 action.velocity/.effort 同样存在，
+    # 首版不使用，但结构扫描要认得它们，导出时按 passthrough 处理。
 ```
 
 五个设计要点：
@@ -331,6 +411,11 @@ mapping_spec:
 - **`state_action_relation` 是必填字段。** `absolute_next_state` 表示 `action[t] == state[t+1]`（此时 `action` 对本工具是冗余的，只吃 `state` 即可）；`independent_command` 表示两者是不同物理量，**两条流都要求解，且必须按 `solve_coupling` 耦合**；`delta_from_state` 表示增量。
 - **`reference` 段保留源关节数据**。它不参与求解，但极有价值：在**源机器人 URDF 可得时**，可以用它做「源 FK 与数据里的 EEF 是否一致」的自检，等于免费得到一份端到端校验（§10.2）。本数据源机器人已匿名化，该校验是否可用取决于能否取得源模型，见 §14.2。
 
+**两条 2026-08-31 复核补充：**
+
+- **`action.position` 提供了一条不需要源 URDF 的复核路径。** 源数据里关节空间同时有「实测」（`observation.state.position`）和「指令」（`action.position`）两条通道。把它们直接对比——`action.position[t]` 与 `observation.state.position[t+k]` 的逐关节 RMSE 扫 `k`——就能在**纯关节空间**独立复现 §2.3 的跟踪延迟结论，完全绕开 FK、TCP、四元数约定和坐标系。§10.2 的交叉校验因源 URDF 未到手而卡住，但**这一条现在就能做**，且它检验的正是 §2.3 里最要命的那个假设。应列入 M1a。
+- **「索引 0 = 左臂」已从推断升为 `EXPLICIT`。** `info.json` 的 `names` 显式给出 `observation.state = [gripper_0, epos_0_qw, epos_0_qx, epos_0_qy, epos_0_qz, epos_0_x, epos_0_y, epos_0_z, gripper_1, …]`，而并列的 `observation.state.position` 是 `[Larm1..7_Joint, Lgripper_Joint, Rarm1..7_Joint, Rgripper_Joint]`。两条通道同序，`0 = 左 / 1 = 右` 由元数据直接给出，不再依赖 §3.4 的 `y` 符号推断。上文 `streams` 段的所有 `slice` / `index` 均已与实测 `names` 逐位核对一致。
+
 ### 3.4 语义证据与 AI 的位置
 
 每项语义记录证据等级：
@@ -340,17 +425,17 @@ mapping_spec:
 | `EXPLICIT` | 数据或元数据显式声明（如本数据的 `quaternion_order: wxyz`） | 可以 |
 | `ADAPTER_CERTIFIED` | 由已测试的 `DataAdapter` 提供 | 可以 |
 | `DERIVED` | 由显式信息确定性推导 | 可以 |
-| **`DATA_DERIVED`** | **由全量或大样本实测统计得出，有量化判据与稳健性检查，并登记了待确认来源** | **可以，但必须记 `pending_confirmation`** |
+| **`DATA_DERIVED`** | **由当前授权数据范围的完整实测得出，有量化判据、稳健性检查与明确 `evidence_scope`** | **可以，但必须记录范围与限制** |
 | `INFERRED_CANDIDATE` | 统计推断，带置信度 | **不可以**，仅用于草稿与预览 |
 | `USER_CONFIRMED` | 人工确认 | 可以 |
 
 **`DATA_DERIVED` 是 2026-08-27 新增的一级，用来容纳 §2.3 那类结论。** 它和 `INFERRED_CANDIDATE` 的区别不是「置信度更高」这种程度差别，而是三条可检查的硬标准：
 
-1. **跑的是全量或统计意义上足够的样本**，不是抽样启发式（§2.3 是 20/20 episode、13,746 帧全量）
+1. **完整覆盖声明的证据范围**，不是范围不明的抽样启发式（§2.3 覆盖 `private-sample-20` 的 20/20 episode、13,746 帧；不外推上游语料）
 2. **有量化判据和明确的极值**，不是「看起来像」（单一极小值、两侧单调）
 3. **有独立维度的交叉印证**（§2.3 的延迟在 EEF 空间与关节空间给出同一个 `k`，排除了表示层 artifact）
 
-达不到这三条的，仍然是 `INFERRED_CANDIDATE`，不得进入正式流程。
+达不到这三条的，仍然是 `INFERRED_CANDIDATE`，不得进入正式流程。`DATA_DERIVED` 结论还必须附 `evidence_scope` 与 `limitations`；数据范围变化时重新认证，不自动继承。
 
 **优先走自描述通道，而不是推断通道。** 少数数据集自带机器可读的语义声明块——例如公开数据集 `simple-world-lab/HiFi-UMI-2K` 在其 `meta/info.json` 中扩展出的 `state_layout` / `action_layout`，直接写出了旋转表示布局、夹爪单位、`shift_policy`、无效帧填充策略。**必须说清楚：这是该数据集自己加的扩展字段，不是 LeRobot v3 规范的一部分**（v3 规范只规定 `features` 的 shape/dtype，不规定各维语义，见 §3.2），因此不能假设任何 v3 数据集都有。凡有这类声明，`DataAdapter` 应直接读取并标 `EXPLICIT`，**不进 AI 推断路径**。对称地，本工具导出的 `retarget` 元数据段（§7.2）也按同一粒度写出，使下游同样免于推断。这项约定成本极低，是本工具对生态的直接贡献之一——**恰恰因为上游规范不管这件事，谁都自己写一套，才值得做。**
 
@@ -368,7 +453,7 @@ mapping_spec:
 | 时间语义 | 单调且间隔均匀 → 真实时间；整数递增 → 帧序号，需重定时 |
 | 绝对 / 增量 | 数值围绕零点小幅波动 → 增量；落在工作空间范围内 → 绝对 |
 
-**不得推断的项：** 参考坐标系身份、TCP 定义、夹爪开合方向的物理含义。任何模型对这三项都只能猜。
+**不得推断的项：** 真实场地中的参考坐标系身份、TCP 定义、夹爪开合方向的物理含义。任何模型对这些物理事实都只能猜；但项目可以给输入数值坐标系一个不带物理主张的显式名字 `dataset_native`。
 
 但「推断不出来」有两种原因完全不同、处理方式相反的情形，必须分开标记：
 
@@ -379,18 +464,18 @@ mapping_spec:
 
 这个区分直接决定 AI 的行为：对 `UNDEFINED` 项去问用户「你的源坐标系是什么」是无意义的，正确动作是搜索或设计，并把选择结果与依据写进谱系。反过来，对 `MISSING` 项直接跑搜索，则是在掩盖一个本可查明的事实，属于静默错误。
 
-**`MISSING` 项还有第三条出路，前两轮修订漏了：实测。** §2.3 的 `command_timing` 原本被判为 `MISSING`、结论是「必须问人、不得推断」。但它是**可测的**——真值虽然没被记录，却在数据里留下了可量化的痕迹。正确处理是：跑全量实测 → 标 `DATA_DERIVED` → 登记 `pending_confirmation` → 不阻塞后续工作。
+**`MISSING` 项还有第三条出路，前两轮修订漏了：实测。** §2.3 的 `command_timing` 原本被判为 `MISSING`、结论是「必须问人、不得推断」。但它是**可测的**——真值虽然没被记录，却在数据里留下了可量化的痕迹。正确处理是：完整覆盖声明的证据范围 → 标 `DATA_DERIVED` → 登记 `evidence_scope` 与 `limitations` → 不阻塞后续工作。
 
-这条出路和「静默猜测」的界线很清楚：**测量并公开量化结果、同时保留待确认标记**，与**直接假设一个默认值**是两件事。前者可以进正式流程，后者不行。因此 `MISSING` 项的处理顺序应是：**查元数据 → 能测就测（`DATA_DERIVED`）→ 问人确认（升级为 `USER_CONFIRMED`）**，而不是一上来就阻塞等人回复。
+这条出路和「静默猜测」的界线很清楚：**测量并公开量化结果及其覆盖边界**，与**直接假设一个默认值**是两件事。前者可以进正式流程，后者不行。因此 `MISSING` 项的处理顺序应是：**查元数据/代码 → 能测就测（`DATA_DERIVED`）→ 有直接证据时升级**，而不是一上来阻塞等人回复。
 
 **但「基座变换」其实是两件事，原文把它们混成了一件，导致 M1 背上了不必要的工作量。**
 
 | | 是什么 | 本参考数据属于 | M1 怎么做 |
 |---|---|---|---|
-| **T1 源坐标系身份** | 数据里的位姿是相对哪个原点记的 | `MISSING`——腰部固定后的基座客观存在，只是被匿名化了 | **问人 / 从 `reference` 源关节反推**，不搜索 |
+| **输入数值坐标系** | 数据里的位姿数值相对哪个坐标表示 | 项目约定名 `dataset_native`；其真实场地身份仍 `MISSING` | **用 `dataset_native` 进入正式流程；物理身份只作可选 provenance** |
 | **T2 目标机器人摆位** | 目标机器人的 base 相对该原点放在哪 | 永远是设计自由度，与源数据无关 | **人工给定 + 粗网格按可达率择优** |
 
-推论很直接：**通用的「基座变换有限自由度搜索」服务的是 `UNDEFINED` 类数据，而这类数据的样本（`HiFi-UMI-2K`）已明确推到 M3 之后（§14.1）。因此 M1 不需要它**，只需要 T1 的人工确认加 T2 的粗扫。这是 §12 M1 得以收缩的依据之一。
+推论很直接：**通用的「基座变换有限自由度搜索」服务的是 `UNDEFINED` 类数据，而这类数据的样本已推到 M3 之后。因此 M1 不需要恢复真实场地里的 T1 身份**；它只需要把输入稳定命名为 `dataset_native`，再对 T2 做预登记粗扫。该约定能自洽完成 FK 回验，但不得在报告中冒充源机器人真实 base 名称。
 
 诚实的产品承诺是：**自动做完；遇到从数据里确定不了的语义时停下来问一句，而不是猜。** 设计目标是让「问一句」的频率尽可能低，靠的是认证适配器的覆盖面，不是更激进的推断。
 
@@ -483,7 +568,7 @@ Pinocchio 只做正算，结果唯一确定，不需要认证。它承担三件�
 
 **Pink 的两项性质对本项目有直接影响，原文没写：**
 
-**其一，Pink 是微分 IK，天然连续。** 它求的是把机器人推向目标的关节速度，从当前构型积分前进。这意味着「整段连续求解」（§1.4 第 3 条）不需要额外机制，也意味着 §7.1 要求的**跨流分支耦合可以直接由「用 state 的解 warm-start action 的解」实现**。代价是它是**局部方法**——官方明确说明可能收敛到受限位卡住的局部最优，因此 §6.1 的可解性诊断必须区分「真不可达」与「局部卡住」，重试策略（换初值重解）要留位置。
+**其一，Pink 是微分 IK，天然连续。** 它求的是把机器人推向目标的关节速度，从当前构型积分前进。这意味着「整段连续求解」（§1.4 第 3 条）不需要额外机制，也意味着 §7.1 要求的**跨流分支耦合可以直接由「用 state 的解 warm-start action 的解」实现**。代价是它是**局部方法**——可能收敛到受限位卡住的局部最优。代码只能报告可观察终止状态：`CONVERGED`、`MAX_ITER`、`QP_FAILED`、`LIMIT_VIOLATION`、`NUMERICAL_FAILURE`、`RESIDUAL_TOO_HIGH`；不得把单次局部求解失败直接写成 `INFEASIBLE` 或“真不可达”。诊断层只有在固定的多种子/重试预算全部失败后，才能标记“不可达候选”。
 
 **其二，Pink 已有自碰撞规避能力。** `pink.barriers.SelfCollisionBarrier` 基于 Pinocchio 的 hpp-fcl，参数为碰撞对数量与最小间距 `d_min`，官方 `examples/barriers` 里有双臂示例（Yumi 球模型自碰撞、Iiwa 全身碰撞）。**这回答了「CuRobo 在 M3，那 M0–M2 的碰撞承诺由谁兑现」：由 Pink + Pinocchio/hpp-fcl 兑现自碰撞。** 三个前提必须写清楚：
 
@@ -497,7 +582,9 @@ Pinocchio 只做正算，结果唯一确定，不需要认证。它承担三件�
 
 **Pinocchio → Pink → CuRobo →（可选）Mink，一个通了再接下一个。**
 
-这个顺序有两个实际好处。其一，接 CuRobo 时已有 Pink 的结果作为对照，关节顺序、四元数约定、TCP 定义接错了立刻能发现；反过来先接 CuRobo，一旦结果不对，「自己的变换写错了 / 后端配置错了 / 数据本身有问题」三个可疑源同时存在，很难定位。其二，**整条管线可以在笔记本上开发，不需要一直占用实验室 GPU 机器**，早期迭代速度差别显著。
+M-1/M0 的 QP 实现固定为 `qpsolvers==4.13.0` + `osqp==1.1.3`，安装 extra 写作 `qpsolvers[osqp]`。每个 recipe 记录 solver 名、容差、最大迭代数和 warm-start 设置；换 solver 即视为不同 run，不允许由机器上“碰巧安装了什么”决定。
+
+这个顺序有两个实际好处。其一，接 CuRobo 时已有 Pink 的结果作为对照，关节顺序、四元数约定、TCP 定义接错了立刻能发现；反过来先接 CuRobo，一旦结果不对，「自己的变换写错了 / 后端配置错了 / 数据本身有问题」三个可疑源同时存在，很难定位。其二，虽然开发地点改为实验室远程机，**M-1–M1 仍保持纯 CPU、无 CUDA 前置**；这保证环境可复现，也避免因机器恰好有双 4090 就提前耦合 CuRobo。
 
 关于 Mink 那条：RoboCasa 建在 robosuite 上，robosuite 跑 MuJoCo。因此做 Mink 这条线等于**为 MuJoCo 生态的 v2 提前付款**，成本是每个机器人一份 MJCF（Menagerie 大概率现成）。**后续接入仿真已确认是明确期望**，因此这个期权的价值高于纯粹的「多一个 CPU 后端」——但 v2 究竟走 MuJoCo 生态还是 SAPIEN 生态现在不定，Mink 仍排在 M5，不提前。
 
@@ -623,15 +710,29 @@ Pinocchio 只做正算，结果唯一确定，不需要认证。它承担三件�
 |---|---|---|
 | `calibration` | 20 ep 中的 12 | 标定 §6.3 阈值、调求解器参数、调 T2、看误差分布 |
 | `held_out` | 20 ep 中的 8 | **仅 M1c 出口验收跑一次**。看过分布就作废，不得回头调参 |
-| `structural_scan` | 全部 1682 ep 的**元数据与 schema** | 确认那 20 条没有漏掉新的字段布局、任务类型、维度变化。只读 schema 与统计，不求解，成本极低 |
+| `scope_scan` | 可访问的 **20 ep 全部元数据与 schema** | 确认可访问范围内部字段、任务、维度一致；同时生成 `validation_scope` 与 manifest hash |
 
-**全量结构扫描不是可选项，理由前几轮都漏了：那 20 个 episode 是上游 `episode_report_filter` 按规则从 1682 条里筛出来的（§2.2），本身就偏向「质量好的样本」。** 在它们身上标定出来的阈值对全量必然偏乐观。所以：
+划分按重编号后的 `episode_index` 固定，不依赖任何质量指标：
 
-- 阈值可以在 M1 标定，但只能标记为 `provisional`，**M3 全量跑完才允许冻结**
-- `CanonicalTrajectory` 与 `ExportProfile` 的**结构**可以在 M1c 冻结为 `v0.1`（结构不依赖阈值）
-- **机器人相关与数据集相关的阈值不在 M1 冻结**
+```yaml
+calibration: [0, 1, 3, 5, 6, 8, 10, 11, 13, 15, 16, 18]
+held_out:    [2, 4, 7, 9, 12, 14, 17, 19]
+# provenance only，对应上游源索引：
+calibration_source: [0, 87, 263, 438, 526, 701, 876, 964, 1139, 1315, 1402, 1578]
+held_out_source:    [175, 350, 613, 789, 1052, 1227, 1490, 1666]
+```
 
-前两轮写的「M1 首次全量批处理后标定并冻结」这句话本身也不准确——M1 处理的是 20 个 episode，不是全量。
+M1c 前程序只能读取 `held_out` 的这份索引清单，不得加载其 parquet 行、视频或统计；manifest hash 在首次运行前固定。
+
+**权限边界是验收边界（2026-08-31 第六轮）。** 公司上游语料不可访问，也不是本开源项目可以要求取得的依赖，因此删除 `structural_scan=1667 ep`。M1a 必须完整扫描可访问的 20 ep；这能证明实现覆盖了当前样本，不能证明覆盖公司全分布。
+
+阈值采用三态：
+
+- `provisional`：只在 `calibration` 上调过，尚未打开留出集；
+- `sample_validated`：`held_out` 一次验收通过，且写明 `validation_scope=private-sample-20@<manifest-hash>` 与限制；
+- `frozen`：将来针对一份**有权访问、可重现、明确命名验证范围**的数据集重新校准后使用。它不等于“公司全分布”，也不在 M1c 承诺内。
+
+`CanonicalTrajectory` 与 `ExportProfile` 的结构可以在 M1c 冻结为 `v0.1`；机器人硬限制类阈值随 `RobotProfile` 版本管理，数据分布类阈值不得跨 `validation_scope` 自动复用。
 
 #### 逐帧判定（临时值）
 
@@ -734,8 +835,10 @@ command_timing:
     arm: [4, 5]                        # ≈133–167 ms @30fps
     gripper: [5, 6]                    # ≈167–200 ms
   fps: 30
-  evidence: DATA_DERIVED               # §3.4；全量 20 ep / 13,746 帧
-  pending_confirmation: source_recording_code_or_owner
+  evidence: DATA_DERIVED
+  evidence_scope: private-sample-20@<manifest-hash>
+  corroboration: [LOCAL_CODE_CORROBORATED]
+  limitations: [exact_production_recorder_revision_unknown]
 ```
 
 **`observed_tracking_delay_frames` 与 `pairing` 是两个不同的东西，绝不能混用。** 这是本节唯一容易出人命的地方：
@@ -771,10 +874,13 @@ gripper_mapping:
     source_stream_semantics:            # 两侧不同，各自声明
       observation_state: { semantics: joint_angle, unit: rad, range: [-3.00, 3.00] }
       action:            { semantics: normalized_open, range: [0.0, 1.0] }
-    target_joint: openarm_left_gripper_joint
-    target_range: [q_closed, q_open]    # 从目标 RobotProfile 的限位取，必须写出实测值
+    canonical: { semantics: aperture_fraction, range: [0.0, 1.0], closed: 0.0, open: 1.0 }
+    target_joint: openarm_left_finger_joint1
+    target_unit: m
+    target_range: [0.0, 0.044]          # 由本地 xacro/URDF 限位显式给出
+    mimic_joint: openarm_left_finger_joint2
     mapping: linear                     # linear | table | passthrough
-    direction_confirmed_by: USER        # 开合方向不得推断（§3.4）
+    direction_confirmed_by: URDF_LIMIT_AND_GEOMETRY_TEST
     out_of_range_policy: clamp_and_flag # 越界钳位并计入掩码原因
 ```
 
@@ -792,7 +898,7 @@ state_gripper ≈ 5 × action_gripper − 3        左 R²≈0.968，右 R²≈0
 | 段 | 内容 | 证据 |
 |---|---|---|
 | 源侧 → 开合度分数 | `state`：`(x+3)/5`；`action`：直接就是分数 | **`DATA_DERIVED`**，已解决 |
-| 开合度分数 → 目标夹爪关节值 | 需 OpenArm 自己的夹爪限位、行程与开合方向 | **仍待 M-1 从 `openarm_description` 取得**（§14.2） |
+| 开合度分数 → 目标夹爪关节值 | `finger_joint1 = 0.044 m × aperture_fraction`；`finger_joint2` 由 URDF mimic，不独立导出 | **`EXPLICIT` + 资产几何测试**；M-1 固化 |
 
 三条实施细则：
 
@@ -808,24 +914,41 @@ state_gripper ≈ 5 × action_gripper − 3        左 R²≈0.968，右 R²≈0
 
 | 处理 | 做法 | 代价 | 状态 |
 |---|---|---|---|
-| **实测仿射映射** | 用 `(state+3)/5` 得开合度，再按目标夹爪限位映射 | 需 OpenArm 夹爪规格 | **M1 主路径**（本节上文） |
+| **实测仿射映射** | 用 `(state+3)/5` 得开合度，再映射到 OpenArm `finger_joint1∈[0,0.044] m` | 超界须 clamp 并 flag | **M1 主路径**（本节上文） |
 | 降维 | 从 `observation.state` 中**删除**夹爪维度，只保留 `action` 侧 | 观测里没有夹爪状态；须在 `retarget` 段与 `info.json` 的 `features` 里显式反映维度变化 | 退路，仅当 OpenArm 夹爪规格也拿不到时 |
 | 延迟模型估计 | 用**历史** action 推导夹爪状态估计 | 结果必须标 `synthetic`，不得与实测状态混同 | 不进 M1 |
 | ~~同帧 action 填充~~ | —— | **标签泄漏 + 系统偏差** | **禁止** |
+
+这里导出的是 **URDF 物理关节位移**，不是夹爪电机角或控制器寄存器值。未来接真实控制器时必须另建 controller-specific `ExportProfile`；不得把米制开度与电机角混成同一字段。
 
 #### 7.1.5 出口验收（替代「能被加载」）
 
 原 M1 出口条件是「导出的数据集能被 LeRobot 正常加载」。加载成功证明不了语义正确，因此加严为五步，全部 CPU 可跑。
 
-**关键点：必须走训练入口实际会走的那条路径，而不是裸 `LeRobotDataset(root=...)`。** 否则训练白名单只是被记录了，没有任何机制保证使用者不会忘记加上它——白名单形同注释。已核实 `lerobot` 的 `DatasetConfig`（`src/lerobot/configs/default.py`）同时提供 `root`、`episodes: list[int] | None` 与 `exclude_episodes: list[int] | None`（后者注释即为「drop corrupt or heterogeneous episodes」，语义与本工具的 `FAIL`/`WARN` 正好对应），所以这条路径是现成的。
+**关键点：必须走训练入口实际会走的那条路径，而不是裸 `LeRobotDataset(root=...)`。** 否则训练白名单只是被记录了，没有任何机制保证使用者不会忘记加上它——白名单形同注释。
 
-1. **按白名单加载**：从导出的 `retarget` 段读取 `training_episode_allowlist`，经 `DatasetConfig(root=..., episodes=allowlist)`（或等价的训练配置）构造数据集；`features` 的 shape / dtype / 关节名与 `RobotProfile` 一致
+**接口以 `lerobot==0.6.1` 实测为准（2026-08-31 更正）。** 2026-08-27 写的是「`DatasetConfig` 同时提供 `root`、`episodes` 与 `exclude_episodes`」，其中 **`exclude_episodes` 在 0.6.1 里不存在**，且 `repo_id` 是无默认值的必填字段——原文那个构造写法直接跑不起来。实际签名：
+
+```python
+# lerobot 0.6.1, src/lerobot/configs/default.py
+DatasetConfig(repo_id: str, repo_type="dataset", root: str|None=None,
+              episodes: list[int]|None=None, revision=None, streaming=False, ...)
+
+# lerobot 0.6.1, src/lerobot/datasets/lerobot_dataset.py
+LeRobotDataset(repo_id, root=None, episodes: list[int]|None=None,
+               episode_filter: Callable[[dict], bool]|None=None,
+               delta_timestamps=None, tolerance_s=1e-4, ...)
+```
+
+**本工具用的是白名单（`episodes=allowlist`），不是黑名单，所以 `exclude_episodes` 的消失不影响机制本身**，只需改写构造调用。另外 0.6.1 新增的 `episode_filter` 回调是个更强的钩子，可用于把 `retarget.status` 直接做成加载期谓词——但那不进 M1b，白名单已经够用。
+
+1. **按白名单加载**：从导出的 `retarget` 段读取 `training_episode_allowlist`，经 `DatasetConfig(repo_id=<dataset_id>, root=<export_root>, episodes=allowlist)`（或等价的训练配置）构造数据集；`features` 的 shape / dtype / 关节名与 `RobotProfile` 一致
 2. **断言白名单真的生效**：遍历所加载数据集的 `episode_index` 集合，断言其中**不含任何 `retarget.status != PASS` 的 episode**。这一步专门用来抓「白名单写了但没被应用」
 3. **时间窗**：带 `delta_timestamps` 取一个窗，形状为 `[T, ...]` 且窗内 `timestamp` 间隔符合 `1/fps ± tolerance_s`
 4. **归一化 batch**：过 `DataLoader` 取一个 batch，用**重算后的** `meta/stats.json` 做归一化，断言各通道落在合理区间（例如归一化后 `|z| < 5`）；掩码列不在归一化清单内（§7.2.2）
-5. **FK 语义回验**：抽样若干帧，用 Pinocchio 对导出的 `observation.state` **和** `action` 分别正算 FK，**按 T1/T2 变换（§3.4）回到源坐标系后**与源 EEF 轨迹比对，误差在 §6.3 阈值内。必须两条流都验：只验 `action` 无法发现 §7.1.2 的分支不一致
+5. **FK 语义回验**：抽样若干帧，用 Pinocchio 对导出的 `observation.state` **和** `action` 分别正算 FK，按 recipe 中显式的 T2 变换回到 `dataset_native` 后与源 EEF 轨迹比对，误差在 §6.3 阈值内。必须两条流都验：只验 `action` 无法发现 §7.1.2 的分支不一致
 
-**导出时同时产出一份可直接运行的训练配置 / 命令**（含 `--dataset.root`、白名单或 `exclude_episodes`），作为交付物的一部分。这不是为了真去训练，而是让「正确的加载方式」成为默认路径而非文档里的一句提醒。
+**导出时同时产出一份可直接运行的训练配置 / 命令**（含 `--dataset.root` 与白名单 `--dataset.episodes`），作为交付物的一部分。这不是为了真去训练，而是让「正确的加载方式」成为默认路径而非文档里的一句提醒。
 
 不把「跑通一个最小训练 step」列为出口条件：它要引入 policy 与训练侧依赖，而上面五步能覆盖同一类错误（shape、dtype、stats、时间窗、白名单未生效、语义），成本低一个量级。
 
@@ -835,7 +958,7 @@ state_gripper ≈ 5 × action_gripper − 3        左 R²≈0.968，右 R²≈0
 
 | 内容 | 处理 |
 |---|---|
-| `observation.images.*`（mp4 分片） | **原样复制或硬链**，一帧不改 |
+| `observation.images.*`（mp4 分片） | **hardlink 优先、失败则 copy**，一帧不改；校验并记录 materialization method |
 | `task_index` / `timestamp` / `frame_index` / `episode_index` | 不变（§7.1.3 不做重定时） |
 | `observation.state` / `action` | 换成目标机器人的关节值，语义按 §7.1 契约 |
 | **新增 `valid.retarget`（逐帧）/ `retarget.status`（逐 episode）** | 本体化失败的帧**保留行、标记掩码**，不删除（见 §7.2.1） |
@@ -899,7 +1022,7 @@ carry-forward 有一个必须正视的陷阱：**填充后的无效帧长得像�
 
 因此导出模块的行为是确定的：
 
-- 三路视频全部原样复制或硬链，不筛选、不裁剪、不重新渲染
+- 三路视频全部原样保留，不筛选、不裁剪、不重新渲染。实现顺序固定为：同文件系统优先 hardlink；失败时 copy；两种方式都校验文件大小/哈希，并在 manifest 记录 `materialization_method`
 - 导出的 `retarget` 元数据段中显式写入 `visual_embodiment: source`，并记录源机器人标识（本数据为 `generic`）
 - 质量报告在数据集层面声明一次「视觉本体为源机器人」，不逐帧重复
 
@@ -915,7 +1038,7 @@ carry-forward 有一个必须正视的陷阱：**填充后的无效帧长得像�
 
 ### 8.1 主形态是流水线
 
-数据规模是 1682 episode，没人会逐条人工审核。主形态是：**批量进、批量出、出一份质量报告说明哪些能用哪些不能用。** 三维回放是失败时的调试工具与抽检手段，不是主流程。
+产品目标就是处理多 episode 数据集，逐条人工审核不可扩展。主形态是：**批量进、批量出、出一份质量报告说明哪些能用哪些不能用。** 当前实现只对授权的 20 ep 样本验收，流水线接口仍按批量设计；三维回放是失败时的调试工具与抽检手段，不是主流程。
 
 ### 8.2 便宜的诚实实现
 
@@ -998,7 +1121,7 @@ project/
 
 **但它有一个硬前置条件，原文没写：需要源机器人的 URDF。** §2.1 已确认这份数据的 `robot_type` 是 `generic`，源机器人**已匿名化**。没有源 URDF、关节约定和 TCP 模型，这条校验根本无法执行——它不是「尽早跑通」的问题，是「能不能做」的问题。
 
-数据里留下的线索是充足的（关节名 `Larm1..7_Joint`、末端 link `Larm08_link`、`fk_waist` 的三个腰部固定值、TCP 沿工具 z 偏移 `0.22855 m`），所以按 §3.4 的分类这属于 `MISSING` 而非 `UNDEFINED`——**正确动作是向学长索取源机器人 URDF**，已记入 §14.2。据 2026-08-27 反馈，源 URDF **容易取得**，因此本项的风险已从「可能永久做不了」降为「排期问题」。
+数据里留下的线索是充足的（关节名 `Larm1..7_Joint`、末端 link `Larm08_link`、`fk_waist` 的三个腰部固定值、TCP 沿工具 z 偏移 `0.22855 m`），所以按 §3.4 的分类这属于 `MISSING` 而非 `UNDEFINED`。但源 URDF 不在当前可用材料中，因此本项保持**条件校验**：将来若合法取得就启用；拿不到时记录 `NOT_SUPPORTED`，不形成获取任务或排期阻塞。
 
 **配对必须同侧同行，这一点因 §2.3 的实测结论而变得关键。** 源数据同时有关节侧与 EEF 侧的 `state` / `action` 四条通道，校验只能同侧配对：
 
@@ -1154,11 +1277,41 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 
 #### M-1 工作项
 
-- 锁定 OpenArm 模型版本（v1.0 / v2.0、preset、双臂 root 与两臂 base 相对变换）
-- 生成并固化 URDF，计入哈希（§4.1）；用 Pinocchio 成功加载
-- 核对 mesh 完整性、关节限位齐全性、TCP 定义，**以及夹爪的限位、行程与开合方向**（§7.1.4 目标侧映射所需）
-- **抽样双臂可达性预检**（做法见 §11），在 harness 里跑
-- 索取源机器人 URDF（据反馈容易取得），用于 §10.2 与对 §2.3 结论的第三方复核
+**2026-08-31 复核后，起点比原先假设的高得多——但生成产物有三个必须先修的坑。** 本地 OpenArm 资产快照里已经有：
+
+| 已有 | 状态 |
+|---|---|
+| `openarm_description` 仓库 | git 描述为 `1.0.1-1-gab816fc`，4 个 xacro 文件的本地 diff 已检查，内容均为资源路径替换，**没有改运动学参数** |
+| `urdf/robot/openarm_bimanual.urdf` | **已生成的双臂 URDF**，头部注释显示由 `./v10.urdf.xacro` 经 xacro 生成；`world → openarm_body_link0 → openarm_{left,right}_link0`，两臂 base 相对变换已写死在里面 |
+| `urdf/robot/self_collision/openarm.srdf` | **相邻对屏蔽表**，左右臂各 8 对 `Adjacent`；未屏蔽左右臂之间的对（正确，那些必须检查） |
+| `meshes/{arm,body,ee}/…/collision/*.stl` | **collision mesh 齐全**（`link0_symp.stl` … 共 11 个） |
+
+**坑 1：生成的 URDF 里 mesh 使用机器相关的绝对路径。** 换机即失效，且违反 §4.1 的资产溯源要求。
+
+**坑 2（严重）：生成的 URDF 里 collision 几何被替换成了 `<sphere radius="0.0003"/>`**，真正的 collision mesh 那一行被注释掉了：
+
+```xml
+<collision name="openarm_body_link0_collision">
+  <geometry>
+    <!-- <mesh filename=".../collision/${name}.stl" scale="0.001 0.001 0.001" /> -->
+    <sphere radius="0.0003"/>
+  </geometry>
+</collision>
+```
+
+**坑 3：生成 URDF 把夹爪 finger 固定化，并注释了 mimic；而 xacro 权威源定义 `finger_joint1` 为 `prismatic [0, 0.044] m`、`finger_joint2` mimic。** 如果沿用生成产物，夹爪映射虽然能写进数组，却无法通过真实关节模型验证。
+
+**直接后果：这份生成 URDF 既跑不出有意义的碰撞结果，也不能验证动态夹爪。** 0.3 mm 的球会让 M-1 的碰撞项假绿，固定 finger 会让夹爪端点测试失真。
+
+据此，工作项为：
+
+- **锁定 OpenArm v1.0 本地资产快照**，记录上游 revision、完整 diff 和源文件哈希。4 处 diff 已判定为路径性改动，不再等待口头说明；若日后得到直接证据表明实物配置不同，再新增 `RobotProfile` revision，而不是阻塞 v0.1。
+- **以 xacro 为运动学权威、`origin` URDF 为碰撞参照重新生成 URDF**：启用真实 collision mesh，路径改为可移植形式，恢复动态 finger/mimic，固化产物并计入哈希（§4.1）。
+- **把资产事实写成元测试**：Pinocchio 可加载；不存在半径 <1 mm 的 collision 球；所有 mesh 可解析且无绝对路径；左右 `finger_joint1` 为 prismatic、范围 `[0,0.044] m`；`finger_joint2` mimic 正确；开闭端点确实改变两指间距。
+- 复用而非重建 `openarm.srdf` 的屏蔽表，但要**补检**：body ↔ 两臂 link0 之间是否需要屏蔽（SRDF 里没有，可能产生结构性误报）。
+- **抽样双臂可达性预检**（做法见 §11），在 harness 里跑，抽样限于 `calibration` 12 条。
+- 源机器人 URDF 仅作为日后可选的第三方交叉校验材料；拿不到不构成 M-1/M1 任务或阻塞项。
+- **把纯关节空间跟踪延迟复核排入 M1a**（不需要任何 URDF）：扫 `action.position[t]` 与 `observation.state.position[t+k]` 的逐关节 RMSE，看极小值是否仍落在 `k=4~5`（§3.3、§2.3）。它不影响 M-1 的目标机器人闸门，因此不塞进 feasibility harness。
 
 #### M-1 出口：预先登记的量化判据（第四轮新增）
 
@@ -1166,13 +1319,19 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 
 **抽样规模（预先固定）：**
 
+**抽样只在 `calibration` 的 12 个 episode 上进行，`held_out` 的 8 个一帧都不碰（2026-08-31 更正）。** 原定「20 ep × 30 帧」会抽到全部 20 条，而 T2 摆位正是由这批抽样排名选出、并一路用到 M1c 出口验收的——按 §6.3 自己的规则（`held_out` 只开一次、看过即作废），那是泄漏。总量仍保持预先登记的 600 帧，只改变来源分布。
+
 | 项 | 规模 |
 |---|---|
-| 分层抽样单帧 | 20 ep × 30 帧 = 600 帧（含每条轨迹的端点与各轴极值帧） |
-| 连续片段 | 20 段 × 60 帧（2 s @30fps），跨不同 episode |
+| 分层抽样单帧 | **12 ep（`calibration`）× 50 帧 = 600 帧**（含每条轨迹的端点与各轴极值帧） |
+| 连续片段 | 20 段 × 60 帧（2 s @30fps），**均取自 `calibration` 的 12 条**，跨不同 episode |
 | T2 候选 | 粗网格，先定候选个数与范围，再逐个跑 |
 
+**这条约束的实际含义：T2 摆位是在从未见过 `held_out` 的前提下选定的。** 因此 M1c「一次通过」才是一句有内容的话。代价是 M-1 的可达性结论只覆盖 12 条的工作空间——若 `held_out` 里存在超出该范围的极值帧，会在 M1c 暴露为不可达。这是可接受的：那正是留出集应该抓的东西，提前用它调 T2 等于取消了这次检验。
+
 **通过判据（预先固定）：**
+
+“单帧 nominal 可达”必须同时满足：左右 EEF 在同一联合构型中位置残差 `≤5 mm`、姿态残差 `≤2°`，关节不越硬限位，真实 collision geometry 下无穿透。姿态只能做到 `(2°,5°]` 时单独记为 relaxed，只能支撑黄灯；位置不放宽到 5 mm 以上。连续片段还要求相邻帧变化不超过 `3×v_max/fps`，否则记分支跳变候选。M-1 的这套 feasibility 定义与 §6.3 的最终质量阈值分开，完整 `SolveOptions` 见工程规划 v1.2 §4.1。
 
 | 指标 | 绿灯 | 黄灯（有条件） | 红灯 |
 |---|---|---|---|
@@ -1182,7 +1341,7 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 | 关节限位 | 无越界 | 余量 < 10% 行程的帧 < 5% | 越界 |
 | 姿态容差放宽 | 无需放宽 | ≤ 5° 且逐帧记录 | 需 > 5° |
 
-**T2 候选排名规则（预先固定）：** 先按「双臂同时可达率」降序；并列时按「连续片段通过率」；再并列时按「平均限位余量」。**不引入事后加权。**
+**T2 候选预算（预先固定）：** 只用 calibration 和 OpenArm 资产的中位数对齐生成 anchor；围绕它枚举 `dx/dy/dz∈{-0.10,0,+0.10} m`、`yaw∈{-10°,0,+10°}` 共 81 个候选。先用每条 calibration 的 `0/25/50/75/100%` 五个时间位置（共 60 帧）预筛，保留前 9，再对前 9 跑完整 600 单帧与连续片段。排名先按「双臂同时 nominal 可达率」降序；并列时按「连续片段通过率」；再按「平均限位余量」；完全相同时按预先固定的候选 ID。**不引入事后加权；全红后扩网格必须新建 recipe，不能改写原结果。**
 
 **出口决策：**
 
@@ -1192,9 +1351,9 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 
 **Franka Panda 双臂配置（两台单臂组合）只是目标重选时的第一候选，不是已经验证好的备用机器人。** 它虽然复用 M0 的单臂 Panda 资产，但双臂 root、两臂 base 相对变换、双夹爪/TCP、臂间碰撞对和同时可达性都仍需单独建立与验证。选择它或其他候选后，必须重新执行 M-1 的完整资产核查、抽样和红黄绿判据，不得沿用 OpenArm 的结果；没有候选通过前，M1 保持阻塞。
 
-**已不在闸门内的两项（第三轮）：** `command_timing` 与源夹爪语义原为闸门项、需等学长回复；现已由全量实测解出（§2.3），降级为 `DATA_DERIVED` + 待确认，**不阻塞 M-1 与 M1 启动**。源码或负责人回复作为最终验证证据，在拿到时把证据等级升为 `USER_CONFIRMED`。
+**已不在闸门内的两项：** `command_timing` 与源夹爪语义已由可访问样本完整实测解出；recorder 快照又对前者提供 `LOCAL_CODE_CORROBORATED` 旁证。两者都不阻塞 M-1/M1；精确生产 revision 未知只写入 limitations。
 
-### M0 骨架与合成闭环（纯 CPU，笔记本可完成，机器人 = Panda）
+### M0 骨架与合成闭环（纯 CPU，实验室远程机，机器人 = Panda）
 
 - `CanonicalTrajectory v0.1`（标记 provisional，M1c 出口才冻结结构）
 - Pinocchio 集成：URDF 加载、FK、Jacobian
@@ -1226,12 +1385,13 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 #### M1a 真实数值闭环（不导出数据集）
 
 - `Prober`：parquet
-- `MappingSpec` schema（按流声明，§3.3）+ 首个 `DataProfile`，认证钉到数据集 revision 与 `lerobot` commit（§3.2）
+- `MappingSpec` schema（按流声明，§3.3）+ 首个 `DataProfile`，认证钉到样本 manifest hash 与 `lerobot==0.6.1`（§3.2）
 - **`command_timing` 落档（§7.1.3）** — 已由 §2.3 实测解出，只需落档 + 实现同行配对与 `shift_policy: none`
-- **全部 1682 episode 的结构扫描**（§6.3，只读 schema 与统计，确认那 20 条没漏掉字段布局或任务类型）
+- **可访问 20 episode 的完整结构扫描**（§6.3），生成 `private-sample-20@<manifest-hash>` 与覆盖限制；不访问、也不等待公司全量数据
+- **纯关节空间复核跟踪延迟**：扫 `action.position[t]` 与 `observation.state.position[t+k]` 的逐关节 RMSE，确认极小值仍在 `k=4~5`（§3.3、§2.3）。不依赖任何 URDF，成本极低
 - 多运动组（双臂 + 双夹爪），夹爪按 §7.1.4 的实测仿射关系映射
 - 双流 IK + `warm_start_from_state` 耦合（§7.1.2）
-- 基座变换：T1 人工确认 + T2 采用 M-1 的排名结果
+- 坐标：输入固定命名为 `dataset_native`；T2 采用 M-1 的排名结果并写进 recipe，不等待真实场地 frame 身份
 - 诊断与批量质量报告（§6），含 §6.1 跨流一致性三层判据
 - 在 `calibration` 集上标定 `provisional` 阈值
 
@@ -1257,7 +1417,7 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 
 **出口：** `held_out` 集一次通过五步验收，无需回头调参。**通过后冻结 `CanonicalTrajectory v0.1` 与 `ExportProfile v0.1` 的结构。**
 
-**明确不在 M1c 冻结的：** §6.3 的各项阈值。它们只在 20 个**已被上游预筛过**的 episode 上标定过，对全量必然偏乐观，须待 M3 全量跑完才允许冻结（§6.3）。
+**M1c 对阈值做范围化认证：** 留出集一次通过后，相关阈值从 `provisional` 升为 `sample_validated`，且必须绑定 `validation_scope=private-sample-20@<manifest-hash>`。这不是公司全分布或其他数据集的质量承诺；超出范围必须重新校准。
 
 **不作为任何一段出口条件：** AI 生成 `MappingSpec` 草稿。
 
@@ -1277,7 +1437,7 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 
 - CuRobo 后端 + §4.3 碰撞球配置资产链（封装 `build_robot_model` + 溯源 + 校验 + 人工审核）
 - 跨后端一致性测试扩展
-- 全量 1682 episode 批处理、吞吐与缓存
+- 在**有权访问并可重现**的数据集上做规模化批处理、吞吐与缓存验证；不得把公司全量数据写成开源项目的隐含依赖
 - 其余容器 `Prober`（hdf5 / zarr / csv），按选定的第二个数据集的实际容器决定先后
 
 ### M4 AI 深度介入
@@ -1409,42 +1569,64 @@ M0 用 Panda + 合成数据打通管线（不依赖任何真实数据与 GPU）�
 | **M0「跨后端 FK 一致性」名不副实** | Pink 建在 Pinocchio 上，其 FK 就是 Pinocchio 的 FK；M0 阶段**没有第二个独立实现**，互比等于自己和自己比 | 拆为 §5.3.1 内部约定一致性（M0，测我们自己的封装）+ §5.3.2 **独立 golden cases**（M0，提供唯一外部参照，含打乱 joint-name 的元测试）+ §5.3.3 真跨后端（M3，CuRobo 到位后） |
 | **M1 仍偏大** | 收缩后仍把「真实数据数值闭环」与「LeRobot 格式重写」捆在一个出口，任一处卡住看不到任何产物 | 拆为 **M1a 数值闭环（不导出）→ M1b 数据集闭环 → M1c 留出集验收与结构冻结**，每段各有可展示、可回退的产物（§12） |
 
-**另外补了一条前几轮都漏的事实：** 那 20 个 episode 是上游 `episode_report_filter` 从 1682 条里按规则筛出来的（§2.2），**本身偏向质量好的样本**。在它们身上标定的阈值对全量必然偏乐观。因此 M1c 只冻结 `CanonicalTrajectory` / `ExportProfile` 的**结构**，**阈值须待 M3 全量跑完才允许冻结**（§6.3）。
+**第四轮当时另作出一个后来被证伪的判断：** 把这 20 条误认成质量筛选结果，并据此把阈值认证绑定到未来上游数据。该判断不再构成任何当前需求。
+
+> **⚠️ 2026-08-31 第五轮更正：上面这段加粗的事实是错的。** 核对 `summary.json` 后确认上游使用等间距抽样而非质量筛选。第五轮仍保留“等待公司全量”的假设；第六轮进一步确认该数据不可访问，现改为 `sample_validated` 范围化认证。保留原文仅记录修订历史，不作为当前施工要求。
 
 **本轮未做的事：** 上游仓库版本与技术事实未重新联网复核，沿用第一至三轮的核实结果。
 
-### 14.2 待自行核实（会实质影响排期）
+#### 第五轮修订（2026-08-31，开工前上游与本地事实复核）
 
-**M-1 可行性闸门期间必须完成的两项（决定 M1 可行性）：**
+**第四轮明确留了一句「本轮未做的事：上游版本与技术事实未重新联网复核」。本轮把它补上，并额外做了一件前四轮从未做过的事——核对本地实际持有的资产。** 九项全部是事实更正，无一项改变产品范围。
 
-1. **OpenArm URDF：版本选择与生成。** v1.0 还是 v2.0、哪个 preset、双臂配置的 root/躯干定义、两臂 base 相对变换、xacro→URDF 的工具链、mesh 完整性、限位是否齐全，**以及夹爪的限位、行程与开合方向**（§7.1.4 目标侧映射所需）。已核实仓库为 `enactic/openarm_description`（Apache-2.0，提供 xacro 而非现成 URDF）。
-2. **OpenArm 双臂可达性预检。** 源数据 `x ∈ [0.16, 0.61]`、`z ∈ [0.57, 0.90]`、双臂 `y` 跨度约 1 m（§2.2）。做法见 §11——**抽真实帧跑「位置 + 姿态 + 双臂同时 + 连续片段」IK，不是比包围盒**。若覆盖不住，按 §12 M-1 的优先级动 T2 摆位或换目标机器人。
+| 项 | 前四轮写的 | 复核结果 | 影响 |
+|---|---|---|---|
+| **`lerobot` 版本** | v3 未进稳定版，须钉 main commit；文档 `tasks.jsonl` 与代码 `tasks.parquet` 分歧 | **0.6.1 已发布**（2026-08-03）；`DEFAULT_TASKS_PATH = "meta/tasks.parquet"`，`.jsonl` 降为 `LEGACY_`；分歧消失。手上数据集的 `meta/` 亦为 `tasks.parquet` | §3.2 改钉 `lerobot==0.6.1`；**§14.2 第 9 项关闭** |
+| **`DatasetConfig` 字段** | 提供 `root` / `episodes` / **`exclude_episodes`** | 0.6.1 **没有 `exclude_episodes`**，且 `repo_id` 是必填。另新增 `episode_filter` 回调 | **§7.1.5 第 1 步原写法跑不起来**，已改写；白名单机制本身不受影响 |
+| **Python 与安装边界** | 未定义 | `lerobot` 要求 `>=3.12`；`pin` 无 Windows wheel（仅 manylinux / macOS）；`lerobot` 拉 200+ 依赖含 torch | 新增：开发环境 = WSL2 + Python 3.12；**`lerobot` 必须是可选 extra**，否则与 §1.6 冲突 |
+| **那 20 条的来源** | 上游「按规则筛出」，**偏向质量好的样本** | **错。** `summary.json` 写明 `numpy.linspace(0, 1666, 20)`、`mode: keep`，报告 CSV 只有一列序号、无质量指标 | 第五轮改正选择偏差判断；其“将来取全量”假设又由第六轮的 `sample_validated` 范围化认证取代 |
+| **M-1 抽样范围** | 20 ep × 30 帧 | 覆盖全部 20 条，**会抽到 `held_out`**，而 T2 由该抽样选出并用到 M1c 验收 | **§12 改为 12 ep（`calibration`）× 50 帧**，总量仍 600；`held_out` 在 M1c 前一帧不碰 |
+| **OpenArm 资产** | 需从 xacro 现搭工具链生成 URDF；「必须锁定 v1.0 还是 v2.0」 | 本地资产快照**已有**生成 URDF、SRDF 屏蔽表、完整 collision STL；仓库为 `1.0.1-1-gab816fc` **带 4 处本地修改**，走 v1.0 路径 | §11/§12 起点大幅提高；第六轮进一步确认 4 处 diff 仅改路径并固定自给构建方案 |
+| **OpenArm URDF 的两个坑** | 未预见 | ① mesh 全是绝对路径；② **collision 几何是 `<sphere radius="0.0003"/>` 占位球，真 mesh 被注释掉** | **②使 M-1 的碰撞判据成为恒真空判据**，必须先重新生成 URDF；已写入 §12 M-1 工作项并要求做成断言 |
+| **`action_lookahead=5`** | §2.3 论证「排除了表示层 artifact，故为真实跟踪延迟」 | 上游三个转换脚本都声明 `action_lookahead: int = 5` 却**从未使用**，`action` 取自同帧原始字段——**转换层没移位，§2.3 结论成立**；但该论证**排不掉「上游按前瞻构造」这一假设**，而默认值恰好是 5 | §2.3 补写替代假设与其排除边界；证据等级**维持 `DATA_DERIVED`**；§14.2 第 4 项确认动作具体化到采集端 recorder |
+| **两条漏登记的通道** | `reference` 只有 `observation.state.position`；`passthrough` 无 `control_mode` | 另有 `action.position/.velocity/.effort`（源关节**指令**通道）与逐帧 `control_mode` string 列 | §3.3 补登记；**`action.position` 提供一条不需源 URDF 的跟踪延迟复核路径**，列入 M1a |
+| **索引 0 = 左臂** | 靠 `y` 符号等推断 | `info.json` 的 `names` 与并列的 `observation.state.position`（`Larm…` 在前）同序，元数据直接给出 | 证据等级升为 **`EXPLICIT`**；§3.3 的 slice 映射已与实测 `names` 逐位核对一致 |
 
-**待确认但不阻塞（2026-08-27 第三轮下调）：**
+**本轮教训，与第三轮成对：** 第三轮的教训是「先测数据再定契约」；本轮补上两条限定——
 
-3. **源机器人 URDF。** 据反馈容易取得。拿到后：§10.2 交叉校验成为 M1 出口项；`§2.3` 的跟踪延迟结论获得第三个独立维度的复核；源夹爪仿射关系可升级为 `USER_CONFIRMED`。**拿不到不阻塞 M1**——夹爪已有 `DATA_DERIVED` 路径，§10.2 保持条件项。
-4. **`command_timing` 的源码/负责人确认。** 已由全量实测解出（§2.3、§7.1.3），当前 `DATA_DERIVED` + `pending_confirmation`。确认动作是核对上游数据生成 / 控制代码，或问学长采集时的控制回路结构。**这是把证据等级从 `DATA_DERIVED` 升到 `USER_CONFIRMED` 的动作，不是开工前置条件。**
+1. **先核对手上已经有的东西，再假设需要自己造。** M-1 原以为要从零搭 xacro 工具链，实际 URDF、SRDF、collision mesh 都在硬盘上躺着。
+2. **实测只能证伪它测得到的假设。** 一份按固定前瞻构造出来的 `action`，和一份带真实跟踪延迟的 `action`，在统计上可以完全一致。区分它们靠的不是更多测量，是去读产生这份数据的代码——而那段代码里正好有一个默认值为 5 的死参数。
 
-**其余：**
+#### 第六轮修订（2026-08-31，代码冻结前收口）
 
-5. CuRobo `content/configs/robot/` 现成有哪些机器人配置（决定几个目标是白送的）。
-6. CuRobo 当前版本对多末端 / 双臂 / 人形的支持程度。
-7. 候选开源数据集中哪些**已含 EEF 通道**（可省去 FK 预处理，减少一层误差来源）。
-8. 掩码列以 `bool` 注册进 v3 `features` 后，`LeRobotDataset` 加载与统计计算的实际行为（§7.2.2 已给出预期，需在 M1 实测确认）。
-9. 要钉住的 `lerobot` commit（v3 尚未进稳定版，且官方文档与 main 分支在 `tasks.jsonl` / `tasks.parquet` 上已不一致，见 §3.2）。
+本轮直接回答三个开工问题：公司全量不可访问时怎么验收、OpenArm 夹爪如何落到物理关节、recorder 能否自行分析。结论分别是：**范围化认证、资产自给闭环、本地代码旁证**。同时固定 12/8 精确索引、`dataset_native`/T2、Pink 状态、OSQP、视频降级与数据合规边界。自此 M-1 到 M1c 没有外部人员前置条件；具体代码接口和任务编号见当前工程规划。
 
-> MuJoCo Menagerie 的覆盖情况已部分回答：OpenArm 的 MJCF 由官方 `enactic/openarm_mujoco` 提供，不必依赖 Menagerie（§11）。
+#### 第七轮修订（2026-09-02，remote-first）
+
+开发地点按用户决定改为实验室远程 Linux，工程规划升为 v1.2。远端已实测满足 Linux/Python wheel/CPU/GPU 条件，但根盘使用率过高，因此项目与 run 必须落经确认的数据盘。与此同时补齐 M-1 四处首轮空位：nominal/relaxed 可达定义、`SolveOptions`、T2 的确定性候选生成与两阶段预算、harness 断言落点。唯一仍需单独授权的是私有 20 ep 是否可复制到该实验室主机；这属于数据权限，不是技术设计问题。
+
+### 14.2 开工前剩余核实（全部由代码/测试完成）
+
+**没有需要向数据提供方索取的开工前置材料。** 公司全量数据明确不在项目权限内；OpenArm xacro/URDF/SRDF/mesh 与 recorder 快照已经足够进入 M-1/M0。
+
+1. **OpenArm 资产构建测试**：由 xacro + `origin` URDF 生成可移植 URDF，验证真实 collision、动态 finger/mimic、TCP、关节限位与 mesh 可解析性。失败就修资产，不转成口头确认任务。
+2. **OpenArm 双臂可达性预检**：只用 `calibration`，按 §12 的位置、姿态、同时可达、连续性、碰撞和 T2 排名规则执行。
+3. **纯关节空间 timing 复核**：在 M1a 扫 `action.position[t]` 与 `observation.state.position[t+k]`；若与现有结论冲突，使当前 `DataProfile` 失效并重新认证。
+4. **LeRobot 加载行为契约测试**：在 M1b 实测 bool 掩码、episode 白名单、统计口径和 `tasks.parquet` 写回。
+
+以下均为未来能力，不阻塞 M1c：源机器人 URDF 的条件交叉校验、CuRobo 多末端能力、第二个公开数据集、仿真后端选择。
 
 ### 14.3 留到实施期按证据决定
 
-- §6.3 各项阈值的最终数值：M1 只在 `calibration` 上标记为 `provisional`；必须等 **M3 完成 1682 episode 全量批处理后**才能冻结，**含 §6.1 跨流一致性的 `Δq_act / Δq_exp` 门限**
-- §7.1.4 目标侧夹爪映射：开合度分数 → OpenArm 夹爪关节值，需 M-1 取得其限位与开合方向。**源侧语义已由 §2.3 实测解出，不再待定**
+- §6.3 各项阈值的具体数值：M1a 在 `calibration` 上为 `provisional`，M1c 通过后为 `sample_validated`；任何新数据集都重新校准
+- §7.1.4 夹爪瞬态异常门限；目标静态映射已经固定为 `aperture_fraction → finger_joint1 [0,0.044] m`
 - §7.1.4 仿射关系 `state ≈ 5·action − 3` 的逐帧残差分布，及据此判定的瞬态异常门限
 - `solve_coupling` 已定为 `warm_start_from_state`（§7.1.2），`joint_solve` 是否值得做留待 M1 实测跨流一致性的误报率后决定
 - v2 仿真选型：MuJoCo 生态（RoboCasa / robosuite）还是 SAPIEN 生态（ManiSkill / RoboTwin）
 - 首批 `DataProfile` 的具体清单与其认证的数据集 revision
 - 前端页面布局与视觉细节
-- 项目正式名称、开源许可证
+- 公开品牌名仍可在首次发布前调整；M0 工作包名与 CLI 固定用 `retargetlab`，避免代码目录继续留白
+- 许可证固定为 Apache-2.0；私有样本不属于仓库发布物，不受该 LICENSE 覆盖
 
 ---
 
