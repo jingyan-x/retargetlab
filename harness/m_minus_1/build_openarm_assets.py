@@ -23,6 +23,7 @@ import xacro
 BUILD_SCHEMA = "m_minus_1.openarm_assets.v1"
 PACKAGE_URI_PREFIX = "package://openarm_description/"
 DEFAULT_ENTRY = Path("urdf/robot/v10.urdf.xacro")
+DEFAULT_SRDF = Path("urdf/robot/self_collision/openarm.srdf")
 
 
 def sha256_file(path: Path) -> str:
@@ -88,7 +89,33 @@ def copy_meshes(source: Path, output: Path, references: list[str]) -> None:
         shutil.copy2(source_file, target_file)
 
 
-def build(source: Path, output: Path, entry: Path) -> dict[str, Any]:
+def copy_srdf(srdf: Path | None, output: Path) -> tuple[str | None, str | None]:
+    if srdf is None:
+        return None, None
+
+    srdf = srdf.resolve()
+    if not srdf.is_file():
+        raise FileNotFoundError(f"SRDF input is missing: {srdf}")
+    try:
+        root = ET.parse(srdf).getroot()
+    except (OSError, ET.ParseError) as exc:
+        raise ValueError(f"SRDF input is not valid XML: {srdf}") from exc
+    if root.tag.rsplit("}", 1)[-1] != "robot":
+        raise ValueError("SRDF input must have a robot root element")
+
+    relative_path = Path("srdf") / srdf.name
+    target = output / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(srdf, target)
+    return relative_path.as_posix(), sha256_file(srdf)
+
+
+def build(
+    source: Path,
+    output: Path,
+    entry: Path,
+    srdf: Path | None,
+) -> dict[str, Any]:
     source = source.resolve()
     output = output.resolve()
     entry = entry.as_posix()
@@ -118,6 +145,8 @@ def build(source: Path, output: Path, entry: Path) -> dict[str, Any]:
         urdf_path.parent.mkdir(parents=True, exist_ok=True)
         ET.ElementTree(root).write(urdf_path, encoding="utf-8", xml_declaration=True)
 
+    srdf_relative_path, srdf_hash = copy_srdf(srdf, output)
+
     manifest = {
         "schema_version": BUILD_SCHEMA,
         "source_repository": "enactic/openarm_description",
@@ -125,6 +154,8 @@ def build(source: Path, output: Path, entry: Path) -> dict[str, Any]:
         "xacro_entry": entry,
         "build_script_sha256": sha256_file(script_path),
         "generated_urdf_sha256": sha256_file(urdf_path),
+        "srdf_path": srdf_relative_path,
+        "srdf_sha256": srdf_hash,
         "mesh_count": len(references),
         "mesh_paths": references,
         "portability_rules": [
@@ -147,8 +178,13 @@ def main() -> int:
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--entry", type=Path, default=DEFAULT_ENTRY)
+    parser.add_argument(
+        "--srdf",
+        type=Path,
+        help="optional SRDF policy to bundle and record in the asset manifest",
+    )
     args = parser.parse_args()
-    manifest = build(args.source, args.output, args.entry)
+    manifest = build(args.source, args.output, args.entry, args.srdf)
     print(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

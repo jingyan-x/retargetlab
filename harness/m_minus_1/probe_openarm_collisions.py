@@ -102,6 +102,30 @@ def load_disabled_pairs(
     return disabled, unmatched, True
 
 
+def discover_manifest_srdf(
+    asset_dir: Path,
+    explicit_srdf: Path | None,
+) -> Path | None:
+    if explicit_srdf is not None:
+        return explicit_srdf
+
+    manifest_path = asset_dir / "asset_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    relative_path = manifest.get("srdf_path")
+    if not isinstance(relative_path, str) or not relative_path:
+        return None
+    candidate = (asset_dir / Path(relative_path)).resolve()
+    try:
+        candidate.relative_to(asset_dir.resolve())
+    except ValueError:
+        return None
+    return candidate
+
+
 def evaluate_sample(
     model: pin.Model,
     geometry_model: pin.GeometryModel,
@@ -244,7 +268,8 @@ def main() -> int:
     parser.add_argument("--srdf", type=Path)
     args = parser.parse_args()
     try:
-        report = build_report(args.asset_dir, args.srdf)
+        srdf_path = discover_manifest_srdf(args.asset_dir.resolve(), args.srdf)
+        report = build_report(args.asset_dir, srdf_path)
     except (KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
         report = {
             "schema_version": PROBE_SCHEMA,
@@ -260,4 +285,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

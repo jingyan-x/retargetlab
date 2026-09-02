@@ -102,6 +102,32 @@ def check_manifest(
     if not hash_matches:
         failures.append("manifest: generated URDF hash mismatch")
 
+    srdf_relative = manifest.get("srdf_path")
+    srdf_hash = manifest.get("srdf_sha256")
+    srdf_matches = isinstance(srdf_relative, str) and isinstance(srdf_hash, str)
+    if srdf_matches:
+        relative = PurePosixPath(srdf_relative)
+        if relative.is_absolute() or ".." in relative.parts:
+            srdf_matches = False
+        else:
+            srdf_path = (asset_dir / Path(*relative.parts)).resolve()
+            try:
+                srdf_path.relative_to(asset_dir.resolve())
+            except ValueError:
+                srdf_matches = False
+            else:
+                try:
+                    srdf_root = ET.parse(srdf_path).getroot()
+                    srdf_matches = (
+                        srdf_root.tag.rsplit("}", 1)[-1] == "robot"
+                        and sha256_file(srdf_path) == srdf_hash
+                    )
+                except (OSError, ET.ParseError):
+                    srdf_matches = False
+    checks["manifest_srdf"] = srdf_matches
+    if not srdf_matches:
+        failures.append("manifest: bundled SRDF is missing, invalid, or hash-mismatched")
+
 
 def check_meshes(
     root: ET.Element,
@@ -459,4 +485,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
