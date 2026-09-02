@@ -27,6 +27,7 @@ IMPORT_NAMES = {
     "osqp": "osqp",
     "pyarrow": "pyarrow",
     "pydantic": "pydantic",
+    "xacro": "xacro",
 }
 
 
@@ -195,8 +196,9 @@ def main() -> int:
     parser.add_argument("--require-assets", action="store_true")
     parser.add_argument("--min-free-gib", type=float, default=100.0)
     args = parser.parse_args()
-    print(json.dumps(build_report(args), ensure_ascii=False, indent=2, sort_keys=True))
-    return 0 if build_report(args)["exit_ok"] else 5
+    report = build_report(args)
+    print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+    return 0 if report["exit_ok"] else 5
 
 
 if __name__ == "__main__":
