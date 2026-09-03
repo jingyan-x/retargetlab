@@ -29,6 +29,7 @@ from retargetlab.io import (
     apply_mapping_review,
     build_pose_mapping_candidate,
     compare_info_to_structure,
+    inspect_review_package,
     normalize_rows,
     probe_lerobot_info,
     probe_parquet,
@@ -84,6 +85,15 @@ def _parser() -> argparse.ArgumentParser:
     review_mapping.add_argument("--review", required=True, type=Path)
     review_mapping.add_argument("--comparison", required=True, type=Path)
     review_mapping.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    inspect_review = subparsers.add_parser(
+        "inspect-review-package",
+        help="inspect review readiness without promoting a mapping",
+    )
+    inspect_review.add_argument("--candidate", required=True, type=Path)
+    inspect_review.add_argument("--review", required=True, type=Path)
+    inspect_review.add_argument("--comparison", required=True, type=Path)
+    inspect_review.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     calibrate = subparsers.add_parser(
         "calibrate", help="run a bounded approved calibration and write an audit artifact"
@@ -280,11 +290,11 @@ def _candidate_payload(
     }
 
 
-def _load_reviewed_mapping(
+def _load_review_package(
     candidate_path: Path,
     review_path: Path,
     comparison_path: Path,
-) -> tuple[MappingSpec, StructureComparison]:
+) -> tuple[MappingSpec, MappingReview, StructureComparison]:
     raw = json.loads(candidate_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("mapping candidate must contain a JSON object")
@@ -295,6 +305,19 @@ def _load_reviewed_mapping(
         raise ValueError("structure comparison must contain a JSON object")
     comparison = StructureComparison.model_validate(
         comparison_raw.get("comparison", comparison_raw)
+    )
+    return candidate, review, comparison
+
+
+def _load_reviewed_mapping(
+    candidate_path: Path,
+    review_path: Path,
+    comparison_path: Path,
+) -> tuple[MappingSpec, StructureComparison]:
+    candidate, review, comparison = _load_review_package(
+        candidate_path,
+        review_path,
+        comparison_path,
     )
     approved = apply_mapping_review(candidate, review, comparison)
     return approved, comparison
@@ -311,6 +334,23 @@ def _review_mapping_payload(
         "status": "APPROVED",
         "comparison": comparison.model_dump(mode="json"),
         "mapping": approved.model_dump(mode="json"),
+    }
+
+
+def _inspect_review_package_payload(
+    candidate_path: Path,
+    review_path: Path,
+    comparison_path: Path,
+) -> dict[str, Any]:
+    candidate, review, comparison = _load_review_package(
+        candidate_path,
+        review_path,
+        comparison_path,
+    )
+    inspection = inspect_review_package(candidate, review, comparison)
+    return {
+        "command": "inspect-review-package",
+        **inspection.model_dump(mode="json"),
     }
 
 
@@ -585,6 +625,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("command") == "review-mapping":
         print(f"mapping review: {payload['status']}", file=stdout)
         return
+    if payload.get("command") == "inspect-review-package":
+        print(
+            f"review package: {payload['status']} (next={payload['next_action']})",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "calibrate":
         print(
             f"calibration: {payload['status']} "
@@ -679,6 +725,23 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "inspect-review-package":
+        try:
+            payload = _inspect_review_package_payload(
+                args.candidate,
+                args.review,
+                args.comparison,
+            )
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "inspect-review-package",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_SEMANTIC if payload["status"] == "BLOCKED" else EXIT_OK
     if args.command == "calibrate":
         try:
             payload = _calibrate_payload(

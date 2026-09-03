@@ -184,6 +184,28 @@ class MappingReview(BaseModel):
         return self
 
 
+class ReviewPackageInspection(BaseModel):
+    """Read-only status of a candidate, review, and structure evidence package."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["PENDING_REVIEW", "REVIEW_APPROVED", "BLOCKED"]
+    next_action: Literal["REVIEW_SEMANTICS", "APPLY_APPROVED_REVIEW", "REPAIR_EVIDENCE"]
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    candidate_status: str = Field(min_length=1)
+    review_approved: bool
+    structure_compatible: bool
+    structure_fully_verified: bool
+    shape_unverified: tuple[str, ...] = ()
+    shape_decision_required: bool
+    ready_for_semantic_review: bool
+    can_apply_review: bool
+    review_evidence_count: int = Field(ge=0)
+    blocking_reasons: tuple[str, ...] = ()
+
+
 class MappingValidation(BaseModel):
     """Machine-readable result of mapping a spec onto a structure manifest."""
 

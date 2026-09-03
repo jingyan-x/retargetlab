@@ -6,6 +6,7 @@ from .compare import compare_info_to_structure
 from .normalize import NormalizationError, normalize_rows
 from .probe import probe_lerobot_info, probe_parquet
 from .review import apply_mapping_review
+from .review_package import inspect_review_package
 from .select import DEFAULT_CALIBRATION_COLUMNS, select_calibration_rows
 from .validate import validate_mapping
 
@@ -16,6 +17,7 @@ __all__ = [
     "compare_info_to_structure",
     "apply_mapping_review",
     "DEFAULT_CALIBRATION_COLUMNS",
+    "inspect_review_package",
     "select_calibration_rows",
     "NormalizationError",
     "normalize_rows",

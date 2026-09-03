@@ -892,3 +892,31 @@ Remote verification:
 The next boundary is to add a bounded, read-only review-package inspector that
 reports whether a real dataset has all evidence needed before an explicit
 semantic approval, without treating inferred mappings as approved.
+
+### M1a.13: bounded read-only review-package inspector
+
+The input layer now exposes `inspect-review-package`. It reads only the
+candidate mapping, explicit review, and structure comparison; reports
+`PENDING_REVIEW`, `REVIEW_APPROVED`, or `BLOCKED`; and separates readiness for
+semantic review from permission to apply the review. Alias/revision mismatches,
+incompatible structure evidence, and an unaccepted unverified shape are
+reported as blockers. A pending package is never promoted, and the command
+returns a non-zero semantic exit only for a structurally blocked package.
+
+The inspector was exercised on the real private-sample OpenArm review package
+using its review-only candidate, structure comparison, and pending review
+record. It returned `PENDING_REVIEW`, `can_apply_review=false`, and required a
+shape decision; no data or episode Parquet file was opened.
+
+Remote verification:
+
+- review-package unit and CLI tests: 2 passed;
+- full `pytest -q tests`: 57 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by the inspector.
+
+The next boundary is to make the review-package output consumable as a stable
+preflight record for later approved calibration runs, without auto-generating
+or silently accepting semantic review decisions.
