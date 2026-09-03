@@ -21,7 +21,7 @@ from retargetlab.contracts import (
     RobotProfile,
     StructureManifest,
 )
-from retargetlab.io import normalize_rows, validate_mapping
+from retargetlab.io import normalize_rows, probe_parquet, validate_mapping
 from retargetlab.run import execute_solve_run, recipe_sha256
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -42,6 +42,8 @@ def _parser() -> argparse.ArgumentParser:
 
     inspect = subparsers.add_parser("inspect", help="inspect a canonical JSON trajectory")
     inspect.add_argument("path", type=Path)
+    inspect.add_argument("--dataset-alias")
+    inspect.add_argument("--source-revision")
     inspect.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
@@ -98,6 +100,7 @@ def _doctor_payload() -> tuple[dict[str, Any], int]:
             ("pink", "pin-pink"),
             ("qpsolvers", "qpsolvers"),
             ("osqp", "osqp"),
+            ("pyarrow", "pyarrow"),
         )
     }
     required = ("numpy", "pydantic", "pinocchio", "pink", "qpsolvers", "osqp")
@@ -113,7 +116,31 @@ def _doctor_payload() -> tuple[dict[str, Any], int]:
     return payload, EXIT_OK if not missing else EXIT_ENVIRONMENT
 
 
-def _inspect_payload(path: Path) -> dict[str, Any]:
+def _inspect_payload(
+    path: Path,
+    dataset_alias: str | None = None,
+    source_revision: str | None = None,
+) -> dict[str, Any]:
+    if path.suffix.lower() == ".parquet":
+        if not dataset_alias or not source_revision:
+            raise ValueError("Parquet inspect requires --dataset-alias and --source-revision")
+        manifest = probe_parquet(
+            path,
+            dataset_alias=dataset_alias,
+            source_revision=source_revision,
+        )
+        return {
+            "command": "inspect",
+            "kind": "parquet",
+            "dataset_alias": manifest.dataset_alias,
+            "source_revision": manifest.source_revision,
+            "source_sha256": manifest.source_sha256,
+            "row_count": manifest.row_count,
+            "fields": {
+                name: field.model_dump(mode="json")
+                for name, field in sorted(manifest.fields.items())
+            },
+        }
     trajectory = CanonicalTrajectory.model_validate_json(path.read_text(encoding="utf-8"))
     return {
         "command": "inspect",
@@ -279,6 +306,9 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("status") == "INVALID_INPUT":
         print(f"{payload['command']}: invalid input: {payload['error']}", file=sys.stderr)
         return
+    if payload.get("status") == "ENVIRONMENT_ERROR":
+        print(f"{payload['command']}: environment error: {payload['error']}", file=sys.stderr)
+        return
     if payload.get("command") == "doctor":
         print(f"retargetlab doctor: {payload['status']}", file=stdout)
         for name, details in payload["dependencies"].items():
@@ -287,6 +317,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("command") == "diagnose":
         print(
             f"diagnostic report: {payload['status']} ({payload['episode_count']} episodes)",
+            file=stdout,
+        )
+        return
+    if payload.get("kind") == "parquet":
+        print(
+            f"parquet structure: {payload['row_count']} rows, {len(payload['fields'])} fields",
             file=stdout,
         )
         return
@@ -333,7 +369,11 @@ def app(argv: list[str] | None = None) -> int:
         return exit_code
     if args.command == "inspect":
         try:
-            payload = _inspect_payload(args.path)
+            payload = _inspect_payload(args.path, args.dataset_alias, args.source_revision)
+        except RuntimeError as exc:
+            error = {"command": "inspect", "status": "ENVIRONMENT_ERROR", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
         except (OSError, ValidationError, ValueError) as exc:
             error = {"command": "inspect", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)

@@ -34,7 +34,9 @@ def _check_reference(
     if reference.expected_shape is not None and field.shape != reference.expected_shape:
         shape_mismatches.append(f"{label}: expected {reference.expected_shape}, got {field.shape}")
     if reference.indices:
-        if not field.shape:
+        if field.shape is None:
+            index_errors.append(f"{label}: source width is unknown")
+        elif not field.shape:
             index_errors.append(f"{label}: scalar field cannot be indexed")
         elif max(reference.indices) >= field.shape[-1]:
             index_errors.append(

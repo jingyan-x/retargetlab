@@ -543,3 +543,36 @@ Remote verification:
 No package installation, private data access, or held-out access was needed
 for this slice. The next step can add a contract-level profile/SRDF review or
 prepare the narrow prober interface for a separately authorized real container.
+
+### M1a.1: read-only Parquet structure prober
+
+The input boundary now has a Parquet schema prober and an `inspect` CLI path.
+It reads only Parquet schema and footer metadata, records column names, Arrow
+dtypes, conservative shapes, row count, and the source file SHA-256, and never
+materializes or serializes row values. Variable-width list columns are kept as
+`shape: null`; mapping validation rejects indexed references whose source width
+is unknown instead of guessing from a storage encoding.
+
+The remote private sample was probed at the metadata-only boundary. The main
+data file reports 13,746 rows, the episode metadata file reports 20 rows, and
+the task metadata file reports 1 row. The three source hashes are respectively
+`379a36946b7f0d39705caa434c8630a65131d20d75626c731daa94f195ccb`,
+`28c2e9afd5c4112af46337c9e781d85c13d36036e3dfdef040b6da795624c634`, and
+`fabd9e744d6a2ca0d1034d5c383a5923815e99c39b9f6d76f591215023c03f40`.
+The Parquet footer stores the vector-like feature columns as variable-width
+lists, so this slice deliberately does not promote their widths into a
+mapping. The declared feature shape in the metadata manifest remains a
+separate next-step contract to cross-check explicitly.
+
+Remote verification:
+
+- targeted prober and CLI tests: 9 passed;
+- full `pytest -q tests`: 39 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no row values, held-out episodes, videos, or production assets were read or
+  modified.
+
+The next boundary is an explicit metadata-manifest prober that can compare
+declared feature shapes and dtypes with the value-free Parquet structure before
+any mapping or normalization is enabled.

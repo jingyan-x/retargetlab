@@ -73,11 +73,11 @@ class StructureField(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     dtype: str = Field(min_length=1)
-    shape: tuple[int, ...]
+    shape: tuple[int, ...] | None
 
     @model_validator(mode="after")
     def validate_shape(self) -> StructureField:
-        if any(size < 0 for size in self.shape):
+        if self.shape is not None and any(size < 0 for size in self.shape):
             raise ValueError("structure field dimensions must be non-negative")
         return self
 
@@ -90,6 +90,7 @@ class StructureManifest(BaseModel):
     schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
     dataset_alias: str = Field(min_length=1)
     source_revision: str = Field(min_length=1)
+    source_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     row_count: int = Field(gt=0)
     fields: dict[str, StructureField] = Field(min_length=1)
 

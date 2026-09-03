@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from retargetlab.cli.main import EXIT_OK, EXIT_QUALITY, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
     CanonicalFrame,
@@ -53,6 +55,33 @@ def test_inspect_invalid_human_input_is_reported_without_traceback(tmp_path, cap
     assert app(["inspect", str(path)]) == EXIT_SEMANTIC
     captured = capsys.readouterr()
     assert "invalid input" in captured.err
+
+
+def test_inspect_parquet_reports_structure_only(tmp_path, capsys) -> None:
+    pa = pytest.importorskip("pyarrow")
+    parquet = pytest.importorskip("pyarrow.parquet")
+    path = tmp_path / "fixture.parquet"
+    parquet.write_table(pa.table({"timestamp": pa.array([0.0, 0.01])}), path)
+
+    assert (
+        app(
+            [
+                "inspect",
+                str(path),
+                "--dataset-alias",
+                "fixture",
+                "--source-revision",
+                "v1",
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["kind"] == "parquet"
+    assert payload["row_count"] == 2
+    assert payload["fields"]["timestamp"]["shape"] == []
+    assert payload["source_sha256"]
 
 
 def test_diagnose_completed_run_uses_quality_exit_without_joint_arrays(tmp_path, capsys) -> None:
