@@ -1,9 +1,12 @@
+import json
 import os
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
+from retargetlab.contracts import RobotProfile
 from retargetlab.kinematics.pinocchio_backend import PinocchioBackend
 from retargetlab.robot.collision import PinocchioCollisionModel
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
@@ -50,3 +53,35 @@ def test_openarm_profile_loads_verified_asset_and_maps_real_fingers() -> None:
     assert right_position.shape == (3,)
     assert left_quaternion.shape == (4,)
     assert right_quaternion.shape == (4,)
+
+
+def test_openarm_profile_cli_materializes_exclusive_json(tmp_path: Path, capsys) -> None:
+    raw_asset_dir = os.environ.get("RETARGETLAB_OPENARM_ASSET_DIR")
+    if not raw_asset_dir:
+        pytest.skip("set RETARGETLAB_OPENARM_ASSET_DIR for the remote OpenArm asset smoke")
+    asset_dir = Path(raw_asset_dir)
+    if not asset_dir.is_dir():
+        pytest.skip(f"OpenArm asset directory is unavailable: {asset_dir}")
+    output = tmp_path / "openarm-robot-profile.json"
+    argv = [
+        "build-robot-profile",
+        "--robot",
+        "openarm_bimanual",
+        "--asset-dir",
+        str(asset_dir),
+        "--output",
+        str(output),
+        "--json",
+    ]
+
+    assert app(argv) == EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    profile = RobotProfile.model_validate_json(output.read_text(encoding="utf-8"))
+    assert payload["status"] == "WRITTEN"
+    assert payload["profile_sha256"]
+    assert profile.robot_id == "openarm_bimanual"
+    assert profile.groups[0].gripper is not None
+
+    assert app(argv) == EXIT_SEMANTIC
+    error = json.loads(capsys.readouterr().out)
+    assert error["status"] == "INVALID_INPUT"

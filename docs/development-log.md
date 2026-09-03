@@ -1373,3 +1373,39 @@ Remote verification against the real staged OpenArm asset:
 The next implementation boundary is to make this formal target profile
 materializable as an exclusive, hash-bound JSON artifact for solve/export
 inputs, before adding any target-specific execution behavior.
+
+### M1a.29: materialize and verify the OpenArm target profile artifact
+
+The target profile is now materializable through the `build-robot-profile`
+command. It currently accepts the explicit `openarm_bimanual` adapter, reruns
+the URDF/SRDF and gripper-structure checks, and writes exactly one JSON profile
+through an exclusive writer. The command reports a canonical profile SHA-256 so
+future solve/export recipes can bind the exact target asset contract.
+
+The remote artifact is:
+
+- `projects/private-sample-openarm/robots/openarm_bimanual/robot-profile-v0.1.json`;
+- robot id `openarm_bimanual`, root `world`;
+- groups `openarm_left` and `openarm_right`, each targeting its `hand_tcp`;
+- target gripper mapping `aperture_fraction -> finger_joint1` in metres, with
+  `finger_joint2` represented only through the declared mimic relation;
+- canonical profile SHA-256
+  `1aa65d1241838b7fd29ed79d2a485488aec187b946ccb8fc654d4bfb71bc0194`.
+
+Reloading the written JSON reproduced the same hash and the expected two group
+bindings. A second write to the same path is rejected, so a changed URDF or
+semantic declaration must create a new artifact rather than silently replacing
+the old one.
+
+Remote verification:
+
+- target gripper, OpenArm asset, writer, and CLI tests: 6 passed;
+- full regression with the real OpenArm asset profile smoke enabled: 79 passed
+  and 1 Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- the generated profile contains only robot metadata and hashes; no private
+  dataset values, video, or export commands were run.
+
+The next implementation boundary is to bind this target profile hash into a
+target-side aperture mapping/replay artifact, keeping that transformation
+separate from arm IK and refusing a missing or mismatched target profile.

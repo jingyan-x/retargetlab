@@ -9,6 +9,7 @@ from .preflight import verify_review_package_preflight, write_review_package_pre
 from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
 from .report import write_dataset_report
 from .review import write_calibration_run, write_review_run_artifact
+from .robot_profile import write_robot_profile
 from .verify import verify_calibration_run
 from .workspace import RunWorkspace, create_run_workspace
 
@@ -28,6 +29,7 @@ __all__ = [
     "write_review_package_preflight",
     "verify_review_package_preflight",
     "write_data_profile",
+    "write_robot_profile",
     "write_dataset_coverage",
     "verify_data_profile",
     "load_executable_data_profile",

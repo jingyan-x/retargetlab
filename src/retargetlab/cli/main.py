@@ -39,6 +39,7 @@ from retargetlab.io import (
     validate_mapping,
 )
 from retargetlab.robot.assets import sha256_file
+from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     canonical_json_bytes,
     execute_solve_run,
@@ -52,6 +53,7 @@ from retargetlab.run import (
     write_dataset_coverage,
     write_review_decision_artifact,
     write_review_package_preflight,
+    write_robot_profile,
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -69,6 +71,14 @@ def _parser() -> argparse.ArgumentParser:
 
     doctor = subparsers.add_parser("doctor", help="check the local runtime")
     doctor.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    build_robot_profile = subparsers.add_parser(
+        "build-robot-profile", help="build a versioned target robot profile artifact"
+    )
+    build_robot_profile.add_argument("--robot", required=True, choices=("openarm_bimanual",))
+    build_robot_profile.add_argument("--asset-dir", required=True, type=Path)
+    build_robot_profile.add_argument("--output", required=True, type=Path)
+    build_robot_profile.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -396,6 +406,27 @@ def _coverage_payload(
         },
         EXIT_OK if coverage.status == "COMPLETE" else EXIT_QUALITY,
     )
+
+
+def _robot_profile_payload(
+    *,
+    robot_id: str,
+    asset_dir: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    if robot_id != "openarm_bimanual":
+        raise ValueError(f"unsupported robot profile: {robot_id}")
+    profile = load_openarm_bimanual_profile(asset_dir)
+    write_robot_profile(output_path, profile)
+    return {
+        "command": "build-robot-profile",
+        "status": "WRITTEN",
+        "robot_id": profile.robot_id,
+        "root_frame": profile.root_frame,
+        "group_names": [group.name for group in profile.groups],
+        "profile_sha256": sha256_bytes(canonical_json_bytes(profile)),
+        "output": str(output_path),
+    }
 
 
 def _candidate_payload(
@@ -915,6 +946,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "build-robot-profile":
+        print(
+            f"robot profile: {payload['robot_id']} -> {payload['output']} "
+            f"({payload['profile_sha256']})",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "candidate":
         print(
             f"mapping candidate: {payload['status']} "
@@ -1054,6 +1092,31 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return exit_code
+    if args.command == "build-robot-profile":
+        try:
+            payload = _robot_profile_payload(
+                robot_id=args.robot,
+                asset_dir=args.asset_dir,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-robot-profile",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-robot-profile",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
     if args.command == "candidate":
         try:
             payload = _candidate_payload(
