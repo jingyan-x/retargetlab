@@ -1,6 +1,14 @@
+import json
+
 import pytest
 
-from retargetlab.contracts import ColumnRef, MappingSpec, StreamMapping, StructureComparison
+from retargetlab.contracts import (
+    ColumnRef,
+    MappingReview,
+    MappingSpec,
+    StreamMapping,
+    StructureComparison,
+)
 from retargetlab.io import run_parquet_calibration, select_calibration_rows
 
 
@@ -165,3 +173,106 @@ def test_combined_parquet_calibration_preflights_before_reading_rows(tmp_path) -
             frames_per_episode=1,
             columns=("episode_index", "frame_index", "index", "timestamp", "observation.state"),
         )
+
+
+def test_calibrate_cli_writes_audit_only_for_approved_slice(tmp_path, capsys) -> None:
+    from retargetlab.cli.main import EXIT_OK, app
+
+    data_path, episodes_path = _write_fixture(tmp_path)
+    frame = "UNRESOLVED"
+    candidate = MappingSpec(
+        dataset_alias="fixture",
+        source_revision="v1",
+        coordinate_frame=frame,
+        timestamp=ColumnRef(source="timestamp", expected_shape=()),
+        streams=(
+            StreamMapping(
+                name="observation.state.slot_0",
+                role="robot_state",
+                fields={
+                    "position": ColumnRef(
+                        source="observation.state",
+                        expected_shape=(7,),
+                        indices=(0, 1, 2),
+                    ),
+                    "orientation": ColumnRef(
+                        source="observation.state",
+                        expected_shape=(7,),
+                        indices=(3, 4, 5, 6),
+                        quaternion_order="wxyz",
+                    ),
+                },
+            ),
+        ),
+        metadata={"candidate_status": "REVIEW_REQUIRED"},
+    )
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps({"mapping": candidate.model_dump(mode="json")}),
+        encoding="utf-8",
+    )
+    review_path = tmp_path / "review.json"
+    review_path.write_text(
+        MappingReview(
+            dataset_alias="fixture",
+            source_revision="v1",
+            coordinate_frame="dataset_native",
+            position_unit="m",
+            timestamp_unit="s",
+            orientation_quaternion_order="wxyz",
+            slot_labels={"slot_0": "left", "slot_1": "right"},
+            target_group_by_slot={"slot_0": "panda_2", "slot_1": "panda_1"},
+            evidence=("synthetic-fixture",),
+            reviewer="test",
+            accept_unverified_shape=True,
+            approved=True,
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+    comparison_path = tmp_path / "comparison.json"
+    comparison_path.write_text(
+        StructureComparison(
+            compatible=True,
+            fully_verified=False,
+            alias_match=True,
+            revision_match=True,
+            row_count_match=True,
+            declared_total_frames=8,
+            observed_row_count=8,
+            shape_unverified=("observation.state",),
+        ).model_dump_json(),
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "audit.json"
+
+    assert (
+        app(
+            [
+                "calibrate",
+                "--data",
+                str(data_path),
+                "--episodes",
+                str(episodes_path),
+                "--candidate",
+                str(candidate_path),
+                "--review",
+                str(review_path),
+                "--comparison",
+                str(comparison_path),
+                "--episode-indices",
+                "0",
+                "--frames-per-episode",
+                "2",
+                "--output",
+                str(output_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "COMPLETED"
+    assert payload["frame_count"] == 2
+    artifact_text = output_path.read_text(encoding="utf-8")
+    assert "poses" not in artifact_text
+    assert "position_m" not in artifact_text

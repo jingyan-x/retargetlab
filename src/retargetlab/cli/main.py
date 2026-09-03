@@ -19,6 +19,7 @@ from retargetlab.contracts import (
     MappingReview,
     MappingSpec,
     Recipe,
+    ReviewRunArtifact,
     RobotProfile,
     StructureComparison,
     StructureManifest,
@@ -30,9 +31,15 @@ from retargetlab.io import (
     normalize_rows,
     probe_lerobot_info,
     probe_parquet,
+    run_parquet_calibration,
     validate_mapping,
 )
-from retargetlab.run import execute_solve_run, recipe_sha256
+from retargetlab.run import (
+    canonical_json_bytes,
+    execute_solve_run,
+    recipe_sha256,
+    write_review_run_artifact,
+)
 from retargetlab.run.fingerprint import sha256_bytes
 
 EXIT_OK = 0
@@ -74,6 +81,20 @@ def _parser() -> argparse.ArgumentParser:
     review_mapping.add_argument("--review", required=True, type=Path)
     review_mapping.add_argument("--comparison", required=True, type=Path)
     review_mapping.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    calibrate = subparsers.add_parser(
+        "calibrate", help="run a bounded approved calibration and write an audit artifact"
+    )
+    calibrate.add_argument("--data", required=True, type=Path)
+    calibrate.add_argument("--episodes", required=True, type=Path)
+    calibrate.add_argument("--candidate", required=True, type=Path)
+    calibrate.add_argument("--review", required=True, type=Path)
+    calibrate.add_argument("--comparison", required=True, type=Path)
+    calibrate.add_argument("--episode-indices", required=True, nargs="+", type=int)
+    calibrate.add_argument("--frames-per-episode", required=True, type=int)
+    calibrate.add_argument("--max-frames", default=60, type=int)
+    calibrate.add_argument("--output", required=True, type=Path)
+    calibrate.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
     diagnose.add_argument("--run", required=True, type=Path)
@@ -250,11 +271,11 @@ def _candidate_payload(
     }
 
 
-def _review_mapping_payload(
+def _load_reviewed_mapping(
     candidate_path: Path,
     review_path: Path,
     comparison_path: Path,
-) -> dict[str, Any]:
+) -> tuple[MappingSpec, StructureComparison]:
     raw = json.loads(candidate_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("mapping candidate must contain a JSON object")
@@ -267,11 +288,64 @@ def _review_mapping_payload(
         comparison_raw.get("comparison", comparison_raw)
     )
     approved = apply_mapping_review(candidate, review, comparison)
+    return approved, comparison
+
+
+def _review_mapping_payload(
+    candidate_path: Path,
+    review_path: Path,
+    comparison_path: Path,
+) -> dict[str, Any]:
+    approved, comparison = _load_reviewed_mapping(candidate_path, review_path, comparison_path)
     return {
         "command": "review-mapping",
         "status": "APPROVED",
         "comparison": comparison.model_dump(mode="json"),
         "mapping": approved.model_dump(mode="json"),
+    }
+
+
+def _calibrate_payload(
+    *,
+    data_path: Path,
+    episodes_path: Path,
+    candidate_path: Path,
+    review_path: Path,
+    comparison_path: Path,
+    episode_indices: list[int],
+    frames_per_episode: int,
+    max_frames: int,
+    output_path: Path,
+) -> dict[str, Any]:
+    mapping, comparison = _load_reviewed_mapping(
+        candidate_path,
+        review_path,
+        comparison_path,
+    )
+    trajectory, calibration, selection = run_parquet_calibration(
+        data_path,
+        episodes_path,
+        mapping,
+        comparison,
+        episode_indices=episode_indices,
+        frames_per_episode=frames_per_episode,
+        max_frames=max_frames,
+    )
+    artifact: ReviewRunArtifact = write_review_run_artifact(
+        output_path,
+        mapping=mapping,
+        comparison=comparison,
+        selection=selection,
+        calibration=calibration,
+    )
+    del trajectory
+    return {
+        "command": "calibrate",
+        "status": artifact.calibration.status,
+        "output": str(output_path),
+        "frame_count": artifact.calibration.frame_count,
+        "selected_row_count": artifact.selection.selected_frame_count,
+        "artifact_sha256": sha256_bytes(canonical_json_bytes(artifact)),
     }
 
 
@@ -476,6 +550,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("command") == "review-mapping":
         print(f"mapping review: {payload['status']}", file=stdout)
         return
+    if payload.get("command") == "calibrate":
+        print(
+            f"calibration: {payload['status']} "
+            f"({payload['frame_count']} frames) -> {payload['output']}",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "validate-input":
         print(
             f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
@@ -553,6 +634,29 @@ def app(argv: list[str] | None = None) -> int:
             payload = _review_mapping_payload(args.candidate, args.review, args.comparison)
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {"command": "review-mapping", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "calibrate":
+        try:
+            payload = _calibrate_payload(
+                data_path=args.data,
+                episodes_path=args.episodes,
+                candidate_path=args.candidate,
+                review_path=args.review,
+                comparison_path=args.comparison,
+                episode_indices=args.episode_indices,
+                frames_per_episode=args.frames_per_episode,
+                max_frames=args.max_frames,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {"command": "calibrate", "status": "ENVIRONMENT_ERROR", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {"command": "calibrate", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)

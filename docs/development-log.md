@@ -779,3 +779,31 @@ Remote verification:
 The next boundary is to add a narrow command-level wrapper for this artifact,
 still requiring an explicit approved mapping and comparison before any real
 calibration read.
+
+### M1a.9: command-level bounded calibration wrapper
+
+The CLI now exposes `calibrate` with required data/episode paths, candidate,
+review, structure comparison, episode indices, per-episode frame count, total
+frame budget, and exclusive audit output. It loads and promotes the mapping
+before calling the Parquet selector; only the approved mapping and matching
+comparison can reach source-row reads. The command writes the audit artifact
+only, never a canonical trajectory file, and emits counts plus artifact hash.
+
+A real-path negative smoke used the archived private-sample candidate and
+comparison with an `approved=false` review. It returned the expected invalid
+input before opening the data files, and the requested output artifact was not
+created. A synthetic approved path completed successfully and produced an
+audit-only artifact without pose arrays.
+
+Remote verification:
+
+- command-level calibration and selector tests: 7 passed;
+- full `pytest -q tests`: 54 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real source rows were read by the negative smoke; no held-out content,
+  videos, or production assets were modified.
+
+The next boundary is to add an explicit calibration recipe/run manifest so a
+future approved real run records parameters and hashes alongside the audit
+artifact without changing the default bounded behavior.
