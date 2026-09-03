@@ -2030,3 +2030,29 @@ Remote verification:
 The next implementation boundary is grouped multi-episode data-shard writing
 from this verified target-table binding manifest; it must preserve the
 declared episode intervals and keep video/statistics omissions explicit.
+
+### M1b.3g: chain target-table reports to replay bindings
+
+The project now has a value-free
+`lerobot_target_table_binding_manifest`. It binds each planned episode's
+verified synthetic target-table report to the exact replay bundle path/hash
+and replay id already recorded by the per-episode replay binding manifest,
+while retaining the plan's dataset interval and report hash. Builder checks
+re-run the report verifier and compare robot, layout, frame count, and selected
+episode; the manifest verifier rebuilds the entire plan -> replay bundle ->
+target-table-report chain. This provides the explicit input map required by a
+future grouped multi-episode data writer without inferring order from filenames.
+
+Remote verification:
+
+- replay binding, target-table binding, metadata skeleton/partial writer, CLI,
+  and mismatch tests: 13 passed;
+- full regression with the real OpenArm asset smoke enabled: 118 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is grouped multi-episode data-shard writing
+from this verified target-table binding manifest; it must preserve the
+declared episode intervals and keep video/statistics omissions explicit.
