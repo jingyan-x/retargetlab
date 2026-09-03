@@ -18,6 +18,7 @@ from .mapping import (
 )
 from .recipe import Recipe, RunManifest
 from .robot_profile import CollisionProfile, KinematicGroup, RobotProfile
+from .selection import CalibrationSelection, EpisodeRange
 from .solve import IKResult, IKStatus, SolveOptions
 from .threshold import Threshold
 
@@ -25,12 +26,14 @@ __all__ = [
     "CanonicalFrame",
     "CanonicalTrajectory",
     "CalibrationReport",
+    "CalibrationSelection",
     "ColumnRef",
     "CollisionProfile",
     "DatasetInfoManifest",
     "DatasetReport",
     "EpisodeReport",
     "EvidenceLevel",
+    "EpisodeRange",
     "FeatureDeclaration",
     "IKResult",
     "IKStatus",

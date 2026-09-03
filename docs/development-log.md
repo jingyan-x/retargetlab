@@ -723,3 +723,30 @@ Remote verification:
 The next boundary is to connect the approved-only calibration function to a
 row-selection adapter, preserving episode boundaries and provenance without
 adding an unbounded data-conversion path.
+
+### M1a.7: bounded Parquet selector with preflight ordering
+
+The selector now reads only requested episode range metadata, deterministically
+chooses uniformly spaced frame positions within each requested episode, and
+fetches only the corresponding source rows and explicitly requested columns.
+It enforces a 60-frame selection ceiling, preserves episode boundaries, checks
+the returned global index/episode/frame triplets, and emits data/episode file
+hashes plus selected row indices in a value-free `CalibrationSelection`.
+
+The combined Parquet calibration entrypoint performs the approval and structure
+comparison preflight before opening either data file. Only after that gate does
+it select rows and call bounded normalization. The real private-sample mapping
+is still unapproved, so this combined path was exercised only with synthetic
+Parquet data.
+
+Remote verification:
+
+- selector and combined calibration tests: 6 passed;
+- full `pytest -q tests`: 52 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real source rows, held-out episodes, videos, or production assets were
+  read or modified by the calibration path.
+
+The next boundary is to expose a bounded review-run artifact that records the
+selection and calibration report without serializing source rows by default.

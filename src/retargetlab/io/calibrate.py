@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from retargetlab.contracts import (
     CalibrationReport,
+    CalibrationSelection,
     CanonicalTrajectory,
     MappingSpec,
     StructureComparison,
 )
 from retargetlab.io.normalize import normalize_rows
+from retargetlab.io.select import DEFAULT_CALIBRATION_COLUMNS, select_calibration_rows
 
 DEFAULT_MAX_CALIBRATION_FRAMES = 60
 MAX_CALIBRATION_FRAMES = 600
@@ -66,3 +69,36 @@ def run_bounded_calibration(
         ),
     )
     return trajectory, report
+
+
+def run_parquet_calibration(
+    data_path: Path,
+    episodes_path: Path,
+    spec: MappingSpec,
+    comparison: StructureComparison,
+    *,
+    episode_indices: Sequence[int],
+    frames_per_episode: int,
+    max_frames: int = DEFAULT_MAX_CALIBRATION_FRAMES,
+    columns: Sequence[str] = DEFAULT_CALIBRATION_COLUMNS,
+) -> tuple[CanonicalTrajectory, CalibrationReport, CalibrationSelection]:
+    """Select and normalize a bounded Parquet slice after preflight approval."""
+
+    _require_approved_mapping(spec, comparison)
+    rows, selection = select_calibration_rows(
+        data_path,
+        episodes_path,
+        dataset_alias=spec.dataset_alias,
+        source_revision=spec.source_revision,
+        episode_indices=episode_indices,
+        frames_per_episode=frames_per_episode,
+        max_frames=max_frames,
+        columns=columns,
+    )
+    trajectory, report = run_bounded_calibration(
+        rows,
+        spec,
+        comparison,
+        max_frames=max_frames,
+    )
+    return trajectory, report, selection
