@@ -166,6 +166,7 @@ class MappingReview(BaseModel):
     target_group_by_slot: dict[str, str] = Field(min_length=2, max_length=2)
     evidence: tuple[str, ...] = Field(min_length=1)
     reviewer: str = Field(min_length=1)
+    accept_unverified_shape: bool = False
     approved: bool = False
 
     @model_validator(mode="after")

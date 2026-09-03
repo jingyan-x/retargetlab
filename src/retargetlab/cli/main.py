@@ -20,6 +20,7 @@ from retargetlab.contracts import (
     MappingSpec,
     Recipe,
     RobotProfile,
+    StructureComparison,
     StructureManifest,
 )
 from retargetlab.io import (
@@ -71,6 +72,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     review_mapping.add_argument("candidate", type=Path)
     review_mapping.add_argument("--review", required=True, type=Path)
+    review_mapping.add_argument("--comparison", required=True, type=Path)
     review_mapping.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
@@ -248,16 +250,27 @@ def _candidate_payload(
     }
 
 
-def _review_mapping_payload(candidate_path: Path, review_path: Path) -> dict[str, Any]:
+def _review_mapping_payload(
+    candidate_path: Path,
+    review_path: Path,
+    comparison_path: Path,
+) -> dict[str, Any]:
     raw = json.loads(candidate_path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("mapping candidate must contain a JSON object")
     candidate = MappingSpec.model_validate(raw.get("mapping", raw))
     review = MappingReview.model_validate_json(review_path.read_text(encoding="utf-8"))
-    approved = apply_mapping_review(candidate, review)
+    comparison_raw = json.loads(comparison_path.read_text(encoding="utf-8"))
+    if not isinstance(comparison_raw, dict):
+        raise ValueError("structure comparison must contain a JSON object")
+    comparison = StructureComparison.model_validate(
+        comparison_raw.get("comparison", comparison_raw)
+    )
+    approved = apply_mapping_review(candidate, review, comparison)
     return {
         "command": "review-mapping",
         "status": "APPROVED",
+        "comparison": comparison.model_dump(mode="json"),
         "mapping": approved.model_dump(mode="json"),
     }
 
@@ -537,7 +550,7 @@ def app(argv: list[str] | None = None) -> int:
         return EXIT_OK
     if args.command == "review-mapping":
         try:
-            payload = _review_mapping_payload(args.candidate, args.review)
+            payload = _review_mapping_payload(args.candidate, args.review, args.comparison)
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {"command": "review-mapping", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)

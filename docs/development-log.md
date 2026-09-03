@@ -669,3 +669,30 @@ Remote verification:
 The next boundary is to supply or derive review evidence for frame/unit and
 slot-to-target semantics, then run only a bounded calibration check before any
 full trajectory conversion.
+
+### M1a.5: require structure evidence during mapping promotion
+
+The promotion path now requires the value-free `StructureComparison` artifact
+in addition to the semantic review. It rejects incompatible alias/revision,
+row-count, field, dtype, or shape results. When the comparison is compatible
+but not fully verified, the review must explicitly set
+`accept_unverified_shape=true`; the default remains rejection. The CLI accepts
+either a bare comparison object or the archived inspect wrapper containing a
+`comparison` member.
+
+The remote private sample therefore still cannot be promoted automatically:
+its comparison is compatible but not fully verified, and no approved review
+was supplied. This preserves the distinction between declared feature shape,
+physical storage shape, and human semantic approval.
+
+Remote verification:
+
+- full `pytest -q tests`: 46 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- the unapproved CLI path remains covered and no real-data normalization or IK
+  solving was performed.
+
+The next boundary is a bounded calibration executor that accepts only an
+approved mapping plus its matching structure comparison, with no full-dataset
+conversion until calibration evidence is recorded.

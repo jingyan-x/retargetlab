@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from retargetlab.contracts import MappingReview, MappingSpec, StreamMapping
+from retargetlab.contracts import MappingReview, MappingSpec, StreamMapping, StructureComparison
 
 
-def apply_mapping_review(candidate: MappingSpec, review: MappingReview) -> MappingSpec:
+def apply_mapping_review(
+    candidate: MappingSpec,
+    review: MappingReview,
+    comparison: StructureComparison,
+) -> MappingSpec:
     """Apply reviewed frame/unit/slot metadata to a candidate mapping."""
 
     if not review.approved:
@@ -14,6 +18,10 @@ def apply_mapping_review(candidate: MappingSpec, review: MappingReview) -> Mappi
         raise ValueError("mapping review dataset alias does not match candidate")
     if candidate.source_revision != review.source_revision:
         raise ValueError("mapping review source revision does not match candidate")
+    if not comparison.compatible:
+        raise ValueError("structure comparison is incompatible with candidate")
+    if not comparison.fully_verified and not review.accept_unverified_shape:
+        raise ValueError("review must explicitly accept unverified source shapes")
 
     streams: list[StreamMapping] = []
     for stream in candidate.streams:
@@ -55,6 +63,7 @@ def apply_mapping_review(candidate: MappingSpec, review: MappingReview) -> Mappi
             "quaternion_order": review.orientation_quaternion_order,
             "reviewer": review.reviewer,
             "review_evidence": ";".join(review.evidence),
+            "accepted_unverified_shape": str(review.accept_unverified_shape).lower(),
             "target_group.slot_0": review.target_group_by_slot["slot_0"],
             "target_group.slot_1": review.target_group_by_slot["slot_1"],
         }
