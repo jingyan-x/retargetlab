@@ -44,6 +44,7 @@ from retargetlab.run import (
     canonical_json_bytes,
     execute_solve_run,
     load_executable_data_profile,
+    map_target_grippers,
     recipe_sha256,
     verify_calibration_run,
     verify_data_profile,
@@ -54,6 +55,7 @@ from retargetlab.run import (
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
+    write_target_gripper_trajectory,
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -79,6 +81,21 @@ def _parser() -> argparse.ArgumentParser:
     build_robot_profile.add_argument("--asset-dir", required=True, type=Path)
     build_robot_profile.add_argument("--output", required=True, type=Path)
     build_robot_profile.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    map_grippers = subparsers.add_parser(
+        "map-grippers", help="map canonical aperture streams to target gripper joints"
+    )
+    map_grippers.add_argument("--trajectory", required=True, type=Path)
+    map_grippers.add_argument("--profile", required=True, type=Path)
+    map_grippers.add_argument(
+        "--binding",
+        required=True,
+        action="append",
+        metavar="STREAM=GROUP",
+        help="bind one canonical gripper stream to one target robot group",
+    )
+    map_grippers.add_argument("--output", required=True, type=Path)
+    map_grippers.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -425,6 +442,47 @@ def _robot_profile_payload(
         "root_frame": profile.root_frame,
         "group_names": [group.name for group in profile.groups],
         "profile_sha256": sha256_bytes(canonical_json_bytes(profile)),
+        "output": str(output_path),
+    }
+
+
+def _parse_gripper_bindings(raw_bindings: list[str]) -> dict[str, str]:
+    bindings: dict[str, str] = {}
+    for raw in raw_bindings:
+        stream, separator, group = raw.partition("=")
+        if not separator or not stream.strip() or not group.strip():
+            raise ValueError(f"invalid gripper binding, expected STREAM=GROUP: {raw}")
+        if stream in bindings:
+            raise ValueError(f"duplicate gripper binding for stream: {stream}")
+        bindings[stream] = group
+    return bindings
+
+
+def _map_grippers_payload(
+    *,
+    trajectory_path: Path,
+    profile_path: Path,
+    raw_bindings: list[str],
+    output_path: Path,
+) -> dict[str, Any]:
+    trajectory = CanonicalTrajectory.model_validate_json(
+        trajectory_path.read_text(encoding="utf-8")
+    )
+    profile = RobotProfile.model_validate_json(profile_path.read_text(encoding="utf-8"))
+    mapped = map_target_grippers(
+        trajectory,
+        profile,
+        _parse_gripper_bindings(raw_bindings),
+    )
+    write_target_gripper_trajectory(output_path, mapped)
+    return {
+        "command": "map-grippers",
+        "status": "MAPPED",
+        "robot_id": mapped.robot_id,
+        "profile_sha256": mapped.profile_sha256,
+        "group_names": list(mapped.group_names),
+        "frame_count": len(mapped.frames),
+        "joint_names": sorted(mapped.frames[0].joint_positions),
         "output": str(output_path),
     }
 
@@ -953,6 +1011,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "map-grippers":
+        print(
+            f"target grippers: {payload['frame_count']} frames -> {payload['output']} "
+            f"({payload['profile_sha256']})",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "candidate":
         print(
             f"mapping candidate: {payload['status']} "
@@ -1110,6 +1175,32 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "build-robot-profile",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "map-grippers":
+        try:
+            payload = _map_grippers_payload(
+                trajectory_path=args.trajectory,
+                profile_path=args.profile,
+                raw_bindings=args.binding,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "map-grippers",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "map-grippers",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

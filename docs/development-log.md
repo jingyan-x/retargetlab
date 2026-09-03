@@ -1409,3 +1409,34 @@ Remote verification:
 The next implementation boundary is to bind this target profile hash into a
 target-side aperture mapping/replay artifact, keeping that transformation
 separate from arm IK and refusing a missing or mismatched target profile.
+
+### M1a.30: bind target aperture replay to the OpenArm profile
+
+The target-side transformation now has its own `TargetGripperTrajectory`
+contract. It contains only timestamps and target joint positions, never arm
+poses or IK results, and records the canonical hash of the target
+`RobotProfile`. `map_target_grippers` requires an exact one-to-one binding
+between canonical gripper streams and all target robot groups; missing,
+unbound, duplicate, or gripper-less groups are rejected. The mapping then uses
+the target profile's driver/mimic semantics, so OpenArm emits
+`finger_joint1` in metres and `finger_joint2` only as its declared mimic.
+
+The `map-grippers` CLI materializes this replay artifact through an exclusive
+writer. A profile or stream binding cannot be silently substituted, and a
+second write to the same output path fails. The real target profile artifact
+hash is carried into the replay artifact and revalidated by the contract.
+
+Remote verification:
+
+- target gripper contract, mapping, writer, CLI, and real OpenArm profile
+  smoke: 9 focused tests passed;
+- synthetic mapping confirmed that the output contains no `poses` field and
+  maps closed/open/mid aperture values to the expected driver and mimic
+  positions;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, arm IK output, or export bundle were read or
+  changed.
+
+The next implementation boundary is to bind the target gripper replay into a
+full canonical-to-target replay manifest, including explicit arm-solve
+provenance, without making the gripper path part of the arm IK objective.

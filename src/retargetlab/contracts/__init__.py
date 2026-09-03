@@ -11,6 +11,7 @@ from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
 from .coverage import DatasetCoverage, EpisodeCoverage
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
+from .gripper import TargetGripperFrame, TargetGripperTrajectory
 from .mapping import (
     ColumnRef,
     DatasetInfoManifest,
@@ -95,6 +96,8 @@ __all__ = [
     "StructureField",
     "StructureManifest",
     "Threshold",
+    "TargetGripperFrame",
+    "TargetGripperTrajectory",
     "CommandTimingReport",
     "TimingShiftResult",
     "AffineMap",
