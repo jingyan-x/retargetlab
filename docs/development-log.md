@@ -1137,3 +1137,36 @@ Remote verification:
 The next boundary is to formalize the reviewed dataset profile and its explicit
 source-side gripper/timing declarations; the semantic review gate remains
 pending for the unresolved EEF frame mapping.
+
+### M1a.22: separate arm/gripper timing units and rerun calibration evidence
+
+The first timing implementation exposed an important unit boundary: aggregating
+all 16 source joint dimensions directly made the two normalized gripper command
+channels dominate the RMSE against radian state channels. The report contract
+was tightened to require explicit `joint_indices` and to record an optional
+per-selected-joint affine action transform; no heterogeneous dimensions are
+silently mixed.
+
+The final calibration reports therefore use two explicit slices. The 14 arm
+joints use identity and return `SUPPORTED` with best shift `4` in the
+registered `4..5` window. The two gripper joints use the declared `5*x-3`
+state-unit transform and return `SUPPORTED` with best shift `6` in the
+registered `5..6` window. This matches the separate channel semantics already
+documented for the dataset. The initial mixed-unit report remains only as a
+debug artifact and is not treated as evidence.
+
+The implementation and synthetic tests also cover a non-identity transform,
+explicit index validation, value-free JSON output, and the quality exit code
+for a conflicting expected range. The physical timing result remains a
+diagnostic of tracking delay; it does not authorize shifting training rows.
+
+Remote verification:
+
+- final calibration timing reports: arm and gripper both `SUPPORTED`;
+- full `pytest -q`: 63 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no held-out data, video, or production export was read or modified.
+
+The next boundary is the DataProfile contract: capture the dataset revision,
+stream-specific pose/gripper semantics, timing evidence scope, and the
+explicit mapping formula as one reviewable value-free input to M1a.
