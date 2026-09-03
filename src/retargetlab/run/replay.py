@@ -16,7 +16,7 @@ from retargetlab.contracts import (
     TargetReplayManifest,
     TargetReplayVerification,
 )
-from retargetlab.robot.assets import sha256_file
+from retargetlab.robot.assets import sha256_file, verify_robot_profile_asset
 from retargetlab.run.fingerprint import canonical_json_bytes, recipe_sha256, sha256_bytes
 
 
@@ -55,6 +55,7 @@ def build_target_replay_manifest(
         trajectory_path.read_text(encoding="utf-8")
     )
     profile = RobotProfile.model_validate_json(profile_path.read_text(encoding="utf-8"))
+    verify_robot_profile_asset(profile)
     recipe = Recipe.model_validate_json(recipe_path.read_text(encoding="utf-8"))
     target_grippers = TargetGripperTrajectory.model_validate_json(
         target_grippers_path.read_text(encoding="utf-8")

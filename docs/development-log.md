@@ -1527,3 +1527,33 @@ Remote verification:
 The next implementation boundary is to add a target-profile asset verifier to
 the replay gate, so the recorded URDF/SRDF hashes are checked again before a
 replay is accepted as ready.
+
+### M1a.34: verify target profile assets before replay acceptance
+
+The replay gate now performs a read-only `verify_robot_profile_asset` check
+before accepting a target robot profile. It revalidates the profile URDF hash
+and portable mesh references, confirms the declared root and end-effector
+frames plus every arm/gripper joint exist, and checks target gripper driver
+limits and mimic relations against the URDF. When a profile declares an SRDF,
+the verifier also checks its path, optional hash, and XML root. This keeps the
+profile artifact's recorded semantics tied to the actual target assets rather
+than treating the JSON metadata as sufficient evidence.
+
+Replay unit fixtures now include minimal self-contained URDFs and exact hashes,
+including a dual-group fixture. This exercises the new asset gate without
+reading private dataset rows or requiring a real arm-solve artifact. The
+multi-group replay schema and completeness checks remain unchanged.
+
+Remote verification:
+
+- replay asset-gate and multi-group tests: 3 passed;
+- full regression with real OpenArm profile smoke enabled: 85 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- target asset verification remains read-only and no private dataset rows,
+  video, or real solve/export artifact was read or changed.
+
+The next implementation boundary is to use the verified profile and replay
+lineage as the prerequisite for a deterministic target-side execution/export
+artifact, while preserving the separation between arm IK results and gripper
+aperture replay.

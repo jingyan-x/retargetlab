@@ -25,8 +25,61 @@ from retargetlab.run import (
 )
 from retargetlab.run.fingerprint import recipe_sha256, sha256_bytes
 
+SINGLE_FIXTURE_URDF = """<?xml version="1.0"?>
+<robot name="fixture">
+  <link name="world"/>
+  <link name="tool"/>
+  <link name="finger_link1"/>
+  <joint name="joint1" type="revolute">
+    <parent link="world"/>
+    <child link="tool"/>
+    <limit lower="-1.0" upper="1.0" effort="1.0" velocity="1.0"/>
+  </joint>
+  <joint name="finger_joint1" type="prismatic">
+    <parent link="tool"/>
+    <child link="finger_link1"/>
+    <limit lower="0.0" upper="0.044" effort="1.0" velocity="1.0"/>
+  </joint>
+</robot>
+"""
 
-def _profile() -> RobotProfile:
+DUAL_FIXTURE_URDF = """<?xml version="1.0"?>
+<robot name="dual-fixture">
+  <link name="world"/>
+  <link name="left_tool"/>
+  <link name="left_finger_link1"/>
+  <link name="right_tool"/>
+  <link name="right_finger_link1"/>
+  <joint name="left_joint1" type="revolute">
+    <parent link="world"/>
+    <child link="left_tool"/>
+    <limit lower="-1.0" upper="1.0" effort="1.0" velocity="1.0"/>
+  </joint>
+  <joint name="left_finger_joint1" type="prismatic">
+    <parent link="left_tool"/>
+    <child link="left_finger_link1"/>
+    <limit lower="0.0" upper="0.044" effort="1.0" velocity="1.0"/>
+  </joint>
+  <joint name="right_joint1" type="revolute">
+    <parent link="world"/>
+    <child link="right_tool"/>
+    <limit lower="-1.0" upper="1.0" effort="1.0" velocity="1.0"/>
+  </joint>
+  <joint name="right_finger_joint1" type="prismatic">
+    <parent link="right_tool"/>
+    <child link="right_finger_link1"/>
+    <limit lower="0.0" upper="0.044" effort="1.0" velocity="1.0"/>
+  </joint>
+</robot>
+"""
+
+
+def _write_fixture_urdf(asset_dir: Path, contents: str) -> None:
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    (asset_dir / "fixture.urdf").write_text(contents, encoding="utf-8")
+
+
+def _profile(asset_dir: Path) -> RobotProfile:
     gripper = TargetGripperProfile(
         name="fixture_gripper",
         driver_joint_name="finger_joint1",
@@ -35,9 +88,10 @@ def _profile() -> RobotProfile:
     )
     return RobotProfile(
         robot_id="fixture",
-        asset_dir="assets/fixture",
+        asset_dir=str(asset_dir),
         urdf_path="fixture.urdf",
-        urdf_sha256="0" * 64,
+        urdf_sha256=sha256_bytes((asset_dir / "fixture.urdf").read_bytes()),
+        root_frame="world",
         groups=(
             KinematicGroup(
                 name="arm",
@@ -51,8 +105,11 @@ def _profile() -> RobotProfile:
 
 
 def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
+    asset_dir = tmp_path / "assets" / "fixture"
+    _write_fixture_urdf(asset_dir, SINGLE_FIXTURE_URDF)
+    profile = _profile(asset_dir)
     profile_path = tmp_path / "profile.json"
-    write_robot_profile(profile_path, _profile())
+    write_robot_profile(profile_path, profile)
     pose = Pose(
         position_m=(0.0, 0.0, 0.0),
         quaternion_wxyz=(1.0, 0.0, 0.0, 0.0),
@@ -98,7 +155,7 @@ def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
     recipe_path.write_text(recipe.model_dump_json(), encoding="utf-8")
     target = map_target_grippers(
         trajectory,
-        _profile(),
+        profile,
         {"arm": "arm"},
     )
     target_path = tmp_path / "target-grippers.json"
@@ -122,7 +179,7 @@ def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
     return trajectory_path, profile_path, recipe_path, solve_path, target_path
 
 
-def _dual_profile() -> RobotProfile:
+def _dual_profile(asset_dir: Path) -> RobotProfile:
     groups = []
     for side in ("left", "right"):
         gripper = TargetGripperProfile(
@@ -142,9 +199,10 @@ def _dual_profile() -> RobotProfile:
         )
     return RobotProfile(
         robot_id="dual-fixture",
-        asset_dir="assets/fixture",
+        asset_dir=str(asset_dir),
         urdf_path="fixture.urdf",
-        urdf_sha256="0" * 64,
+        urdf_sha256=sha256_bytes((asset_dir / "fixture.urdf").read_bytes()),
+        root_frame="world",
         groups=tuple(groups),
     )
 
@@ -152,7 +210,9 @@ def _dual_profile() -> RobotProfile:
 def _write_dual_inputs(
     tmp_path: Path,
 ) -> tuple[Path, Path, Path, tuple[Path, Path], Path]:
-    profile = _dual_profile()
+    asset_dir = tmp_path / "assets" / "dual-fixture"
+    _write_fixture_urdf(asset_dir, DUAL_FIXTURE_URDF)
+    profile = _dual_profile(asset_dir)
     profile_path = tmp_path / "dual-profile.json"
     write_robot_profile(profile_path, profile)
     pose = Pose(

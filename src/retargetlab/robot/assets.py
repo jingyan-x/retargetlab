@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import xml.etree.ElementTree as ET
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+from retargetlab.contracts import RobotProfile
 
 
 def sha256_file(path: Path) -> str:
@@ -108,3 +111,99 @@ def verify_urdf_manifest(asset_dir: Path, manifest: dict[str, Any]) -> Path:
         raise ValueError("manifest is missing generated URDF path or hash")
     urdf_path = resolve_asset_file(asset_dir, raw_path)
     return verify_profile_urdf(asset_dir, urdf_path, expected_hash)
+
+
+def _named_urdf_elements(root: ET.Element, tag: str) -> dict[str, ET.Element]:
+    return {
+        name: element
+        for element in root.iter()
+        if element.tag.rsplit("}", 1)[-1] == tag and (name := element.get("name")) is not None
+    }
+
+
+def _urdf_limit(joint: ET.Element, attribute: str) -> float:
+    limit = next(
+        (child for child in joint if child.tag.rsplit("}", 1)[-1] == "limit"),
+        None,
+    )
+    if limit is None:
+        raise ValueError(f"URDF joint has no limit: {joint.get('name')}")
+    raw = limit.get(attribute)
+    if raw is None:
+        raise ValueError(f"URDF joint limit is missing {attribute}: {joint.get('name')}")
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"URDF joint limit is not numeric: {joint.get('name')}") from exc
+    if not math.isfinite(value):
+        raise ValueError(f"URDF joint limit is not finite: {joint.get('name')}")
+    return value
+
+
+def verify_robot_profile_asset(profile: RobotProfile) -> Path:
+    """Verify a profile's URDF/SRDF files and declared joint/frame semantics."""
+
+    asset_dir = Path(profile.asset_dir).resolve()
+    urdf_path = resolve_asset_file(asset_dir, profile.urdf_path)
+    verify_profile_urdf(asset_dir, urdf_path, profile.urdf_sha256)
+    try:
+        root = ET.parse(urdf_path).getroot()
+    except (OSError, ET.ParseError) as exc:
+        raise ValueError(f"cannot parse robot profile URDF: {urdf_path}") from exc
+    links = _named_urdf_elements(root, "link")
+    joints = _named_urdf_elements(root, "joint")
+    if profile.root_frame not in links:
+        raise ValueError(f"robot profile root frame is not a URDF link: {profile.root_frame}")
+    frame_names = set(links) | set(joints)
+    for group in profile.groups:
+        if group.end_effector_frame not in frame_names:
+            raise ValueError(
+                f"robot profile end-effector frame is missing: {group.end_effector_frame}"
+            )
+        for joint_name in group.joint_names + group.gripper_joint_names:
+            if joint_name not in joints:
+                raise ValueError(f"robot profile joint is missing from URDF: {joint_name}")
+        if group.gripper is None:
+            continue
+        driver = joints[group.gripper.driver_joint_name]
+        if driver.get("type") != "prismatic":
+            raise ValueError("target gripper driver joint must be prismatic")
+        lower = _urdf_limit(driver, "lower")
+        upper = _urdf_limit(driver, "upper")
+        if not math.isclose(lower, group.gripper.driver_lower_m, abs_tol=1e-9):
+            raise ValueError("target gripper lower limit does not match the URDF")
+        if not math.isclose(upper, group.gripper.driver_upper_m, abs_tol=1e-9):
+            raise ValueError("target gripper upper limit does not match the URDF")
+        for mimic_profile in group.gripper.mimic_joints:
+            mimic_joint = joints[mimic_profile.joint_name]
+            if mimic_joint.get("type") != "prismatic":
+                raise ValueError("target gripper mimic joint must be prismatic")
+            mimic = next(
+                (child for child in mimic_joint if child.tag.rsplit("}", 1)[-1] == "mimic"),
+                None,
+            )
+            if mimic is None or mimic.get("joint") != group.gripper.driver_joint_name:
+                raise ValueError("target gripper mimic relation does not match the URDF")
+            multiplier = float(mimic.get("multiplier", "1.0"))
+            offset = float(mimic.get("offset", "0.0"))
+            if not math.isclose(multiplier, mimic_profile.multiplier, abs_tol=1e-12):
+                raise ValueError("target gripper mimic multiplier does not match the URDF")
+            if not math.isclose(offset, mimic_profile.offset_m, abs_tol=1e-12):
+                raise ValueError("target gripper mimic offset does not match the URDF")
+
+    collision = profile.collision
+    if collision is not None and collision.srdf_path is not None:
+        srdf_path = resolve_asset_file(asset_dir, collision.srdf_path)
+        if not srdf_path.is_file():
+            raise FileNotFoundError(f"robot profile SRDF does not exist: {srdf_path}")
+        if collision.srdf_sha256 is not None:
+            actual_hash = sha256_file(srdf_path)
+            if actual_hash.lower() != collision.srdf_sha256.lower():
+                raise ValueError("robot profile SRDF hash does not match the profile")
+        try:
+            srdf_root = ET.parse(srdf_path).getroot()
+        except (OSError, ET.ParseError) as exc:
+            raise ValueError(f"cannot parse robot profile SRDF: {srdf_path}") from exc
+        if srdf_root.tag.rsplit("}", 1)[-1] != "robot":
+            raise ValueError("robot profile SRDF root is not robot")
+    return urdf_path
