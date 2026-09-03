@@ -22,12 +22,14 @@ from retargetlab.run import (
     build_synthetic_table_write_report,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
+    verify_lerobot_multi_episode_dataset,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
     verify_lerobot_target_table_binding_manifest,
     verify_target_replay_bundle,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
+    write_lerobot_multi_episode_dataset,
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
@@ -36,7 +38,14 @@ from retargetlab.run import (
 )
 
 
-def _write_gate(tmp_path: Path, bundle_path: Path, *, source_frame_count: int = 2) -> Path:
+def _write_gate(
+    tmp_path: Path,
+    bundle_path: Path,
+    *,
+    source_frame_count: int = 2,
+    target_replay_frame_count: int = 2,
+    training_episode_allowlist: tuple[int, ...] = (3,),
+) -> Path:
     bundle_verification = verify_target_replay_bundle(bundle_path)
     gate = ExportInputGate(
         dataset_alias="fixture",
@@ -47,8 +56,8 @@ def _write_gate(tmp_path: Path, bundle_path: Path, *, source_frame_count: int = 
         export_profile_sha256=bundle_verification.export_profile_sha256,
         robot_id="fixture",
         source_frame_count=source_frame_count,
-        target_replay_frame_count=2,
-        training_episode_allowlist=(3,),
+        target_replay_frame_count=target_replay_frame_count,
+        training_episode_allowlist=training_episode_allowlist,
     )
     path = tmp_path / "export-input-gate.json"
     path.write_text(gate.model_dump_json(), encoding="utf-8")
@@ -94,11 +103,66 @@ def _episodes() -> tuple[LeRobotEpisodeMetadata, ...]:
     )
 
 
-def _write_target_table_report(tmp_path: Path, bundle_path: Path) -> Path:
-    source_path = tmp_path / "synthetic-source.parquet"
-    target_path = tmp_path / "synthetic-target.parquet"
-    report_path = tmp_path / "synthetic-write-report.json"
+def _multi_tasks() -> tuple[LeRobotTaskMetadata, ...]:
+    return (
+        LeRobotTaskMetadata(task_index=0, task="fixture task 0"),
+        LeRobotTaskMetadata(task_index=1, task="fixture task 1"),
+    )
+
+
+def _multi_episodes() -> tuple[LeRobotEpisodeMetadata, ...]:
+    return (
+        LeRobotEpisodeMetadata(
+            episode_index=3,
+            length=2,
+            dataset_from_index=0,
+            dataset_to_index=2,
+            task_indices=(0,),
+            data_chunk_index=0,
+            data_file_index=0,
+        ),
+        LeRobotEpisodeMetadata(
+            episode_index=4,
+            length=2,
+            dataset_from_index=2,
+            dataset_to_index=4,
+            task_indices=(1,),
+            data_chunk_index=0,
+            data_file_index=0,
+        ),
+    )
+
+
+def _write_target_table_report(
+    tmp_path: Path,
+    bundle_path: Path,
+    *,
+    episode_index: int = 3,
+    task_index: int | None = None,
+) -> Path:
+    suffix = "" if episode_index == 3 else f"-{episode_index}"
+    source_path = tmp_path / f"synthetic-source{suffix}.parquet"
+    target_path = tmp_path / f"synthetic-target{suffix}.parquet"
+    report_path = tmp_path / f"synthetic-write-report{suffix}.json"
     _write_source_table(source_path)
+    if episode_index != 3 or task_index is not None:
+        import pyarrow as pa
+        import pyarrow.parquet as parquet
+
+        source_table = parquet.read_table(source_path)
+        if episode_index != 3:
+            source_table = source_table.set_column(
+                source_table.column_names.index("episode_index"),
+                "episode_index",
+                pa.array([episode_index] * source_table.num_rows, type=pa.int64()),
+            )
+        if task_index is not None:
+            source_table = source_table.set_column(
+                source_table.column_names.index("task_index"),
+                "task_index",
+                pa.array([task_index] * source_table.num_rows, type=pa.int64()),
+            )
+        parquet.write_table(source_table, source_path)
     write_result = write_synthetic_target_table(
         source_path=source_path,
         target_replay_bundle_path=bundle_path,
@@ -467,6 +531,130 @@ def test_lerobot_target_table_binding_manifest_binds_verified_report(
                 "verify-lerobot-target-table-bindings",
                 "--manifest",
                 str(cli_manifest_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+
+def test_lerobot_multi_episode_dataset_groups_verified_shards(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    pytest.importorskip("pyarrow")
+    import pyarrow.parquet as parquet
+
+    episode3_bundle = _write_bundle(tmp_path / "episode3")
+    # The current fixture reuses one verified replay for the second episode;
+    # the writer still exercises distinct episode reports and grouped rows.
+    episode4_bundle = episode3_bundle
+    gate_path = _write_gate(
+        tmp_path,
+        episode3_bundle,
+        source_frame_count=4,
+        target_replay_frame_count=4,
+        training_episode_allowlist=(3, 4),
+    )
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "episode3" / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_multi_tasks(),
+        episodes=_multi_episodes(),
+    )
+    plan_path = tmp_path / "multi-metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    replay_manifest = build_lerobot_replay_binding_manifest(
+        plan_path=plan_path,
+        target_replay_bundle_paths={3: episode3_bundle, 4: episode4_bundle},
+    )
+    replay_path = tmp_path / "multi-replay-bindings.json"
+    write_lerobot_replay_binding_manifest(replay_path, replay_manifest)
+    report3 = _write_target_table_report(tmp_path, episode3_bundle, episode_index=3)
+    report4 = _write_target_table_report(
+        tmp_path,
+        episode4_bundle,
+        episode_index=4,
+        task_index=1,
+    )
+    target_binding_manifest = build_lerobot_target_table_binding_manifest(
+        plan_path=plan_path,
+        replay_binding_manifest_path=replay_path,
+        target_table_report_paths={3: report3, 4: report4},
+    )
+    target_binding_path = tmp_path / "multi-target-table-bindings.json"
+    write_lerobot_target_table_binding_manifest(
+        target_binding_path,
+        target_binding_manifest,
+    )
+    output_root = tmp_path / "multi-dataset"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+
+    manifest = write_lerobot_multi_episode_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+    assert manifest.status == "PARTIAL"
+    assert manifest.written_files == (
+        "data/chunk-000/file-000.parquet",
+        "meta/episodes/chunk-000/file-000.parquet",
+        "meta/info.json",
+        "meta/tasks.parquet",
+    )
+    data = parquet.read_table(output_root / "data" / "chunk-000" / "file-000.parquet")
+    assert data.num_rows == 4
+    assert data["episode_index"].to_pylist() == [3, 3, 4, 4]
+    assert data["frame_index"].to_pylist() == [0, 1, 0, 1]
+    assert data["task_index"].to_pylist() == [0, 0, 1, 1]
+    info = json.loads((output_root / "meta" / "info.json").read_text(encoding="utf-8"))
+    assert info["total_episodes"] == 2
+    assert info["total_frames"] == 4
+    assert info["splits"] == {"train": "3:5"}
+    assert info["retargetlab"]["written_components"] == ["metadata", "data_shards"]
+
+    verification = verify_lerobot_multi_episode_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+    assert verification.status == "VERIFIED"
+    assert verification.written_files == manifest.written_files
+
+    cli_root = tmp_path / "multi-dataset-cli"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=cli_root)
+    cli_report = tmp_path / "multi-dataset-cli-report.json"
+    assert (
+        app(
+            [
+                "write-lerobot-multi-episode-dataset",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(cli_root),
+                "--target-table-bindings",
+                str(target_binding_path),
+                "--report",
+                str(cli_report),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "PARTIAL"
+    assert (
+        app(
+            [
+                "verify-lerobot-multi-episode-dataset",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(cli_root),
+                "--target-table-bindings",
+                str(target_binding_path),
                 "--json",
             ]
         )

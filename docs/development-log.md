@@ -2056,3 +2056,31 @@ Remote verification:
 The next implementation boundary is grouped multi-episode data-shard writing
 from this verified target-table binding manifest; it must preserve the
 declared episode intervals and keep video/statistics omissions explicit.
+
+### M1b.3h: write grouped multi-episode data shards
+
+The project now materializes a grouped, video-free partial LeRobot dataset
+from the verified target-table binding manifest. The writer re-verifies the
+metadata skeleton, replay bindings, every target-table report, and each
+episode's declared interval before reading any table rows. It normalizes the
+declared state/action feature types to the plan, groups contiguous episode
+tables by the plan's data chunk/file coordinates, writes exact Parquet shard
+paths, and updates `info.json` with the written data inventory. The verifier
+checks the exact file inventory, metadata, episode ranges, row values,
+feature types, and Parquet metadata; report, binding, table, and output-root
+tampering are covered by tests. The result remains explicitly `PARTIAL`:
+videos and statistics are still omitted, so this is not yet a claim of a
+training-ready public dataset.
+
+Remote verification:
+
+- focused LeRobot export tests: 14 passed;
+- full regression with the real OpenArm asset smoke enabled: 119 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed; all writer coverage uses synthetic fixtures.
+
+The next implementation boundary is statistics handling or an explicit
+statistics preflight. It must retain the current partial-export boundary and
+must not silently imply compatibility with the upstream training loader.

@@ -19,6 +19,8 @@ from retargetlab.contracts import (
     LeRobotMetadataPlanVerification,
     LeRobotMetadataSkeletonVerification,
     LeRobotMetadataSkeletonWrite,
+    LeRobotMultiEpisodeDatasetVerification,
+    LeRobotMultiEpisodeDatasetWrite,
     LeRobotPartialDatasetVerification,
     LeRobotPartialDatasetWrite,
     LeRobotReplayBindingManifest,
@@ -841,24 +843,29 @@ def _normalize_declared_table(pa: Any, table: Any, plan: LeRobotMetadataPlan) ->
     return table
 
 
+def _validate_episode_table(table: Any, episode: LeRobotEpisodeMetadata) -> None:
+    if table.num_rows != episode.length:
+        raise ValueError("target table row count does not match the metadata episode")
+    episode_values = [int(value) for value in table["episode_index"].to_pylist()]
+    if episode_values != [episode.episode_index] * episode.length:
+        raise ValueError("target table episode_index does not match the metadata episode")
+    frame_values = [int(value) for value in table["frame_index"].to_pylist()]
+    if frame_values != list(range(episode.length)):
+        raise ValueError("target table frame_index does not match the metadata episode")
+    task_values = [int(value) for value in table["task_index"].to_pylist()]
+    if any(value not in episode.task_indices for value in task_values):
+        raise ValueError("target table task_index does not match episode task metadata")
+
+
 def _validate_single_episode_table(table: Any, plan: LeRobotMetadataPlan) -> None:
     if len(plan.episodes) != 1:
         raise ValueError(
             "partial dataset writer currently binds exactly one synthetic episode; "
             "multi-episode materialization is not implemented"
         )
-    episode = plan.episodes[0]
-    if table.num_rows != plan.total_frames or table.num_rows != episode.length:
+    if table.num_rows != plan.total_frames:
         raise ValueError("target table row count does not match the metadata plan")
-    episode_values = [int(value) for value in table["episode_index"].to_pylist()]
-    if episode_values != [episode.episode_index] * episode.length:
-        raise ValueError("target table episode_index does not match the metadata plan")
-    frame_values = [int(value) for value in table["frame_index"].to_pylist()]
-    if frame_values != list(range(episode.length)):
-        raise ValueError("target table frame_index does not match the metadata plan")
-    task_values = [int(value) for value in table["task_index"].to_pylist()]
-    if any(value not in episode.task_indices for value in task_values):
-        raise ValueError("target table task_index does not match episode task metadata")
+    _validate_episode_table(table, plan.episodes[0])
 
 
 def _load_verified_target_table(
@@ -887,6 +894,84 @@ def _load_verified_target_table(
     return report, normalized, pa
 
 
+def _load_verified_multi_target_tables(
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_path: Path,
+    target_table_binding_manifest_path: Path,
+) -> tuple[dict[tuple[int, int], Any], str]:
+    target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    target_binding_verification = verify_lerobot_target_table_binding_manifest(
+        target_table_binding_manifest_path
+    )
+    target_binding_manifest = LeRobotTargetTableBindingManifest.model_validate_json(
+        target_table_binding_manifest_path.read_text(encoding="utf-8")
+    )
+    plan_verification = verify_lerobot_metadata_plan(plan_path)
+    if target_binding_manifest.plan_path != plan_path.as_posix():
+        raise ValueError("target-table binding manifest plan path does not match dataset plan")
+    if target_binding_manifest.plan_sha256 != plan_verification.plan_sha256:
+        raise ValueError("target-table binding manifest plan hash does not match dataset plan")
+    if target_binding_manifest.target_layout != plan.target_layout:
+        raise ValueError("target-table binding manifest layout does not match dataset plan")
+    if target_binding_verification.total_frames != plan.total_frames:
+        raise ValueError("target-table binding manifest frame count does not match dataset plan")
+    binding_by_episode = {
+        binding.episode_index: binding for binding in target_binding_manifest.bindings
+    }
+    from retargetlab.run.export_table import verify_synthetic_table_write_report
+
+    pa, parquet = _load_pyarrow()
+    grouped: defaultdict[tuple[int, int], list[Any]] = defaultdict(list)
+    for episode in plan.episodes:
+        binding = binding_by_episode[episode.episode_index]
+        report_path = Path(binding.target_table_report_path).resolve()
+        if sha256_file(report_path) != binding.target_table_report_sha256:
+            raise ValueError(
+                f"target-table report hash changed for episode {episode.episode_index}"
+            )
+        report = SyntheticTableWriteReport.model_validate_json(
+            report_path.read_text(encoding="utf-8")
+        )
+        report_verification = verify_synthetic_table_write_report(report_path)
+        if report.write.frame_count != episode.length:
+            raise ValueError(
+                f"target-table report frame count does not match episode {episode.episode_index}"
+            )
+        if report.write.selected_episode_indices != (episode.episode_index,):
+            raise ValueError(
+                f"target-table report selection does not match episode {episode.episode_index}"
+            )
+        if report.write.target_replay_bundle_sha256 != binding.target_replay_bundle_sha256:
+            raise ValueError(
+                f"target-table report bundle hash does not match episode {episode.episode_index}"
+            )
+        if report.write.replay_id != binding.replay_id:
+            raise ValueError(
+                f"target-table report replay id does not match episode {episode.episode_index}"
+            )
+        if report.write.robot_id != plan.robot_id or report_verification.robot_id != plan.robot_id:
+            raise ValueError(
+                f"target-table report robot does not match episode {episode.episode_index}"
+            )
+        if report.write.layout != plan.target_layout:
+            raise ValueError(
+                f"target-table report layout does not match episode {episode.episode_index}"
+            )
+        table = parquet.read_table(report.write.output_table_path)
+        _validate_episode_table(table, episode)
+        normalized = _normalize_declared_table(pa, table, plan).replace_schema_metadata(None)
+        grouped[(episode.data_chunk_index, episode.data_file_index)].append(normalized)
+
+    combined: dict[tuple[int, int], Any] = {}
+    for key, tables in grouped.items():
+        try:
+            combined[key] = pa.concat_tables(tables)
+        except Exception as exc:
+            raise ValueError(f"target tables cannot be combined for data shard {key}") from exc
+    return combined, sha256_file(target_table_binding_manifest_path)
+
+
 def _data_metadata(
     table: Any,
     *,
@@ -902,6 +987,28 @@ def _data_metadata(
             b"retargetlab.plan_sha256": plan_sha256.encode("ascii"),
             b"retargetlab.target_table_report_sha256": target_table_report_sha256.encode(
                 "ascii"
+            ),
+            b"retargetlab.robot_id": plan.robot_id.encode("utf-8"),
+        }
+    )
+    return table.replace_schema_metadata(metadata)
+
+
+def _multi_data_metadata(
+    table: Any,
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_sha256: str,
+    target_table_binding_manifest_sha256: str,
+) -> Any:
+    metadata = dict(table.schema.metadata or {})
+    metadata.update(
+        {
+            b"retargetlab.artifact_type": b"lerobot_multi_episode_data_shard",
+            b"retargetlab.source_scope": b"synthetic_public_only",
+            b"retargetlab.plan_sha256": plan_sha256.encode("ascii"),
+            b"retargetlab.target_table_binding_manifest_sha256": (
+                target_table_binding_manifest_sha256.encode("ascii")
             ),
             b"retargetlab.robot_id": plan.robot_id.encode("utf-8"),
         }
@@ -1137,6 +1244,234 @@ def verify_lerobot_partial_dataset(
         output_root=output_root.as_posix(),
         target_table_report_path=target_table_report_path.as_posix(),
         target_table_report_sha256=sha256_file(target_table_report_path),
+        written_files=expected_files,
+        omitted_components=_PARTIAL_DATASET_OMISSIONS,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def _data_shard_paths(
+    plan: LeRobotMetadataPlan,
+    output_root: Path,
+) -> dict[tuple[int, int], Path]:
+    groups = _episode_groups(plan)
+    paths = {
+        key: _format_output_path(
+            output_root,
+            plan.data_path_template,
+            chunk_index=key[0],
+            file_index=key[1],
+            label="data path",
+        )
+        for key in groups
+    }
+    if len(set(paths.values())) != len(paths):
+        raise ValueError("multi-episode data shard paths must be unique")
+    return paths
+
+
+def _multi_dataset_manifest(
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_path: Path,
+    plan_sha256: str,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+    target_table_binding_manifest_sha256: str,
+    info_path: Path,
+    tasks_path: Path,
+    episode_paths: Mapping[tuple[int, int], Path],
+    data_paths: Mapping[tuple[int, int], Path],
+) -> LeRobotMultiEpisodeDatasetWrite:
+    return LeRobotMultiEpisodeDatasetWrite(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_sha256,
+        output_root=output_root.as_posix(),
+        target_table_binding_manifest_path=(
+            target_table_binding_manifest_path.as_posix()
+        ),
+        target_table_binding_manifest_sha256=target_table_binding_manifest_sha256,
+        written_files=_relative_files(
+            output_root,
+            (
+                info_path,
+                tasks_path,
+                *episode_paths.values(),
+                *data_paths.values(),
+            ),
+        ),
+        omitted_components=_PARTIAL_DATASET_OMISSIONS,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def write_lerobot_multi_episode_dataset(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+) -> LeRobotMultiEpisodeDatasetWrite:
+    """Write grouped synthetic data shards for every verified plan episode."""
+
+    plan_path = plan_path.resolve()
+    output_root = output_root.resolve()
+    target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    if plan.video_keys:
+        raise ValueError("multi-episode dataset writer currently supports video-free plans only")
+    if not output_root.is_dir():
+        raise FileNotFoundError(
+            f"metadata skeleton output root does not exist: {output_root}"
+        )
+    if not target_table_binding_manifest_path.is_file():
+        raise FileNotFoundError(
+            "target-table binding manifest does not exist: "
+            f"{target_table_binding_manifest_path}"
+        )
+    verify_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+    info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
+    data_paths = _data_shard_paths(plan, output_root)
+    combined, binding_sha256 = _load_verified_multi_target_tables(
+        plan=plan,
+        plan_path=plan_path,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+    )
+    parquet = _load_pyarrow()[1]
+    for key in sorted(combined):
+        _write_parquet_exclusive(
+            parquet,
+            _multi_data_metadata(
+                combined[key],
+                plan=plan,
+                plan_sha256=plan_verification.plan_sha256,
+                target_table_binding_manifest_sha256=binding_sha256,
+            ),
+            data_paths[key],
+        )
+    _replace_json(
+        info_path,
+        _info_payload(
+            plan,
+            plan_sha256=plan_verification.plan_sha256,
+            data_shards_written=True,
+        ),
+    )
+    return _multi_dataset_manifest(
+        plan=plan,
+        plan_path=plan_path,
+        plan_sha256=plan_verification.plan_sha256,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+        target_table_binding_manifest_sha256=binding_sha256,
+        info_path=info_path,
+        tasks_path=tasks_path,
+        episode_paths=episode_paths,
+        data_paths=data_paths,
+    )
+
+
+def write_lerobot_multi_episode_dataset_report(
+    path: Path,
+    manifest: LeRobotMultiEpisodeDatasetWrite,
+) -> LeRobotMultiEpisodeDatasetWrite:
+    """Persist one exclusive multi-episode dataset write manifest."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(manifest.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return manifest
+
+
+def verify_lerobot_multi_episode_dataset(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+) -> LeRobotMultiEpisodeDatasetVerification:
+    """Verify grouped synthetic data shards against all bound episode reports."""
+
+    plan_path = plan_path.resolve()
+    output_root = output_root.resolve()
+    target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    if plan.video_keys:
+        raise ValueError("multi-episode dataset verifier currently supports video-free plans only")
+    if not output_root.is_dir():
+        raise FileNotFoundError(f"partial dataset output root does not exist: {output_root}")
+    info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
+    data_paths = _data_shard_paths(plan, output_root)
+    combined, binding_sha256 = _load_verified_multi_target_tables(
+        plan=plan,
+        plan_path=plan_path,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+    )
+    expected_files = _relative_files(
+        output_root,
+        (info_path, tasks_path, *episode_paths.values(), *data_paths.values()),
+    )
+    if _actual_files(output_root) != expected_files:
+        raise ValueError("multi-episode dataset output contains unexpected or missing files")
+    expected_info = _info_payload(
+        plan,
+        plan_sha256=plan_verification.plan_sha256,
+        data_shards_written=True,
+    )
+    if _read_json_object(info_path, label="multi-episode dataset info") != expected_info:
+        raise ValueError("multi-episode dataset info.json does not match the plan")
+    pa, parquet = _load_pyarrow()
+    _assert_table_matches(
+        parquet.read_table(tasks_path),
+        _tasks_table(pa, plan),
+        label="multi-episode dataset tasks",
+    )
+    task_by_index = {task.task_index: task.task for task in plan.tasks}
+    for key, grouped in _episode_groups(plan).items():
+        _assert_table_matches(
+            parquet.read_table(episode_paths[key]),
+            _episodes_table(pa, grouped, task_by_index),
+            label=f"multi-episode dataset episodes {key}",
+        )
+    expected_metadata_keys = (
+        b"retargetlab.artifact_type",
+        b"retargetlab.source_scope",
+        b"retargetlab.plan_sha256",
+        b"retargetlab.target_table_binding_manifest_sha256",
+        b"retargetlab.robot_id",
+    )
+    for key, expected_table in combined.items():
+        expected_data = _multi_data_metadata(
+            expected_table,
+            plan=plan,
+            plan_sha256=plan_verification.plan_sha256,
+            target_table_binding_manifest_sha256=binding_sha256,
+        )
+        actual_data = parquet.read_table(data_paths[key])
+        _assert_table_matches(actual_data, expected_data, label=f"data shard {key}")
+        actual_metadata = actual_data.schema.metadata or {}
+        expected_metadata = expected_data.schema.metadata or {}
+        for metadata_key in expected_metadata_keys:
+            if actual_metadata.get(metadata_key) != expected_metadata.get(metadata_key):
+                raise ValueError(
+                    "multi-episode data metadata does not match: "
+                    f"{metadata_key.decode()}"
+                )
+    return LeRobotMultiEpisodeDatasetVerification(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        output_root=output_root.as_posix(),
+        target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
+        target_table_binding_manifest_sha256=binding_sha256,
         written_files=expected_files,
         omitted_components=_PARTIAL_DATASET_OMISSIONS,
         total_episodes=plan.total_episodes,
