@@ -30,6 +30,7 @@ from .mapping import (
 from .profile import (
     AffineMap,
     DataProfile,
+    DataProfileVerification,
     DatasetRevision,
     GripperProfile,
     ProfileChannel,
@@ -87,6 +88,7 @@ __all__ = [
     "TimingShiftResult",
     "AffineMap",
     "DataProfile",
+    "DataProfileVerification",
     "DatasetRevision",
     "GripperProfile",
     "ProfileChannel",

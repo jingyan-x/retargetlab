@@ -1207,3 +1207,33 @@ Remote verification:
 The next boundary is to add an explicit profile/review-decision cross-check,
 then keep the production gate closed until the semantic frame decision is
 actually approved.
+
+### M1a.24: verify DataProfile to semantic-decision lineage
+
+The repository now exposes a read-only `verify_data_profile` helper and a
+`verify-profile` CLI command. Structural profile validation and decision
+lineage validation are intentionally separate. A pending profile can verify
+successfully while reporting `decision_verified=false`; a certified profile
+must be checked with its decision artifact. When a decision is supplied, the
+verifier checks its canonical hash, dataset alias, source revision, approved
+mapping hash, and coordinate frame against the profile.
+
+The real private profile verifies as:
+
+- profile status `REVIEW_REQUIRED`;
+- profile SHA-256
+  `aae5432a5fbacb6cce43a3a25b135f28e06988daa9376c604f5bfb70c1b83746`;
+- decision verification `false`, because no approved semantic decision was
+  supplied or exists for this review-pending mapping.
+
+Remote verification:
+
+- profile and CLI lineage tests: 4 passed in the focused profile/CLI run;
+- full `pytest -q`: 67 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- verifier reads only the profile and optional decision artifact, never source
+  rows, held-out data, video, or production exports.
+
+The production gate remains closed. The next implementation boundary is to
+make downstream calibration/normalization consume a verified DataProfile
+without allowing a pending profile to enter an executable path.

@@ -43,6 +43,7 @@ from retargetlab.run import (
     execute_solve_run,
     recipe_sha256,
     verify_calibration_run,
+    verify_data_profile,
     verify_review_decision_artifact,
     verify_review_package_preflight,
     write_calibration_run,
@@ -163,6 +164,17 @@ def _parser() -> argparse.ArgumentParser:
         help="optionally verify the archived decision file against the run recipe",
     )
     verify_calibration.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_profile = subparsers.add_parser(
+        "verify-profile", help="verify a value-free dataset profile and optional review decision"
+    )
+    verify_profile.add_argument("--profile", required=True, type=Path)
+    verify_profile.add_argument(
+        "--decision",
+        type=Path,
+        help="optionally verify the exact semantic decision bound to the profile",
+    )
+    verify_profile.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
     diagnose.add_argument("--run", required=True, type=Path)
@@ -544,6 +556,17 @@ def _verify_calibration_payload(
     }
 
 
+def _verify_profile_payload(
+    profile_path: Path,
+    decision_path: Path | None = None,
+) -> dict[str, Any]:
+    verification = verify_data_profile(profile_path, decision_path=decision_path)
+    return {
+        "command": "verify-profile",
+        **verification.model_dump(mode="json"),
+    }
+
+
 def _timing_payload(
     *,
     data_path: Path,
@@ -813,6 +836,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "verify-profile":
+        print(
+            f"data profile: {payload['profile_status']} "
+            f"(decision_verified={payload['decision_verified']})",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "validate-input":
         print(
             f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
@@ -965,6 +995,19 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-calibration",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-profile":
+        try:
+            payload = _verify_profile_payload(args.profile, args.decision)
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-profile",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

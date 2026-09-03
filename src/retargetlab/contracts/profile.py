@@ -175,3 +175,22 @@ class DataProfile(BaseModel):
             if self.mapping.coordinate_frame == "UNRESOLVED":
                 raise ValueError("certified profile cannot have an unresolved frame")
         return self
+
+
+class DataProfileVerification(BaseModel):
+    """Value-free result of verifying one dataset profile and optional decision."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    profile_id: str = Field(min_length=1)
+    profile_status: Literal["REVIEW_REQUIRED", "CERTIFIED"]
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    decision_sha256: Hash | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
+    decision_verified: bool = False

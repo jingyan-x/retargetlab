@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from retargetlab.cli.main import EXIT_OK, app
 from retargetlab.contracts import (
     AffineMap,
     ColumnRef,
@@ -10,10 +11,12 @@ from retargetlab.contracts import (
     GripperProfile,
     MappingSpec,
     ProfileChannel,
+    ReviewDecisionArtifact,
     StreamMapping,
     TimingEvidence,
 )
-from retargetlab.run import write_data_profile
+from retargetlab.run import canonical_json_bytes, verify_data_profile, write_data_profile
+from retargetlab.run.fingerprint import sha256_bytes
 
 
 def _mapping(*, approved: bool = False) -> MappingSpec:
@@ -98,7 +101,11 @@ def _timing(group: str, data_sha256: str) -> TimingEvidence:
     )
 
 
-def _profile(*, status: str = "REVIEW_REQUIRED") -> DataProfile:
+def _profile(
+    *,
+    status: str = "REVIEW_REQUIRED",
+    review_decision_sha256: str | None = None,
+) -> DataProfile:
     data_sha256 = "c" * 64
     mapping = _mapping(approved=status == "CERTIFIED")
     return DataProfile(
@@ -120,6 +127,7 @@ def _profile(*, status: str = "REVIEW_REQUIRED") -> DataProfile:
         validation_scope="synthetic fixture",
         evidence_scope=("synthetic timing report",),
         limitations=("frame semantics pending",),
+        review_decision_sha256=review_decision_sha256,
     )
 
 
@@ -165,3 +173,45 @@ def test_data_profile_does_not_allow_unreviewed_certification() -> None:
             validation_scope="synthetic fixture",
             evidence_scope=("synthetic timing report",),
         )
+
+
+def test_data_profile_verifier_cross_checks_approved_decision(tmp_path) -> None:
+    approved_mapping = _mapping(approved=True)
+    decision = ReviewDecisionArtifact(
+        dataset_alias="fixture",
+        source_revision="v1",
+        candidate_sha256="a" * 64,
+        review_sha256="b" * 64,
+        checklist_sha256="c" * 64,
+        comparison_sha256="d" * 64,
+        approved_mapping_sha256=sha256_bytes(canonical_json_bytes(approved_mapping)),
+        reviewer="fixture-reviewer",
+        review_evidence=("synthetic evidence",),
+        coordinate_frame="dataset_native",
+        shape_acceptance="ACCEPTED",
+        target_group_by_slot={"slot_0": "left", "slot_1": "right"},
+    )
+    decision_digest = sha256_bytes(canonical_json_bytes(decision))
+    profile = _profile(status="CERTIFIED", review_decision_sha256=decision_digest)
+    profile_path = tmp_path / "data-profile.json"
+    decision_path = tmp_path / "decision.json"
+    write_data_profile(profile_path, profile)
+    decision_path.write_text(decision.model_dump_json(indent=2), encoding="utf-8")
+
+    verification = verify_data_profile(profile_path, decision_path=decision_path)
+
+    assert verification.profile_status == "CERTIFIED"
+    assert verification.decision_verified is True
+    assert verification.decision_sha256 == decision_digest
+
+
+def test_verify_profile_cli_reports_pending_profile(tmp_path, capsys) -> None:
+    profile_path = tmp_path / "data-profile.json"
+    write_data_profile(profile_path, _profile())
+
+    assert app(["verify-profile", "--profile", str(profile_path), "--json"]) == EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["command"] == "verify-profile"
+    assert payload["profile_status"] == "REVIEW_REQUIRED"
+    assert payload["decision_verified"] is False
