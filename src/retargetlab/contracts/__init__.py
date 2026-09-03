@@ -21,6 +21,12 @@ from .export_table import (
     SyntheticTargetTableVerification,
 )
 from .gripper import TargetGripperFrame, TargetGripperTrajectory
+from .lerobot_export import (
+    LeRobotEpisodeMetadata,
+    LeRobotMetadataPlan,
+    LeRobotMetadataPlanVerification,
+    LeRobotTaskMetadata,
+)
 from .mapping import (
     ColumnRef,
     DatasetInfoManifest,
@@ -125,6 +131,10 @@ __all__ = [
     "Threshold",
     "TargetGripperFrame",
     "TargetGripperTrajectory",
+    "LeRobotEpisodeMetadata",
+    "LeRobotMetadataPlan",
+    "LeRobotMetadataPlanVerification",
+    "LeRobotTaskMetadata",
     "TargetVectorLayout",
     "TargetReplayManifest",
     "TargetReplayArtifactVerification",

@@ -1869,3 +1869,35 @@ The next implementation boundary is a metadata-only design/contract slice
 for a complete multi-episode LeRobot export. It will first bind episode
 ranges, tasks, fps, and feature declarations without writing real dataset
 rows or videos.
+
+### M1b.3a: define a metadata-only LeRobot v3 export plan
+
+The project now has a value-free `lerobot_metadata_plan` contract and builder
+for a future multi-episode export. The plan binds the existing export gate and
+target profile hashes, target vector layout, fps, required frame features
+(`timestamp`, `frame_index`, `episode_index`, `index`, `task_index`), target
+state/action plus `valid.retarget`, sequential task declarations, episode
+lengths, contiguous shared-data index ranges, and the explicit
+`preserve_source` episode-index policy. It also records the v3 data/episode,
+tasks, info, and stats path templates and makes the no-video boundary
+explicit. Validators reject unknown task references, gaps/overlaps in data
+ranges, mismatched target shapes/names/dtypes, and allowlist drift.
+
+The field choices were checked against the current upstream LeRobot v3
+metadata organization, but this slice remains a project contract and does
+not write `info.json`, `stats.json`, `tasks.parquet`, episode parquet, data
+shards, or videos.
+
+Remote verification:
+
+- metadata-plan contract, gate/profile binding, target-shape rejection, and
+  CLI round-trip tests: 3 passed;
+- full regression with the real OpenArm asset smoke enabled: 108 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is a metadata-plan tamper/negative-test
+expansion, followed by a synthetic writer that emits the planned metadata
+files only after the plan is verified.

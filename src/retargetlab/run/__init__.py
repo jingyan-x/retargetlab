@@ -16,6 +16,11 @@ from .export_table import (
 )
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
+from .lerobot_export import (
+    build_lerobot_metadata_plan,
+    verify_lerobot_metadata_plan,
+    write_lerobot_metadata_plan,
+)
 from .preflight import verify_review_package_preflight, write_review_package_preflight
 from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
 from .replay import (
@@ -63,6 +68,9 @@ __all__ = [
     "verify_synthetic_table_write_report",
     "map_target_grippers",
     "write_target_gripper_trajectory",
+    "build_lerobot_metadata_plan",
+    "write_lerobot_metadata_plan",
+    "verify_lerobot_metadata_plan",
     "build_target_replay_manifest",
     "build_target_replay_bundle",
     "build_target_replay_trajectory",

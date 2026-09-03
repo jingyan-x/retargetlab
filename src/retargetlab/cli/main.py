@@ -17,6 +17,9 @@ from retargetlab.contracts import (
     CalibrationRecipe,
     CanonicalTrajectory,
     DatasetReport,
+    FeatureDeclaration,
+    LeRobotEpisodeMetadata,
+    LeRobotTaskMetadata,
     MappingReview,
     MappingSpec,
     Recipe,
@@ -47,6 +50,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_export_input_gate,
+    build_lerobot_metadata_plan,
     build_synthetic_table_write_preflight,
     build_synthetic_table_write_report,
     build_target_replay_bundle,
@@ -59,6 +63,7 @@ from retargetlab.run import (
     recipe_sha256,
     verify_calibration_run,
     verify_data_profile,
+    verify_lerobot_metadata_plan,
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_synthetic_table_write_preflight,
@@ -70,6 +75,7 @@ from retargetlab.run import (
     write_dataset_coverage,
     write_export_input_gate,
     write_export_profile,
+    write_lerobot_metadata_plan,
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
@@ -249,6 +255,45 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_synthetic_preflight.add_argument("--preflight", required=True, type=Path)
     verify_synthetic_preflight.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    build_lerobot_plan = subparsers.add_parser(
+        "build-lerobot-metadata-plan",
+        help="build a metadata-only LeRobot v3 export plan",
+    )
+    build_lerobot_plan.add_argument("--export-input-gate", required=True, type=Path)
+    build_lerobot_plan.add_argument("--export-profile", required=True, type=Path)
+    build_lerobot_plan.add_argument("--fps", required=True, type=float)
+    build_lerobot_plan.add_argument(
+        "--features",
+        required=True,
+        type=Path,
+        help="JSON object mapping feature names to dtype/shape declarations",
+    )
+    build_lerobot_plan.add_argument(
+        "--tasks",
+        required=True,
+        type=Path,
+        help="JSON array of task metadata records",
+    )
+    build_lerobot_plan.add_argument(
+        "--episodes",
+        required=True,
+        type=Path,
+        help="JSON array of episode metadata records",
+    )
+    build_lerobot_plan.add_argument("--output", required=True, type=Path)
+    build_lerobot_plan.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_plan = subparsers.add_parser(
+        "verify-lerobot-metadata-plan",
+        help="verify a metadata-only LeRobot v3 export plan",
+    )
+    verify_lerobot_plan.add_argument("--plan", required=True, type=Path)
+    verify_lerobot_plan.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -888,6 +933,62 @@ def _verify_synthetic_preflight_payload(preflight_path: Path) -> dict[str, Any]:
     verification = verify_synthetic_table_write_preflight(preflight_path)
     return {
         "command": "verify-synthetic-table-preflight",
+        **verification.model_dump(mode="json"),
+    }
+
+
+def _json_file(path: Path, label: str) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} must be valid JSON: {path}") from exc
+
+
+def _build_lerobot_plan_payload(
+    *,
+    export_input_gate_path: Path,
+    export_profile_path: Path,
+    fps: float,
+    features_path: Path,
+    tasks_path: Path,
+    episodes_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    raw_features = _json_file(features_path, "feature declarations")
+    raw_tasks = _json_file(tasks_path, "task metadata")
+    raw_episodes = _json_file(episodes_path, "episode metadata")
+    if not isinstance(raw_features, dict):
+        raise ValueError("feature declarations must be a JSON object")
+    if not isinstance(raw_tasks, list):
+        raise ValueError("task metadata must be a JSON array")
+    if not isinstance(raw_episodes, list):
+        raise ValueError("episode metadata must be a JSON array")
+    features = {
+        name: FeatureDeclaration.model_validate(value)
+        for name, value in raw_features.items()
+    }
+    tasks = tuple(LeRobotTaskMetadata.model_validate(value) for value in raw_tasks)
+    episodes = tuple(LeRobotEpisodeMetadata.model_validate(value) for value in raw_episodes)
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=export_input_gate_path,
+        export_profile_path=export_profile_path,
+        fps=fps,
+        features=features,
+        tasks=tasks,
+        episodes=episodes,
+    )
+    write_lerobot_metadata_plan(output_path, plan)
+    return {
+        "command": "build-lerobot-metadata-plan",
+        **plan.model_dump(mode="json"),
+        "output": str(output_path),
+    }
+
+
+def _verify_lerobot_plan_payload(plan_path: Path) -> dict[str, Any]:
+    verification = verify_lerobot_metadata_plan(plan_path)
+    return {
+        "command": "verify-lerobot-metadata-plan",
         **verification.model_dump(mode="json"),
     }
 
@@ -1918,6 +2019,56 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-synthetic-table-preflight",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "build-lerobot-metadata-plan":
+        try:
+            payload = _build_lerobot_plan_payload(
+                export_input_gate_path=args.export_input_gate,
+                export_profile_path=args.export_profile,
+                fps=args.fps,
+                features_path=args.features,
+                tasks_path=args.tasks,
+                episodes_path=args.episodes,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-lerobot-metadata-plan",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-lerobot-metadata-plan",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-metadata-plan":
+        try:
+            payload = _verify_lerobot_plan_payload(args.plan)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-metadata-plan",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-metadata-plan",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }
