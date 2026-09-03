@@ -256,3 +256,36 @@ Remote verification after this slice:
 The synthetic generator is deliberately not an input adapter and does not open
 the private or held-out split. The next implementation boundary remains the
 run/recipe/report layer before any real-data normalization is attempted.
+
+### M0 continuation: reproducible run workspace and reports
+
+The M0 run layer now records the computation boundary before execution. A
+`Recipe` captures the dataset alias and input hash, target asset hash, backend
+identity, solve coupling, full `SolveOptions`, random seed, split hash, and
+provenance-bearing thresholds. Canonical JSON hashing makes the recipe digest
+independent of dictionary insertion order and formatting. `create_run_workspace`
+creates `runs/<run_id>/result` and `runs/<run_id>/export` exactly once, writes
+`recipe.json` plus `recipe.sha256`, and rejects an existing run id rather than
+overwriting historical evidence.
+
+`write_dataset_report` persists the read-only diagnostic report as JSON,
+Markdown, CSV, and JSONL episode summaries, then writes a completion manifest
+containing recipe/report hashes and the artifact list. Reports contain solver
+and quality facts only; they do not serialize joint arrays or private poses.
+Repeated report writes are rejected as well. The current M0 format uses JSON
+as the canonical core representation; a future CLI may add YAML as a
+presentation adapter without changing the hash contract.
+
+Verification on the remote repository:
+
+- `pytest -q tests`: 19 passed and 1 Panda asset smoke skipped when the
+  gitignored project asset path is not mounted;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- run tests confirm stable/sensitive recipe hashes, non-overwriting workspace
+  creation, report materialization, and absence of joint data in metrics.
+
+This slice establishes the run evidence boundary but does not execute a real
+dataset, normalize fields, or authorize export. The next slice can add a
+minimal CLI/doctor surface over these contracts while preserving the same
+recipe and report hashes.
