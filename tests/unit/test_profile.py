@@ -109,6 +109,7 @@ def _timing(group: str, data_sha256: str) -> TimingEvidence:
 def _profile(
     *,
     status: str = "REVIEW_REQUIRED",
+    coverage_sha256: str | None = None,
     review_decision_sha256: str | None = None,
 ) -> DataProfile:
     data_sha256 = "c" * 64
@@ -132,6 +133,7 @@ def _profile(
         validation_scope="synthetic fixture",
         evidence_scope=("synthetic timing report",),
         limitations=("frame semantics pending",),
+        coverage_sha256=coverage_sha256,
         review_decision_sha256=review_decision_sha256,
     )
 
@@ -197,7 +199,11 @@ def test_data_profile_verifier_cross_checks_approved_decision(tmp_path) -> None:
         target_group_by_slot={"slot_0": "left", "slot_1": "right"},
     )
     decision_digest = sha256_bytes(canonical_json_bytes(decision))
-    profile = _profile(status="CERTIFIED", review_decision_sha256=decision_digest)
+    profile = _profile(
+        status="CERTIFIED",
+        coverage_sha256="e" * 64,
+        review_decision_sha256=decision_digest,
+    )
     profile_path = tmp_path / "data-profile.json"
     decision_path = tmp_path / "decision.json"
     write_data_profile(profile_path, profile)
@@ -208,6 +214,7 @@ def test_data_profile_verifier_cross_checks_approved_decision(tmp_path) -> None:
     assert verification.profile_status == "CERTIFIED"
     assert verification.decision_verified is True
     assert verification.decision_sha256 == decision_digest
+    assert verification.coverage_sha256 == "e" * 64
 
 
 def test_verify_profile_cli_reports_pending_profile(tmp_path, capsys) -> None:

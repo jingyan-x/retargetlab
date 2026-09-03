@@ -59,6 +59,7 @@ def verify_data_profile(
         dataset_alias=profile.dataset_alias,
         source_revision=profile.source_revision,
         profile_sha256=profile_digest,
+        coverage_sha256=profile.coverage_sha256,
         decision_sha256=decision_digest or profile.review_decision_sha256,
         decision_verified=decision_verified,
     )

@@ -10,6 +10,7 @@ from retargetlab.contracts import (
     AffineMap,
     CommandTimingReport,
     DataProfile,
+    DatasetCoverage,
     DatasetRevision,
     GripperProfile,
     MappingSpec,
@@ -78,6 +79,7 @@ def build_profile(
     episodes_path: Path,
     tasks_path: Path,
     stats_path: Path,
+    coverage_path: Path | None,
     timing_bindings: tuple[tuple[str, Path], ...],
     profile_id: str,
 ) -> DataProfile:
@@ -94,6 +96,18 @@ def build_profile(
         tasks_sha256=sha256_file(tasks_path),
         stats_sha256=sha256_file(stats_path),
     )
+    coverage_sha256: str | None = None
+    if coverage_path is not None:
+        coverage = DatasetCoverage.model_validate_json(coverage_path.read_text(encoding="utf-8"))
+        if coverage.status != "COMPLETE":
+            raise ValueError("dataset coverage is not complete")
+        if coverage.dataset_alias != mapping.dataset_alias:
+            raise ValueError("coverage dataset alias does not match mapping")
+        if coverage.source_revision != mapping.source_revision:
+            raise ValueError("coverage source revision does not match mapping")
+        if coverage.revision != revision:
+            raise ValueError("coverage revision does not match profile revision")
+        coverage_sha256 = sha256_bytes(canonical_json_bytes(coverage))
     timing: list[TimingEvidence] = []
     for group, path in timing_bindings:
         report = CommandTimingReport.model_validate_json(path.read_text(encoding="utf-8"))
@@ -128,16 +142,22 @@ def build_profile(
         mapping=mapping,
         grippers=(_gripper("slot_0"), _gripper("slot_1")),
         timing=tuple(timing),
-        validation_scope="private-sample-20 calibration allowlist only",
+        validation_scope=(
+            "private-sample-20 all accessible episodes and metadata files"
+            if coverage_path is not None
+            else "private-sample-20 calibration allowlist only"
+        ),
         evidence_scope=(
             "info.json feature names",
             "calibration command timing reports",
+            *(("all-episode dataset coverage scan",) if coverage_path is not None else ()),
         ),
         limitations=(
             "EEF frame identity remains unresolved",
             "timing evidence does not authorize row shifting",
             "source robot identity is not included in this profile",
         ),
+        coverage_sha256=coverage_sha256,
     )
 
 
@@ -149,6 +169,7 @@ def main() -> int:
     parser.add_argument("--episodes", type=Path, required=True)
     parser.add_argument("--tasks", type=Path, required=True)
     parser.add_argument("--stats", type=Path, required=True)
+    parser.add_argument("--coverage", type=Path)
     parser.add_argument("--timing", action="append", required=True, metavar="GROUP=PATH")
     parser.add_argument("--profile-id", default="private-sample-20-lerobot-v3")
     parser.add_argument("--output", type=Path, required=True)
@@ -160,6 +181,7 @@ def main() -> int:
         episodes_path=args.episodes,
         tasks_path=args.tasks,
         stats_path=args.stats,
+        coverage_path=args.coverage,
         timing_bindings=tuple(_timing_binding(value) for value in args.timing),
         profile_id=args.profile_id,
     )

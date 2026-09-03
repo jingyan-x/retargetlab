@@ -1,6 +1,7 @@
 """Reproducible run workspace and report helpers."""
 
 from .calibration_report import render_calibration_summary
+from .coverage import write_dataset_coverage
 from .decision import verify_review_decision_artifact, write_review_decision_artifact
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
 from .fingerprint import canonical_json_bytes, recipe_sha256
@@ -27,6 +28,7 @@ __all__ = [
     "write_review_package_preflight",
     "verify_review_package_preflight",
     "write_data_profile",
+    "write_dataset_coverage",
     "verify_data_profile",
     "load_executable_data_profile",
     "write_review_run_artifact",

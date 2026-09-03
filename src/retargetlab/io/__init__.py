@@ -3,6 +3,7 @@
 from .calibrate import run_bounded_calibration, run_parquet_calibration
 from .candidate import build_pose_mapping_candidate
 from .compare import compare_info_to_structure
+from .coverage import scan_lerobot_coverage
 from .normalize import NormalizationError, normalize_rows
 from .probe import probe_lerobot_info, probe_parquet
 from .review import apply_mapping_review
@@ -16,6 +17,7 @@ __all__ = [
     "run_bounded_calibration",
     "run_parquet_calibration",
     "compare_info_to_structure",
+    "scan_lerobot_coverage",
     "apply_mapping_review",
     "DEFAULT_CALIBRATION_COLUMNS",
     "inspect_review_package",

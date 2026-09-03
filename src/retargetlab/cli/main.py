@@ -35,6 +35,7 @@ from retargetlab.io import (
     probe_lerobot_info,
     probe_parquet,
     run_parquet_calibration,
+    scan_lerobot_coverage,
     validate_mapping,
 )
 from retargetlab.robot.assets import sha256_file
@@ -48,6 +49,7 @@ from retargetlab.run import (
     verify_review_decision_artifact,
     verify_review_package_preflight,
     write_calibration_run,
+    write_dataset_coverage,
     write_review_decision_artifact,
     write_review_package_preflight,
 )
@@ -76,6 +78,20 @@ def _parser() -> argparse.ArgumentParser:
     inspect.add_argument("--source-revision")
     inspect.add_argument("--metadata", type=Path, help="LeRobot info.json for Parquet comparison")
     inspect.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    coverage = subparsers.add_parser(
+        "scan-coverage", help="scan a value-free LeRobot dataset coverage manifest"
+    )
+    coverage.add_argument("--info", required=True, type=Path)
+    coverage.add_argument("--data", required=True, type=Path)
+    coverage.add_argument("--episodes", required=True, type=Path)
+    coverage.add_argument("--tasks", required=True, type=Path)
+    coverage.add_argument("--stats", required=True, type=Path)
+    coverage.add_argument("--dataset-alias", required=True)
+    coverage.add_argument("--source-revision", required=True)
+    coverage.add_argument("--validation-scope", required=True)
+    coverage.add_argument("--output", required=True, type=Path)
+    coverage.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     candidate = subparsers.add_parser(
         "candidate", help="build a review-only pose mapping from info.json"
@@ -347,6 +363,39 @@ def _inspect_payload(
         "stream_names": list(trajectory.stream_names),
         "metadata_keys": sorted(trajectory.metadata),
     }
+
+
+def _coverage_payload(
+    *,
+    info_path: Path,
+    data_path: Path,
+    episodes_path: Path,
+    tasks_path: Path,
+    stats_path: Path,
+    dataset_alias: str,
+    source_revision: str,
+    validation_scope: str,
+    output_path: Path,
+) -> tuple[dict[str, Any], int]:
+    coverage = scan_lerobot_coverage(
+        info_path=info_path,
+        data_path=data_path,
+        episodes_path=episodes_path,
+        tasks_path=tasks_path,
+        stats_path=stats_path,
+        dataset_alias=dataset_alias,
+        source_revision=source_revision,
+        validation_scope=validation_scope,
+    )
+    write_dataset_coverage(output_path, coverage)
+    return (
+        {
+            "command": "scan-coverage",
+            **coverage.model_dump(mode="json"),
+            "output": str(output_path),
+        },
+        EXIT_OK if coverage.status == "COMPLETE" else EXIT_QUALITY,
+    )
 
 
 def _candidate_payload(
@@ -858,6 +907,14 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "scan-coverage":
+        print(
+            f"dataset coverage: {payload['status']} "
+            f"({payload['observed_episode_count']} episodes, "
+            f"{payload['observed_frame_count']} frames) -> {payload['output']}",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "candidate":
         print(
             f"mapping candidate: {payload['status']} "
@@ -966,6 +1023,37 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "scan-coverage":
+        try:
+            payload, exit_code = _coverage_payload(
+                info_path=args.info,
+                data_path=args.data,
+                episodes_path=args.episodes,
+                tasks_path=args.tasks,
+                stats_path=args.stats,
+                dataset_alias=args.dataset_alias,
+                source_revision=args.source_revision,
+                validation_scope=args.validation_scope,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "scan-coverage",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "scan-coverage",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
     if args.command == "candidate":
         try:
             payload = _candidate_payload(

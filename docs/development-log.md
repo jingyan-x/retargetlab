@@ -1298,3 +1298,43 @@ The next boundary is to carry the same certified profile semantics into the
 future target-side gripper mapping, while preserving the rule that grippers
 do not enter arm IK and that unresolved EEF frame semantics keep the private
 profile non-executable.
+
+### M1a.27: bind complete private-dataset coverage into the profile evidence
+
+The repository now has a value-free `DatasetCoverage` contract and a
+`scan-coverage` CLI for the fixed private LeRobot source set. The scanner reads
+only the source metadata and Parquet schema/episode index columns, records the
+five source revision hashes, checks episode interval contiguity and declared
+counts, and writes through an exclusive artifact writer. It never copies raw
+trajectory values, held-out rows, video, or export data into the evidence
+artifact.
+
+The actual private dataset scan completed successfully:
+
+- 20 episodes and 13,746 data rows were observed;
+- episode intervals were contiguous from row 0 through row 13,746;
+- one task and the declared metadata structure were observed;
+- schema compatibility is true, while vector shape remains explicitly
+  unverified because Parquet schema alone cannot prove the list lengths;
+- the coverage artifact is `COMPLETE` and its SHA-256 is
+  `2ce452d67db872fa4413234be13d8cba3a1ce0a3af7a3e8a5c5ffcb56f7968a4`.
+
+The profile builder can now bind that coverage hash and expand the validation
+scope to all accessible episodes. The resulting profile verifies internally
+with profile SHA-256
+`95d2e5fe392ea874409e5d7748f82fdb6801a7502e0ee8979c354526f538423a`, but
+remains `REVIEW_REQUIRED` with an unresolved EEF coordinate frame and no
+approved semantic decision. Therefore it is still not executable.
+
+Remote verification:
+
+- coverage, profile, and full regression tests: 73 passed and 1 Panda asset
+  smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- coverage and profile focused tests: 8 passed;
+- no private trajectory values were materialized in the coverage or profile
+  artifacts.
+
+The next implementation boundary is target-side OpenArm gripper semantics and
+an explicit target robot profile, while keeping arm IK independent of gripper
+channels and preserving the certified-profile gate.

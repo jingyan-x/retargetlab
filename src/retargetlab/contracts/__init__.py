@@ -8,6 +8,7 @@ from .calibration import (
     ReviewRunArtifact,
 )
 from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
+from .coverage import DatasetCoverage, EpisodeCoverage
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
 from .mapping import (
@@ -54,8 +55,10 @@ __all__ = [
     "ColumnRef",
     "CollisionProfile",
     "DatasetInfoManifest",
+    "DatasetCoverage",
     "DatasetReport",
     "EpisodeReport",
+    "EpisodeCoverage",
     "EvidenceLevel",
     "EpisodeRange",
     "FeatureDeclaration",

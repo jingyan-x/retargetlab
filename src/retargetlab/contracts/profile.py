@@ -148,6 +148,10 @@ class DataProfile(BaseModel):
     validation_scope: str = Field(min_length=1)
     evidence_scope: tuple[str, ...] = Field(min_length=1)
     limitations: tuple[str, ...] = ()
+    coverage_sha256: Hash | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     review_decision_sha256: Hash | None = Field(
         default=None,
         pattern=r"^[0-9a-fA-F]{64}$",
@@ -170,6 +174,8 @@ class DataProfile(BaseModel):
         if self.status == "CERTIFIED":
             if self.review_decision_sha256 is None:
                 raise ValueError("certified profile requires a review decision hash")
+            if self.coverage_sha256 is None:
+                raise ValueError("certified profile requires a coverage hash")
             if self.mapping.metadata.get("candidate_status") != "APPROVED":
                 raise ValueError("certified profile requires an approved mapping")
             if self.mapping.coordinate_frame == "UNRESOLVED":
@@ -189,6 +195,10 @@ class DataProfileVerification(BaseModel):
     dataset_alias: str = Field(min_length=1)
     source_revision: str = Field(min_length=1)
     profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    coverage_sha256: Hash | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     decision_sha256: Hash | None = Field(
         default=None,
         pattern=r"^[0-9a-fA-F]{64}$",
