@@ -1,13 +1,18 @@
 import json
 
+import pytest
+
 from retargetlab.contracts import (
     ColumnRef,
     MappingReview,
     MappingSpec,
+    ReviewPackagePreflightArtifact,
     StreamMapping,
     StructureComparison,
 )
 from retargetlab.io import inspect_review_package
+from retargetlab.run import write_review_package_preflight
+from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
 
 
 def _candidate() -> MappingSpec:
@@ -106,6 +111,7 @@ def test_review_package_cli_reports_pending_without_promoting_candidate(tmp_path
     review_path.write_text(_review(approved=False).model_dump_json(), encoding="utf-8")
     comparison_path = tmp_path / "comparison.json"
     comparison_path.write_text(_comparison().model_dump_json(), encoding="utf-8")
+    output_path = tmp_path / "preflight.json"
 
     assert (
         app(
@@ -117,6 +123,8 @@ def test_review_package_cli_reports_pending_without_promoting_candidate(tmp_path
                 str(review_path),
                 "--comparison",
                 str(comparison_path),
+                "--output",
+                str(output_path),
                 "--json",
             ]
         )
@@ -126,3 +134,34 @@ def test_review_package_cli_reports_pending_without_promoting_candidate(tmp_path
     assert payload["status"] == "PENDING_REVIEW"
     assert payload["next_action"] == "REVIEW_SEMANTICS"
     assert payload["can_apply_review"] is False
+    assert payload["output"] == str(output_path)
+    assert "position_m" not in output_path.read_text(encoding="utf-8")
+    assert "poses" not in output_path.read_text(encoding="utf-8")
+
+
+def test_review_package_preflight_writer_is_exclusive_and_value_free(tmp_path) -> None:
+    path = tmp_path / "review-package-preflight.json"
+    candidate = _candidate()
+    review = _review(approved=False)
+    comparison = _comparison()
+
+    artifact = write_review_package_preflight(
+        path,
+        candidate=candidate,
+        review=review,
+        comparison=comparison,
+    )
+
+    assert isinstance(artifact, ReviewPackagePreflightArtifact)
+    assert artifact.inspection.status == "PENDING_REVIEW"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["candidate_sha256"] == sha256_bytes(canonical_json_bytes(candidate))
+    assert "position_m" not in path.read_text(encoding="utf-8")
+    assert "poses" not in path.read_text(encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        write_review_package_preflight(
+            path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison,
+        )

@@ -43,6 +43,7 @@ from retargetlab.run import (
     recipe_sha256,
     verify_calibration_run,
     write_calibration_run,
+    write_review_package_preflight,
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -93,6 +94,7 @@ def _parser() -> argparse.ArgumentParser:
     inspect_review.add_argument("--candidate", required=True, type=Path)
     inspect_review.add_argument("--review", required=True, type=Path)
     inspect_review.add_argument("--comparison", required=True, type=Path)
+    inspect_review.add_argument("--output", type=Path)
     inspect_review.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     calibrate = subparsers.add_parser(
@@ -341,6 +343,7 @@ def _inspect_review_package_payload(
     candidate_path: Path,
     review_path: Path,
     comparison_path: Path,
+    output_path: Path | None = None,
 ) -> dict[str, Any]:
     candidate, review, comparison = _load_review_package(
         candidate_path,
@@ -348,10 +351,24 @@ def _inspect_review_package_payload(
         comparison_path,
     )
     inspection = inspect_review_package(candidate, review, comparison)
-    return {
+    payload: dict[str, Any] = {
         "command": "inspect-review-package",
         **inspection.model_dump(mode="json"),
     }
+    if output_path is not None:
+        artifact = write_review_package_preflight(
+            output_path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison,
+        )
+        payload.update(
+            {
+                "output": str(output_path),
+                "artifact_sha256": sha256_bytes(canonical_json_bytes(artifact)),
+            }
+        )
+    return payload
 
 
 def _calibrate_payload(
@@ -731,6 +748,7 @@ def app(argv: list[str] | None = None) -> int:
                 args.candidate,
                 args.review,
                 args.comparison,
+                args.output,
             )
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {

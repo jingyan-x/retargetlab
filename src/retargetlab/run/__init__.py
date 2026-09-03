@@ -3,6 +3,7 @@
 from .calibration_report import render_calibration_summary
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
 from .fingerprint import canonical_json_bytes, recipe_sha256
+from .preflight import write_review_package_preflight
 from .report import write_dataset_report
 from .review import write_calibration_run, write_review_run_artifact
 from .verify import verify_calibration_run
@@ -19,6 +20,7 @@ __all__ = [
     "solve_canonical_stream",
     "write_dataset_report",
     "write_calibration_run",
+    "write_review_package_preflight",
     "write_review_run_artifact",
     "verify_calibration_run",
 ]

@@ -920,3 +920,30 @@ Remote verification:
 The next boundary is to make the review-package output consumable as a stable
 preflight record for later approved calibration runs, without auto-generating
 or silently accepting semantic review decisions.
+
+### M1a.14: archived review-package preflight record
+
+The review-package inspector can now optionally write an exclusive,
+value-free `review-package-preflight.json`. The record stores canonical hashes
+of the candidate, explicit review, and structure comparison together with the
+inspection status and next action. The default inspector remains read-only;
+writing occurs only when an explicit output path is supplied, and a pending or
+blocked package is never promoted by the writer.
+
+The real private-sample OpenArm package was inspected and its pending preflight
+record was written to a controlled temporary path for a smoke test. It
+reported `PENDING_REVIEW`, `can_apply_review=false`, and an unresolved shape
+decision without opening source data or episode Parquet.
+
+Remote verification:
+
+- preflight writer, exclusivity, value-free, and CLI output tests: 3 passed;
+- full `pytest -q tests`: 58 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by the preflight path.
+
+The next boundary is to add a review-package preflight verifier that accepts
+only the saved package paths and checks the archived hash record before a
+future approval or calibration step.

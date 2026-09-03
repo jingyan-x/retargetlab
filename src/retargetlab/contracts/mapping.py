@@ -206,6 +206,29 @@ class ReviewPackageInspection(BaseModel):
     blocking_reasons: tuple[str, ...] = ()
 
 
+class ReviewPackagePreflightArtifact(BaseModel):
+    """Value-free, exclusive record of one review-package preflight."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["review_package_preflight"] = "review_package_preflight"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    candidate_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    review_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    comparison_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    inspection: ReviewPackageInspection
+
+    @model_validator(mode="after")
+    def validate_lineage(self) -> ReviewPackagePreflightArtifact:
+        if self.inspection.dataset_alias != self.dataset_alias:
+            raise ValueError("inspection dataset alias does not match preflight")
+        if self.inspection.source_revision != self.source_revision:
+            raise ValueError("inspection source revision does not match preflight")
+        return self
+
+
 class MappingValidation(BaseModel):
     """Machine-readable result of mapping a spec onto a structure manifest."""
 
