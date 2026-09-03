@@ -18,6 +18,20 @@ The diagnostic result separates the two questions:
 
 Therefore the current result is a red identity-hypothesis prescreen, not evidence that the OpenArm target is intrinsically unreachable. The missing source URDF is an optional cross-check limitation, not an M-1 prerequisite.
 
+Recipe `20260903-m1-005` then expanded T2 directionally from the previous boundary
+candidate without changing the frame hypothesis or solver gate. Its complete
+single-frame prescreen covered 81 candidates and produced 10 nominal candidates,
+15 relaxed candidates, 11 converged candidates, and 36 collision-free candidates.
+The best gate-ratio candidate was `t2-072` (`x=0.20`, `y=0.00`, `z=-0.10` m,
+`yaw=-20` deg), with 1.9997 mm position error and 1.2670 deg orientation error
+on the prescreen frame. The frozen report is
+`runs/20260903-m1-005/prescreen-one-frame.json` (SHA-256
+`bdd14c53679ca609f83e49ee0e4fa4cbeea22c3917f1cc407953fb7ac458288a`).
+
+This is still a calibration-only one-frame prescreen, not the M-1 exit result.
+The next gate is the registered full evaluation of the top 9 candidates over
+the 600 calibration single frames and 20 continuous segments.
+
 ## Next gate
 
 Do not promote the identity mapping, the local Viser rotation, or the `link7` hypothesis into the formal recipe. Following the pre-registered red-light procedure, the next formal recipe expands T2 outward from the observed boundary candidate. If that remains red, the route moves to the target-reselection spike. A source URDF or explicit mapping remains useful for later cross-checking, but is not silently assumed as a prerequisite:

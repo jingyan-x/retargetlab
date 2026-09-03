@@ -1195,6 +1195,70 @@ def gate_status(
     return "YELLOW" if yellow else "RED"
 
 
+def load_frozen_prescreen(
+    path: Path,
+    recipe: dict[str, Any],
+    candidates: list[Candidate],
+    prescreen_indices: list[tuple[int, int]],
+    sampling: dict[str, Any],
+) -> tuple[list[dict[str, Any]], str]:
+    try:
+        frozen = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("prescreen report cannot be read as JSON") from exc
+    if frozen.get("status") != "PASS":
+        raise ValueError("prescreen report is not a PASS report")
+    if frozen.get("run_mode") != "prescreen_only":
+        raise ValueError("prescreen report must be prescreen_only")
+    if frozen.get("recipe_id") != recipe["recipe_id"]:
+        raise ValueError("prescreen report recipe does not match current recipe")
+    if any(
+        bool(frozen.get(field))
+        for field in (
+            "held_out_values_read",
+            "private_values_emitted",
+            "source_paths_emitted",
+        )
+    ):
+        raise ValueError("prescreen report violates the private-data output policy")
+
+    budget = frozen.get("candidate_budget", {})
+    if int(budget.get("candidates_run", -1)) != len(candidates):
+        raise ValueError("prescreen report does not cover the complete T2 grid")
+    if int(budget.get("expected_candidates", -1)) != len(candidates):
+        raise ValueError("prescreen report candidate budget does not match recipe")
+    if int(budget.get("prescreen_frame_count", -1)) != len(prescreen_indices):
+        raise ValueError("prescreen report sample size does not match recipe")
+
+    frozen_dataset = frozen.get("dataset", {})
+    for field in ("data_sha256", "info_sha256", "episodes_sha256"):
+        if frozen_dataset.get(field) != sampling["dataset"][field]:
+            raise ValueError(f"prescreen report {field} does not match dataset")
+
+    expected = {candidate.candidate_id: candidate for candidate in candidates}
+    summaries = frozen.get("candidates")
+    if not isinstance(summaries, list) or len(summaries) != len(expected):
+        raise ValueError("prescreen report has an incomplete candidate list")
+    seen: set[str] = set()
+    for summary in summaries:
+        candidate_id = summary.get("candidate_id")
+        candidate = expected.get(candidate_id)
+        if candidate is None or candidate_id in seen:
+            raise ValueError("prescreen report candidate IDs do not match recipe")
+        if summary.get("translation_offset_m") != [
+            candidate.dx,
+            candidate.dy,
+            candidate.dz,
+        ] or summary.get("yaw_offset_deg") != candidate.yaw_deg:
+            raise ValueError("prescreen report candidate transform does not match recipe")
+        if not isinstance(summary.get("prescreen"), dict):
+            raise ValueError("prescreen report candidate has no metrics")
+        seen.add(candidate_id)
+    if seen != set(expected):
+        raise ValueError("prescreen report candidate IDs do not cover the recipe")
+    return summaries, sha256_file(path)
+
+
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parents[2]
     recipe_path = args.recipe.resolve()
@@ -1319,33 +1383,55 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         if args.frame_limit < 1 or args.frame_limit > len(prescreen_indices):
             raise ValueError("frame-limit is outside the prescreen sample")
         prescreen_indices = prescreen_indices[: args.frame_limit]
-    candidate_limit = args.candidate_limit or len(candidates)
-    if candidate_limit < 1 or candidate_limit > len(candidates):
-        raise ValueError("candidate-limit is outside the frozen T2 budget")
-    candidates_to_run = candidates[:candidate_limit]
-    summaries: list[dict[str, Any]] = []
-    for index, candidate in enumerate(candidates_to_run, start=1):
+    prescreen_report_sha256 = None
+    if args.prescreen_report is not None:
+        if args.prescreen_only:
+            raise ValueError("prescreen-report cannot be used with prescreen-only")
+        if args.candidate_limit is not None or args.frame_limit is not None:
+            raise ValueError(
+                "prescreen-report reuse requires the complete candidate and frame budget"
+            )
+        candidates_to_run = candidates
+        summaries, prescreen_report_sha256 = load_frozen_prescreen(
+            args.prescreen_report.resolve(),
+            recipe,
+            candidates,
+            prescreen_indices,
+            sampling,
+        )
         print(
-            f"prescreen candidate {index}/{len(candidates_to_run)}",
+            "reusing frozen prescreen report",
             file=sys.stderr,
             flush=True,
         )
-        prescreen = evaluate_candidate_frames(
-            candidate,
-            prescreen_indices,
-            rows,
-            model,
-            solver_geometry_model,
-            barrier_geometry_model,
-            geometry_model,
-            target_reference_q,
-            target_initialization_seeds,
-            solve_options,
-            position_tolerance,
-            orientation_tolerance,
-            relaxed_orientation_tolerance,
-        )
-        summaries.append(candidate_summary(candidate, prescreen))
+    else:
+        candidate_limit = args.candidate_limit or len(candidates)
+        if candidate_limit < 1 or candidate_limit > len(candidates):
+            raise ValueError("candidate-limit is outside the frozen T2 budget")
+        candidates_to_run = candidates[:candidate_limit]
+        summaries = []
+        for index, candidate in enumerate(candidates_to_run, start=1):
+            print(
+                f"prescreen candidate {index}/{len(candidates_to_run)}",
+                file=sys.stderr,
+                flush=True,
+            )
+            prescreen = evaluate_candidate_frames(
+                candidate,
+                prescreen_indices,
+                rows,
+                model,
+                solver_geometry_model,
+                barrier_geometry_model,
+                geometry_model,
+                target_reference_q,
+                target_initialization_seeds,
+                solve_options,
+                position_tolerance,
+                orientation_tolerance,
+                relaxed_orientation_tolerance,
+            )
+            summaries.append(candidate_summary(candidate, prescreen))
 
     summaries.sort(
         key=lambda item: (
@@ -1483,6 +1569,16 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "rotation_pitch_deg": float(t2["anchor"]["pitch_deg"]),
         },
         "collision_policy": collision_report,
+        "prescreen_source": {
+            "mode": "reused_frozen_report"
+            if prescreen_report_sha256
+            else "computed_in_this_run",
+            **(
+                {"sha256": prescreen_report_sha256}
+                if prescreen_report_sha256
+                else {}
+            ),
+        },
         "candidate_budget": {
             "expected_candidates": len(candidates),
             "candidates_run": len(candidates_to_run),
@@ -1529,6 +1625,11 @@ def main() -> int:
     parser.add_argument("--candidate-limit", type=int)
     parser.add_argument("--frame-limit", type=int)
     parser.add_argument("--prescreen-only", action="store_true")
+    parser.add_argument(
+        "--prescreen-report",
+        type=Path,
+        help="reuse a matching complete prescreen_only report for the full budget",
+    )
     args = parser.parse_args()
     try:
         report = build_report(args)
