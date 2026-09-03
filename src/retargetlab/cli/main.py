@@ -13,7 +13,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 from retargetlab import __version__
-from retargetlab.contracts import CanonicalTrajectory
+from retargetlab.contracts import CanonicalTrajectory, DatasetReport
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -33,6 +33,10 @@ def _parser() -> argparse.ArgumentParser:
     inspect = subparsers.add_parser("inspect", help="inspect a canonical JSON trajectory")
     inspect.add_argument("path", type=Path)
     inspect.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
+    diagnose.add_argument("--run", required=True, type=Path)
+    diagnose.add_argument("--json", action="store_true", help="emit JSON to stdout")
     return parser
 
 
@@ -84,18 +88,45 @@ def _inspect_payload(path: Path) -> dict[str, Any]:
     }
 
 
+def _diagnose_payload(run_path: Path) -> tuple[dict[str, Any], int]:
+    report_path = run_path / "result" / "report.json"
+    report = DatasetReport.model_validate_json(report_path.read_text(encoding="utf-8"))
+    payload = {
+        "command": "diagnose",
+        "status": report.status,
+        "episode_count": report.episode_count,
+        "episodes": [
+            {
+                "episode_index": episode.episode_index,
+                "frame_count": episode.frame_count,
+                "nominal_rate": episode.nominal_rate,
+                "relaxed_rate": episode.relaxed_rate,
+                "status": episode.status,
+            }
+            for episode in report.episodes
+        ],
+    }
+    return payload, EXIT_QUALITY if report.status == "FAIL" else EXIT_OK
+
+
 def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if as_json:
         json.dump(payload, stdout, ensure_ascii=False, sort_keys=True)
         stdout.write("\n")
         return
     if payload.get("status") == "INVALID_INPUT":
-        print(f"inspect: invalid input: {payload['error']}", file=sys.stderr)
+        print(f"{payload['command']}: invalid input: {payload['error']}", file=sys.stderr)
         return
     if payload.get("command") == "doctor":
         print(f"retargetlab doctor: {payload['status']}", file=stdout)
         for name, details in payload["dependencies"].items():
             print(f"{name}: {details['status']}", file=sys.stderr)
+        return
+    if payload.get("command") == "diagnose":
+        print(
+            f"diagnostic report: {payload['status']} ({payload['episode_count']} episodes)",
+            file=stdout,
+        )
         return
     print(
         f"canonical trajectory: {payload['frame_count']} frames, "
@@ -121,6 +152,15 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "diagnose":
+        try:
+            payload, exit_code = _diagnose_payload(args.run)
+        except (OSError, ValidationError, ValueError) as exc:
+            error = {"command": "diagnose", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
     return EXIT_ERROR
 
 
