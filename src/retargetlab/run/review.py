@@ -15,6 +15,7 @@ from retargetlab.contracts import (
     ReviewRunArtifact,
     StructureComparison,
 )
+from retargetlab.run.calibration_report import render_calibration_summary
 from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
 
 
@@ -117,8 +118,17 @@ def write_calibration_run(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     recipe_path = output_path.with_name("calibration-recipe.json")
     recipe_hash_path = output_path.with_name("calibration-recipe.sha256")
+    summary_path = output_path.with_name("calibration-summary.md")
     manifest_path = output_path.with_name("calibration-run-manifest.json")
-    for path in (output_path, recipe_path, recipe_hash_path, manifest_path):
+    reserved_names = {
+        recipe_path.name,
+        recipe_hash_path.name,
+        summary_path.name,
+        manifest_path.name,
+    }
+    if output_path.name in reserved_names:
+        raise ValueError("calibration audit output name is reserved")
+    for path in (output_path, recipe_path, recipe_hash_path, summary_path, manifest_path):
         if path.exists():
             raise FileExistsError(f"calibration artifact already exists: {path}")
 
@@ -138,14 +148,26 @@ def write_calibration_run(
         handle.write("\n")
     with recipe_hash_path.open("x", encoding="utf-8", newline="") as handle:
         handle.write(f"{recipe_digest}\n")
+    audit_digest = sha256_bytes(canonical_json_bytes(artifact))
+    summary = render_calibration_summary(
+        recipe,
+        artifact,
+        recipe_sha256=recipe_digest,
+        audit_sha256=audit_digest,
+    )
+    with summary_path.open("x", encoding="utf-8", newline="") as handle:
+        handle.write(summary)
+    summary_digest = sha256_bytes(summary.encode("utf-8"))
     manifest = CalibrationRunManifest(
         run_id=output_path.stem,
         recipe_sha256=recipe_digest,
-        audit_sha256=sha256_bytes(canonical_json_bytes(artifact)),
+        audit_sha256=audit_digest,
+        summary_sha256=summary_digest,
         artifacts=(
             output_path.name,
             recipe_path.name,
             recipe_hash_path.name,
+            summary_path.name,
             manifest_path.name,
         ),
         completed_at_utc=datetime.now(UTC).isoformat(),

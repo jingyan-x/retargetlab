@@ -12,12 +12,14 @@ from retargetlab.contracts import (
     CalibrationRunVerification,
     ReviewRunArtifact,
 )
+from retargetlab.run.calibration_report import render_calibration_summary
 from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
 
 _RECIPE_NAME = "calibration-recipe.json"
 _RECIPE_HASH_NAME = "calibration-recipe.sha256"
+_SUMMARY_NAME = "calibration-summary.md"
 _MANIFEST_NAME = "calibration-run-manifest.json"
-_FIXED_NAMES = frozenset({_RECIPE_NAME, _RECIPE_HASH_NAME, _MANIFEST_NAME})
+_FIXED_NAMES = frozenset({_RECIPE_NAME, _RECIPE_HASH_NAME, _SUMMARY_NAME, _MANIFEST_NAME})
 
 
 def _read_json_model[ModelT: BaseModel](path: Path, model: type[ModelT]) -> ModelT:
@@ -25,8 +27,8 @@ def _read_json_model[ModelT: BaseModel](path: Path, model: type[ModelT]) -> Mode
 
 
 def _require_artifact_names(run_path: Path, names: tuple[str, ...]) -> Path:
-    if len(names) != 4 or len(set(names)) != len(names):
-        raise ValueError("calibration manifest must list exactly four unique artifacts")
+    if len(names) != 5 or len(set(names)) != len(names):
+        raise ValueError("calibration manifest must list exactly five unique artifacts")
     for name in names:
         candidate = Path(name)
         if not name or candidate.is_absolute() or candidate.name != name:
@@ -87,6 +89,19 @@ def verify_calibration_run(run_path: Path) -> CalibrationRunVerification:
         raise ValueError("audit max_frames does not match recipe")
     if audit.selection.selected_frame_count > recipe.max_frames:
         raise ValueError("audit selection exceeds recipe max_frames")
+    summary_path = run_path / _SUMMARY_NAME
+    expected_summary = render_calibration_summary(
+        recipe,
+        audit,
+        recipe_sha256=recipe_digest,
+        audit_sha256=audit_digest,
+    )
+    summary = summary_path.read_text(encoding="utf-8")
+    summary_digest = sha256_bytes(summary.encode("utf-8"))
+    if manifest.summary_sha256 != summary_digest:
+        raise ValueError("calibration manifest summary hash does not match summary")
+    if summary != expected_summary:
+        raise ValueError("calibration summary does not match recipe and audit")
 
     return CalibrationRunVerification(
         run_id=manifest.run_id,
@@ -95,5 +110,6 @@ def verify_calibration_run(run_path: Path) -> CalibrationRunVerification:
         selected_frame_count=audit.selection.selected_frame_count,
         recipe_sha256=recipe_digest,
         audit_sha256=audit_digest,
+        summary_sha256=summary_digest,
         artifacts=manifest.artifacts,
     )

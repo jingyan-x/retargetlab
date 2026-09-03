@@ -1,5 +1,6 @@
 """Reproducible run workspace and report helpers."""
 
+from .calibration_report import render_calibration_summary
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .report import write_dataset_report
@@ -14,6 +15,7 @@ __all__ = [
     "create_run_workspace",
     "execute_solve_run",
     "recipe_sha256",
+    "render_calibration_summary",
     "solve_canonical_stream",
     "write_dataset_report",
     "write_calibration_run",

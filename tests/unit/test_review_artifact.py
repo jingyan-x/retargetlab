@@ -161,22 +161,26 @@ def test_calibration_run_writes_recipe_and_manifest_without_source_rows(tmp_path
 
     recipe_path = output_path.with_name("calibration-recipe.json")
     digest_path = output_path.with_name("calibration-recipe.sha256")
+    summary_path = output_path.with_name("calibration-summary.md")
     manifest_path = output_path.with_name("calibration-run-manifest.json")
     assert manifest.recipe_sha256 == digest_path.read_text(encoding="utf-8").strip()
+    assert manifest.summary_sha256 == sha256_bytes(summary_path.read_bytes())
     assert manifest_path.is_file()
     assert set(manifest.artifacts) == {
         output_path.name,
         recipe_path.name,
         digest_path.name,
+        summary_path.name,
         manifest_path.name,
     }
-    for path in (output_path, recipe_path, manifest_path):
+    for path in (output_path, recipe_path, summary_path, manifest_path):
         assert "position_m" not in path.read_text(encoding="utf-8")
         assert "poses" not in path.read_text(encoding="utf-8")
     verification = verify_calibration_run(output_path.parent)
     assert verification.status == "VERIFIED"
     assert verification.run_id == output_path.stem
     assert verification.selected_frame_count == 2
+    assert verification.summary_sha256 == manifest.summary_sha256
     with pytest.raises(FileExistsError):
         write_calibration_run(
             output_path,

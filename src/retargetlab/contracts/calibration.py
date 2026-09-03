@@ -63,6 +63,7 @@ class CalibrationRunManifest(BaseModel):
     status: Literal["COMPLETED"] = "COMPLETED"
     recipe_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     audit_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    summary_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     artifacts: tuple[str, ...] = Field(min_length=1)
     completed_at_utc: str = Field(min_length=1)
 
@@ -80,6 +81,7 @@ class CalibrationRunVerification(BaseModel):
     selected_frame_count: int = Field(gt=0)
     recipe_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     audit_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    summary_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     artifacts: tuple[str, ...] = Field(min_length=1)
 
 

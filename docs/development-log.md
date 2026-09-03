@@ -865,3 +865,30 @@ Remote verification:
 The next boundary is to add an explicit source-independent report renderer for
 the verified calibration run, keeping review and provenance readable without
 exposing source pose values.
+
+### M1a.12: deterministic source-independent calibration summary
+
+Each bounded calibration run now also writes `calibration-summary.md`. The
+summary is generated deterministically from the recipe and value-free audit:
+it presents status, dataset/revision, provenance hashes, selected episode and
+frame counts, requested columns, coordinate-frame label, stream names,
+structure status, and reviewer. It explicitly contains no source rows or
+trajectory arrays. The manifest records the summary hash, and the read-only
+verifier checks both that hash and the regenerated summary content.
+
+The summary writer, manifest extension, verifier checks, and existing CLI
+success path were exercised only with synthetic approved artifacts. The real
+private-sample review remains unapproved and did not enter this path.
+
+Remote verification:
+
+- summary/manifest and verifier assertions passed in the artifact test suite;
+- full `pytest -q tests`: 55 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real source rows, held-out content, videos, or production assets were
+  read or modified by summary generation or verification.
+
+The next boundary is to add a bounded, read-only review-package inspector that
+reports whether a real dataset has all evidence needed before an explicit
+semantic approval, without treating inferred mappings as approved.
