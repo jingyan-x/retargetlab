@@ -517,3 +517,29 @@ Remote verification:
 
 The next M0 boundary remains a static numerical confirmation/report utility;
 the real-container prober and OpenArm formalization stay outside this slice.
+
+### M0 continuation: optional static diagnostic plot
+
+The report layer now includes a lazy `plot_dataset_report` helper. It plots
+episode nominal/relaxed rates and invalid fractions from `DatasetReport` only;
+it never reads or renders joint vectors, poses, private source rows, or held
+out content. The output path is non-overwriting, and matplotlib is an optional
+`viz` extra so the core/solver environment remains installable without a GUI
+stack. The pure JSON/Markdown/CSV report remains the authoritative numerical
+artifact.
+
+The remote environment does not currently have matplotlib installed. The
+optional-dependency negative test confirms that plotting reports a clear
+runtime requirement and leaves no partial output. This is an environment
+capability note, not a project blocker.
+
+Remote verification:
+
+- static-plot and diagnostic tests: 3 passed;
+- full `pytest -q tests`: 37 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed.
+
+No package installation, private data access, or held-out access was needed
+for this slice. The next step can add a contract-level profile/SRDF review or
+prepare the narrow prober interface for a separately authorized real container.
