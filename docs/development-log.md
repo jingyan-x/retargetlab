@@ -696,3 +696,30 @@ Remote verification:
 The next boundary is a bounded calibration executor that accepts only an
 approved mapping plus its matching structure comparison, with no full-dataset
 conversion until calibration evidence is recorded.
+
+### M1a.6: bounded approval-gated calibration executor
+
+The runtime now exposes a bounded calibration normalization function. It
+rejects empty or oversized slices, unresolved/unapproved mappings, mismatched
+structure comparisons, and approved mappings that have not explicitly accepted
+unverified shape. The default slice limit is 60 frames and the hard limit is
+600. On success it returns the canonical trajectory for the small slice plus a
+value-free `CalibrationReport`; the report records counts and verification
+status but never embeds pose or joint arrays.
+
+The executor was closed over synthetic rows only. The real private-sample
+candidate remains unapproved, so no real source rows were normalized and no IK
+was run. This keeps the next real-data action limited to supplying an explicit
+review and then selecting a bounded calibration slice.
+
+Remote verification:
+
+- bounded calibration tests: 3 passed;
+- full `pytest -q tests`: 49 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no held-out content, videos, or production assets were modified.
+
+The next boundary is to connect the approved-only calibration function to a
+row-selection adapter, preserving episode boundaries and provenance without
+adding an unbounded data-conversion path.

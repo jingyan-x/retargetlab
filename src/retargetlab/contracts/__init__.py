@@ -1,5 +1,6 @@
 """Backend-independent data contracts."""
 
+from .calibration import CalibrationReport
 from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
@@ -23,6 +24,7 @@ from .threshold import Threshold
 __all__ = [
     "CanonicalFrame",
     "CanonicalTrajectory",
+    "CalibrationReport",
     "ColumnRef",
     "CollisionProfile",
     "DatasetInfoManifest",

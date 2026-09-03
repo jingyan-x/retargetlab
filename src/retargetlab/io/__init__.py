@@ -1,5 +1,6 @@
 """Input structure and mapping utilities."""
 
+from .calibrate import run_bounded_calibration
 from .candidate import build_pose_mapping_candidate
 from .compare import compare_info_to_structure
 from .normalize import NormalizationError, normalize_rows
@@ -9,6 +10,7 @@ from .validate import validate_mapping
 
 __all__ = [
     "build_pose_mapping_candidate",
+    "run_bounded_calibration",
     "compare_info_to_structure",
     "apply_mapping_review",
     "NormalizationError",
