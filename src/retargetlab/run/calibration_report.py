@@ -33,6 +33,7 @@ def render_calibration_summary(
         f"- comparison_sha256: `{recipe.comparison_sha256}`",
         f"- review_sha256: `{recipe.review_sha256}`",
         f"- decision_sha256: `{recipe.decision_sha256 or 'none'}`",
+        f"- profile_sha256: `{recipe.profile_sha256 or 'none'}`",
         "",
         "## Selection",
         "",

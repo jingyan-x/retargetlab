@@ -5,7 +5,7 @@ from .decision import verify_review_decision_artifact, write_review_decision_art
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .preflight import verify_review_package_preflight, write_review_package_preflight
-from .profile import verify_data_profile, write_data_profile
+from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
 from .report import write_dataset_report
 from .review import write_calibration_run, write_review_run_artifact
 from .verify import verify_calibration_run
@@ -28,6 +28,7 @@ __all__ = [
     "verify_review_package_preflight",
     "write_data_profile",
     "verify_data_profile",
+    "load_executable_data_profile",
     "write_review_run_artifact",
     "verify_calibration_run",
 ]

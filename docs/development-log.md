@@ -1237,3 +1237,34 @@ Remote verification:
 The production gate remains closed. The next implementation boundary is to
 make downstream calibration/normalization consume a verified DataProfile
 without allowing a pending profile to enter an executable path.
+
+### M1a.25: gate executable calibration and normalization on certified profiles
+
+The executable path now has an explicit profile gate. `calibrate --profile`
+and `normalize --profile` first require a `CERTIFIED` DataProfile and a
+matching verified semantic decision. Calibration then checks the approved
+mapping hash plus the data and episode file hashes before reading source rows;
+the resulting calibration recipe and deterministic summary record the profile
+hash. Normalization uses the certified profile mapping and records the profile
+hash in canonical trajectory metadata. The existing explicit `--spec` and
+review-approved calibration paths remain backward-compatible when no profile
+is supplied.
+
+The real pending private profile was deliberately exercised through the
+calibration CLI with review-package paths that do not exist. It was rejected
+at the profile gate with `executable data profile must be CERTIFIED`, proving
+that a pending profile cannot fall through to review-package or source-row
+access. The same pre-row gate is covered for normalization by a unit test.
+
+Remote verification:
+
+- focused profile/review/calibration tests: 21 passed;
+- full `pytest -q`: 69 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private source rows or held-out data were changed; only the previously
+  generated value-free pending profile was read.
+
+The next boundary is to use the certified profile as the single source of
+mapping and channel semantics in any future executable retargeting command;
+the current private profile remains intentionally non-executable until the
+semantic EEF frame decision is approved.

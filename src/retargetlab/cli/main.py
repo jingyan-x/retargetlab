@@ -41,6 +41,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.run import (
     canonical_json_bytes,
     execute_solve_run,
+    load_executable_data_profile,
     recipe_sha256,
     verify_calibration_run,
     verify_data_profile,
@@ -126,6 +127,11 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional approved semantic decision artifact to verify before reading data",
     )
+    calibrate.add_argument(
+        "--profile",
+        type=Path,
+        help="optional certified DataProfile to bind before reading data",
+    )
     calibrate.add_argument("--episode-indices", required=True, nargs="+", type=int)
     calibrate.add_argument("--frames-per-episode", required=True, type=int)
     calibrate.add_argument("--max-frames", default=60, type=int)
@@ -191,7 +197,18 @@ def _parser() -> argparse.ArgumentParser:
         "normalize", help="normalize explicitly mapped pose rows into canonical JSON"
     )
     normalize.add_argument("rows", type=Path)
-    normalize.add_argument("--spec", required=True, type=Path)
+    normalize_source = normalize.add_mutually_exclusive_group(required=True)
+    normalize_source.add_argument("--spec", type=Path)
+    normalize_source.add_argument(
+        "--profile",
+        type=Path,
+        help="use a certified DataProfile as the executable mapping source",
+    )
+    normalize.add_argument(
+        "--decision",
+        type=Path,
+        help="semantic decision bound to --profile",
+    )
     normalize.add_argument("--output", required=True, type=Path)
     normalize.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
@@ -476,11 +493,18 @@ def _calibrate_payload(
     review_path: Path,
     comparison_path: Path,
     decision_path: Path | None,
+    profile_path: Path | None,
     episode_indices: list[int],
     frames_per_episode: int,
     max_frames: int,
     output_path: Path,
 ) -> dict[str, Any]:
+    profile = (
+        load_executable_data_profile(profile_path, decision_path=decision_path)
+        if profile_path is not None
+        else None
+    )
+    profile_sha256 = sha256_bytes(canonical_json_bytes(profile)) if profile is not None else None
     candidate, review, comparison = _load_review_package(
         candidate_path,
         review_path,
@@ -495,6 +519,19 @@ def _calibrate_payload(
             review=review,
             comparison=comparison,
         )
+    if profile is not None:
+        if profile.dataset_alias != mapping.dataset_alias:
+            raise ValueError("data profile dataset alias does not match mapping")
+        if profile.source_revision != mapping.source_revision:
+            raise ValueError("data profile source revision does not match mapping")
+        if sha256_bytes(canonical_json_bytes(profile.mapping)) != sha256_bytes(
+            canonical_json_bytes(mapping)
+        ):
+            raise ValueError("data profile mapping does not match approved review mapping")
+        if profile.revision.data_sha256 != sha256_file(data_path):
+            raise ValueError("data profile data hash does not match calibration data")
+        if profile.revision.episodes_sha256 != sha256_file(episodes_path):
+            raise ValueError("data profile episode hash does not match calibration episodes")
     trajectory, calibration, selection = run_parquet_calibration(
         data_path,
         episodes_path,
@@ -516,6 +553,7 @@ def _calibrate_payload(
         decision_sha256=(
             sha256_bytes(canonical_json_bytes(decision)) if decision is not None else None
         ),
+        profile_sha256=profile_sha256,
         episode_indices=tuple(episode_indices),
         frames_per_episode=frames_per_episode,
         max_frames=max_frames,
@@ -528,6 +566,7 @@ def _calibrate_payload(
         comparison=comparison,
         review_sha256=recipe.review_sha256,
         decision_sha256=recipe.decision_sha256,
+        profile_sha256=recipe.profile_sha256,
         selection=selection,
         calibration=calibration,
     )
@@ -634,14 +673,34 @@ def _validate_input_payload(manifest_path: Path, spec_path: Path) -> tuple[dict[
 
 def _normalize_payload(
     rows_path: Path,
-    spec_path: Path,
+    spec_path: Path | None,
+    profile_path: Path | None,
+    decision_path: Path | None,
     output_path: Path,
 ) -> dict[str, Any]:
+    profile = (
+        load_executable_data_profile(profile_path, decision_path=decision_path)
+        if profile_path is not None
+        else None
+    )
+    if profile is not None:
+        spec = profile.mapping
+        profile_sha256 = sha256_bytes(canonical_json_bytes(profile))
+    elif spec_path is not None:
+        if decision_path is not None:
+            raise ValueError("normalize --decision requires --profile")
+        spec = MappingSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+        profile_sha256 = None
+    else:
+        raise ValueError("normalize requires either --spec or --profile")
     raw_rows = json.loads(rows_path.read_text(encoding="utf-8"))
     if not isinstance(raw_rows, list) or not all(isinstance(row, dict) for row in raw_rows):
         raise ValueError("rows JSON must be a list of objects")
-    spec = MappingSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
     trajectory = normalize_rows(raw_rows, spec)
+    if profile_sha256 is not None:
+        trajectory = trajectory.model_copy(
+            update={"metadata": {**trajectory.metadata, "data_profile_sha256": profile_sha256}}
+        )
     with output_path.open("x", encoding="utf-8", newline="\n") as handle:
         handle.write(trajectory.model_dump_json(indent=2))
         handle.write("\n")
@@ -653,6 +712,7 @@ def _normalize_payload(
         "coordinate_frame": trajectory.coordinate_frame,
         "frame_count": trajectory.frame_count,
         "stream_names": list(trajectory.stream_names),
+        "profile_sha256": profile_sha256,
     }
 
 
@@ -974,6 +1034,7 @@ def app(argv: list[str] | None = None) -> int:
                 review_path=args.review,
                 comparison_path=args.comparison,
                 decision_path=args.decision,
+                profile_path=args.profile,
                 episode_indices=args.episode_indices,
                 frames_per_episode=args.frames_per_episode,
                 max_frames=args.max_frames,
@@ -1071,7 +1132,13 @@ def app(argv: list[str] | None = None) -> int:
         return exit_code
     if args.command == "normalize":
         try:
-            payload = _normalize_payload(args.rows, args.spec, args.output)
+            payload = _normalize_payload(
+                args.rows,
+                args.spec,
+                args.profile,
+                args.decision,
+                args.output,
+            )
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "normalize",

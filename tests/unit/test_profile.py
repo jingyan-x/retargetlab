@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from retargetlab.cli.main import EXIT_OK, app
+from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
     AffineMap,
     ColumnRef,
@@ -15,7 +15,12 @@ from retargetlab.contracts import (
     StreamMapping,
     TimingEvidence,
 )
-from retargetlab.run import canonical_json_bytes, verify_data_profile, write_data_profile
+from retargetlab.run import (
+    canonical_json_bytes,
+    load_executable_data_profile,
+    verify_data_profile,
+    write_data_profile,
+)
 from retargetlab.run.fingerprint import sha256_bytes
 
 
@@ -215,3 +220,36 @@ def test_verify_profile_cli_reports_pending_profile(tmp_path, capsys) -> None:
     assert payload["command"] == "verify-profile"
     assert payload["profile_status"] == "REVIEW_REQUIRED"
     assert payload["decision_verified"] is False
+
+
+def test_pending_profile_cannot_enter_executable_path(tmp_path) -> None:
+    profile_path = tmp_path / "data-profile.json"
+    write_data_profile(profile_path, _profile())
+
+    with pytest.raises(ValueError, match="must be CERTIFIED"):
+        load_executable_data_profile(profile_path, decision_path=None)
+
+
+def test_pending_profile_blocks_normalization_before_rows_are_read(tmp_path, capsys) -> None:
+    profile_path = tmp_path / "data-profile.json"
+    output_path = tmp_path / "canonical.json"
+    write_data_profile(profile_path, _profile())
+
+    assert (
+        app(
+            [
+                "normalize",
+                str(tmp_path / "missing-rows.json"),
+                "--profile",
+                str(profile_path),
+                "--output",
+                str(output_path),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "INVALID_INPUT"
+    assert "CERTIFIED" in payload["error"]
+    assert not output_path.exists()

@@ -62,3 +62,19 @@ def verify_data_profile(
         decision_sha256=decision_digest or profile.review_decision_sha256,
         decision_verified=decision_verified,
     )
+
+
+def load_executable_data_profile(
+    path: Path,
+    *,
+    decision_path: Path | None,
+) -> DataProfile:
+    """Load only a certified profile with a verified semantic decision."""
+
+    profile = DataProfile.model_validate_json(path.read_text(encoding="utf-8"))
+    verification = verify_data_profile(path, decision_path=decision_path)
+    if verification.profile_status != "CERTIFIED":
+        raise ValueError("executable data profile must be CERTIFIED")
+    if not verification.decision_verified:
+        raise ValueError("executable data profile requires a verified decision")
+    return profile

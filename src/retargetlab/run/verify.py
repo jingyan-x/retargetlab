@@ -129,6 +129,7 @@ def verify_calibration_run(
         selected_frame_count=audit.selection.selected_frame_count,
         recipe_sha256=recipe_digest,
         decision_sha256=recipe.decision_sha256,
+        profile_sha256=recipe.profile_sha256,
         decision_verified=decision_verified,
         audit_sha256=audit_digest,
         summary_sha256=summary_digest,
