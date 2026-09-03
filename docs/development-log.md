@@ -225,3 +225,34 @@ This layer remains read-only and does not claim frame-identity confirmation,
 real-robot safety, or held-out validation. The next slice can connect it to a
 trajectory runner once the input adapter supplies explicit per-frame collision,
 limit, and delta checks.
+
+### M0 continuation: synthetic bounded round-trip and negative cases
+
+The synthetic test support now generates a deterministic joint-space reference
+with a seeded low-pass velocity process, explicit lower/upper limits, and a
+per-joint step bound. It derives each canonical pose through the supplied
+`KinematicsBackend.fk` implementation, so the fixture does not duplicate robot
+kinematics. The reference joint configurations are kept in the test result
+object only; they are not part of the canonical input contract or any private
+dataset.
+
+The synthetic suite verifies both directions of the CPU loop: bounded smooth
+configurations produce FK-backed canonical targets, and those targets return
+through the Pink sequence solver with observable `CONVERGED` results. It also
+exercises 10+ negative conditions covering invalid poses, stream/timestamp/frame
+alignment, empty trajectories, malformed generator bounds, and unknown backend
+groups. These tests are contract guards, not accuracy claims about the Panda
+M-1 target.
+
+Remote verification after this slice:
+
+- `pytest -q tests`: 17 passed and 1 Panda asset smoke skipped when the
+  gitignored project asset path is not mounted in the checkout;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- only the existing upstream qpsolvers/OSQP conversion and deprecation
+  warnings remain.
+
+The synthetic generator is deliberately not an input adapter and does not open
+the private or held-out split. The next implementation boundary remains the
+run/recipe/report layer before any real-data normalization is attempted.
