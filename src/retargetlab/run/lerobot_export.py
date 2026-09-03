@@ -14,6 +14,7 @@ from retargetlab.contracts import (
     FeatureDeclaration,
     LeRobotEpisodeMetadata,
     LeRobotEpisodeReplayBinding,
+    LeRobotEpisodeTargetTableBinding,
     LeRobotMetadataPlan,
     LeRobotMetadataPlanVerification,
     LeRobotMetadataSkeletonVerification,
@@ -22,6 +23,8 @@ from retargetlab.contracts import (
     LeRobotPartialDatasetWrite,
     LeRobotReplayBindingManifest,
     LeRobotReplayBindingVerification,
+    LeRobotTargetTableBindingManifest,
+    LeRobotTargetTableBindingVerification,
     LeRobotTaskMetadata,
     SyntheticTableWriteReport,
     TargetReplayBundle,
@@ -250,6 +253,147 @@ def verify_lerobot_replay_binding_manifest(
         plan_path=manifest.plan_path,
         plan_sha256=manifest.plan_sha256,
         binding_manifest_sha256=sha256_bytes(canonical_json_bytes(manifest)),
+        binding_count=len(manifest.bindings),
+        total_frames=manifest.total_frames,
+    )
+
+
+def build_lerobot_target_table_binding_manifest(
+    *,
+    plan_path: Path,
+    replay_binding_manifest_path: Path,
+    target_table_report_paths: Mapping[int, Path],
+) -> LeRobotTargetTableBindingManifest:
+    """Bind each episode's verified target-table report to its replay binding."""
+
+    plan_path = plan_path.resolve()
+    replay_binding_manifest_path = replay_binding_manifest_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    verify_lerobot_replay_binding_manifest(replay_binding_manifest_path)
+    replay_manifest = LeRobotReplayBindingManifest.model_validate_json(
+        replay_binding_manifest_path.read_text(encoding="utf-8")
+    )
+    if replay_manifest.plan_path != plan_path.as_posix():
+        raise ValueError("replay binding manifest plan path does not match metadata plan")
+    if replay_manifest.plan_sha256 != plan_verification.plan_sha256:
+        raise ValueError("replay binding manifest plan hash does not match metadata plan")
+    if replay_manifest.target_layout != plan.target_layout:
+        raise ValueError("replay binding manifest layout does not match metadata plan")
+    expected_episode_indices = set(plan.training_episode_allowlist)
+    if set(target_table_report_paths) != expected_episode_indices:
+        raise ValueError("target-table report paths must match the plan episode allowlist")
+
+    replay_by_episode = {
+        binding.episode_index: binding for binding in replay_manifest.bindings
+    }
+    from retargetlab.run.export_table import verify_synthetic_table_write_report
+
+    bindings: list[LeRobotEpisodeTargetTableBinding] = []
+    for episode in plan.episodes:
+        replay_binding = replay_by_episode[episode.episode_index]
+        report_path = target_table_report_paths[episode.episode_index].resolve()
+        if not report_path.is_file():
+            raise FileNotFoundError(f"target table report does not exist: {report_path}")
+        report = SyntheticTableWriteReport.model_validate_json(
+            report_path.read_text(encoding="utf-8")
+        )
+        target_verification = verify_synthetic_table_write_report(report_path)
+        if report.write.target_replay_bundle_path != replay_binding.target_replay_bundle_path:
+            raise ValueError(
+                f"target table report bundle path does not match episode {episode.episode_index}"
+            )
+        if report.write.target_replay_bundle_sha256 != replay_binding.target_replay_bundle_sha256:
+            raise ValueError(
+                f"target table report bundle hash does not match episode {episode.episode_index}"
+            )
+        if report.write.replay_id != replay_binding.replay_id:
+            raise ValueError(
+                f"target table report replay id does not match episode {episode.episode_index}"
+            )
+        if report.write.robot_id != plan.robot_id or target_verification.robot_id != plan.robot_id:
+            raise ValueError(
+                f"target table report robot does not match episode {episode.episode_index}"
+            )
+        if report.write.layout != plan.target_layout:
+            raise ValueError(
+                f"target table report layout does not match episode {episode.episode_index}"
+            )
+        if report.write.frame_count != episode.length:
+            raise ValueError(
+                f"target table report frame count does not match episode {episode.episode_index}"
+            )
+        if report.write.selected_episode_indices != (episode.episode_index,):
+            raise ValueError(
+                f"target table report selection does not match episode {episode.episode_index}"
+            )
+        bindings.append(
+            LeRobotEpisodeTargetTableBinding(
+                episode_index=episode.episode_index,
+                dataset_from_index=episode.dataset_from_index,
+                dataset_to_index=episode.dataset_to_index,
+                target_table_report_path=report_path.as_posix(),
+                target_table_report_sha256=sha256_file(report_path),
+                target_replay_bundle_path=replay_binding.target_replay_bundle_path,
+                target_replay_bundle_sha256=replay_binding.target_replay_bundle_sha256,
+                replay_id=replay_binding.replay_id,
+                frame_count=episode.length,
+            )
+        )
+    return LeRobotTargetTableBindingManifest(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        replay_binding_manifest_path=replay_binding_manifest_path.as_posix(),
+        replay_binding_manifest_sha256=sha256_file(replay_binding_manifest_path),
+        target_layout=plan.target_layout,
+        total_frames=plan.total_frames,
+        bindings=tuple(bindings),
+    )
+
+
+def write_lerobot_target_table_binding_manifest(
+    path: Path,
+    manifest: LeRobotTargetTableBindingManifest,
+) -> LeRobotTargetTableBindingManifest:
+    """Write one exclusive value-free target-table binding manifest."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(manifest.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return manifest
+
+
+def verify_lerobot_target_table_binding_manifest(
+    path: Path,
+) -> LeRobotTargetTableBindingVerification:
+    """Rebuild target-table bindings from the plan, replay manifest, and reports."""
+
+    path = path.resolve()
+    manifest = LeRobotTargetTableBindingManifest.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+    expected = build_lerobot_target_table_binding_manifest(
+        plan_path=Path(manifest.plan_path),
+        replay_binding_manifest_path=Path(manifest.replay_binding_manifest_path),
+        target_table_report_paths={
+            binding.episode_index: Path(binding.target_table_report_path)
+            for binding in manifest.bindings
+        },
+    )
+    if expected != manifest:
+        raise ValueError("target-table binding manifest does not match its bound inputs")
+    return LeRobotTargetTableBindingVerification(
+        dataset_alias=manifest.dataset_alias,
+        source_revision=manifest.source_revision,
+        robot_id=manifest.robot_id,
+        plan_path=manifest.plan_path,
+        plan_sha256=manifest.plan_sha256,
+        target_table_binding_manifest_sha256=sha256_bytes(
+            canonical_json_bytes(manifest)
+        ),
         binding_count=len(manifest.bindings),
         total_frames=manifest.total_frames,
     )

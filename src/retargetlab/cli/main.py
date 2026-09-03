@@ -52,6 +52,7 @@ from retargetlab.run import (
     build_export_input_gate,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
+    build_lerobot_target_table_binding_manifest,
     build_synthetic_table_write_preflight,
     build_synthetic_table_write_report,
     build_target_replay_bundle,
@@ -68,6 +69,7 @@ from retargetlab.run import (
     verify_lerobot_metadata_skeleton,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
+    verify_lerobot_target_table_binding_manifest,
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_synthetic_table_write_preflight,
@@ -85,6 +87,7 @@ from retargetlab.run import (
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
+    write_lerobot_target_table_binding_manifest,
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
@@ -380,6 +383,37 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_lerobot_bindings.add_argument("--manifest", required=True, type=Path)
     verify_lerobot_bindings.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    build_lerobot_table_bindings = subparsers.add_parser(
+        "build-lerobot-target-table-bindings",
+        help="bind each episode to a verified synthetic target-table report",
+    )
+    build_lerobot_table_bindings.add_argument("--plan", required=True, type=Path)
+    build_lerobot_table_bindings.add_argument(
+        "--replay-bindings",
+        required=True,
+        type=Path,
+        help="verified per-episode replay binding manifest",
+    )
+    build_lerobot_table_bindings.add_argument(
+        "--reports",
+        required=True,
+        type=Path,
+        help="JSON object mapping episode indices to target-table report paths",
+    )
+    build_lerobot_table_bindings.add_argument("--output", required=True, type=Path)
+    build_lerobot_table_bindings.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_table_bindings = subparsers.add_parser(
+        "verify-lerobot-target-table-bindings",
+        help="verify per-episode target-table bindings",
+    )
+    verify_lerobot_table_bindings.add_argument("--manifest", required=True, type=Path)
+    verify_lerobot_table_bindings.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1205,6 +1239,50 @@ def _verify_lerobot_bindings_payload(manifest_path: Path) -> dict[str, Any]:
     verification = verify_lerobot_replay_binding_manifest(manifest_path)
     return {
         "command": "verify-lerobot-replay-bindings",
+        **verification.model_dump(mode="json"),
+    }
+
+
+def _build_lerobot_table_bindings_payload(
+    *,
+    plan_path: Path,
+    replay_bindings_path: Path,
+    reports_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    raw_reports = _json_file(reports_path, "target-table report mapping")
+    if not isinstance(raw_reports, dict):
+        raise ValueError("target-table report mapping must be a JSON object")
+    report_paths: dict[int, Path] = {}
+    for raw_episode_index, raw_report_path in raw_reports.items():
+        try:
+            episode_index = int(raw_episode_index)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "target-table report mapping keys must be integer episode indices"
+            ) from exc
+        if not isinstance(raw_report_path, str) or not raw_report_path:
+            raise ValueError("target-table report mapping values must be non-empty paths")
+        if episode_index in report_paths:
+            raise ValueError("target-table report mapping contains duplicate episode indices")
+        report_paths[episode_index] = Path(raw_report_path)
+    manifest = build_lerobot_target_table_binding_manifest(
+        plan_path=plan_path,
+        replay_binding_manifest_path=replay_bindings_path,
+        target_table_report_paths=report_paths,
+    )
+    write_lerobot_target_table_binding_manifest(output_path, manifest)
+    return {
+        "command": "build-lerobot-target-table-bindings",
+        **manifest.model_dump(mode="json"),
+        "output": str(output_path),
+    }
+
+
+def _verify_lerobot_table_bindings_payload(manifest_path: Path) -> dict[str, Any]:
+    verification = verify_lerobot_target_table_binding_manifest(manifest_path)
+    return {
+        "command": "verify-lerobot-target-table-bindings",
         **verification.model_dump(mode="json"),
     }
 
@@ -2431,6 +2509,53 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-replay-bindings",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "build-lerobot-target-table-bindings":
+        try:
+            payload = _build_lerobot_table_bindings_payload(
+                plan_path=args.plan,
+                replay_bindings_path=args.replay_bindings,
+                reports_path=args.reports,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-lerobot-target-table-bindings",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-lerobot-target-table-bindings",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-target-table-bindings":
+        try:
+            payload = _verify_lerobot_table_bindings_payload(args.manifest)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-target-table-bindings",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-target-table-bindings",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

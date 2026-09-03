@@ -134,6 +134,90 @@ class LeRobotReplayBindingVerification(BaseModel):
     binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     binding_count: int = Field(gt=0)
     total_frames: int = Field(gt=0)
+
+
+class LeRobotEpisodeTargetTableBinding(BaseModel):
+    """Value-free binding from one episode to its verified target-table report."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    episode_index: int = Field(ge=0)
+    dataset_from_index: int = Field(ge=0)
+    dataset_to_index: int = Field(gt=0)
+    target_table_report_path: str = Field(min_length=1)
+    target_table_report_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    target_replay_bundle_path: str = Field(min_length=1)
+    target_replay_bundle_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    replay_id: str = Field(min_length=1)
+    frame_count: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> LeRobotEpisodeTargetTableBinding:
+        if self.dataset_to_index - self.dataset_from_index != self.frame_count:
+            raise ValueError("target-table binding range does not match frame_count")
+        return self
+
+
+class LeRobotTargetTableBindingManifest(BaseModel):
+    """Value-free mapping for multi-episode target-table materialization."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_target_table_binding_manifest"] = (
+        "lerobot_target_table_binding_manifest"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["READY"] = "READY"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    replay_binding_manifest_path: str = Field(min_length=1)
+    replay_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    target_layout: TargetVectorLayout
+    total_frames: int = Field(gt=0)
+    bindings: tuple[LeRobotEpisodeTargetTableBinding, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_bindings(self) -> LeRobotTargetTableBindingManifest:
+        if self.total_frames != sum(binding.frame_count for binding in self.bindings):
+            raise ValueError("target-table binding frame counts do not match total_frames")
+        episode_indices = tuple(binding.episode_index for binding in self.bindings)
+        if episode_indices != tuple(sorted(episode_indices)):
+            raise ValueError("target-table bindings must be ordered by episode_index")
+        if len(set(episode_indices)) != len(episode_indices):
+            raise ValueError("target-table binding episode indices must be unique")
+        expected_start = 0
+        for binding in self.bindings:
+            if binding.dataset_from_index != expected_start:
+                raise ValueError("target-table binding ranges must be contiguous from zero")
+            expected_start = binding.dataset_to_index
+        if expected_start != self.total_frames:
+            raise ValueError("target-table binding ranges do not cover total_frames")
+        return self
+
+
+class LeRobotTargetTableBindingVerification(BaseModel):
+    """Value-free result of rechecking target-table bindings."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_target_table_binding_verification"] = (
+        "lerobot_target_table_binding_verification"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    binding_count: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
 class LeRobotMetadataPlan(BaseModel):
     """Value-free plan for a complete, video-free LeRobot v3 metadata set."""
 
