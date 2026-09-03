@@ -120,6 +120,95 @@ def test_lerobot_metadata_plan_rejects_target_shape_mismatch(tmp_path: Path) -> 
         )
 
 
+def test_lerobot_metadata_plan_rejects_range_gap(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    episode = LeRobotEpisodeMetadata(
+        episode_index=3,
+        length=2,
+        dataset_from_index=1,
+        dataset_to_index=3,
+        task_indices=(0,),
+        data_chunk_index=0,
+        data_file_index=0,
+    )
+
+    with pytest.raises(ValueError, match="contiguous from zero"):
+        build_lerobot_metadata_plan(
+            export_input_gate_path=gate_path,
+            export_profile_path=tmp_path / "export-profile.json",
+            fps=30.0,
+            features=_features(),
+            tasks=_tasks(),
+            episodes=(episode,),
+        )
+
+
+def test_lerobot_metadata_plan_rejects_missing_required_feature(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    features = _features()
+    del features["index"]
+
+    with pytest.raises(ValueError, match="missing required features"):
+        build_lerobot_metadata_plan(
+            export_input_gate_path=gate_path,
+            export_profile_path=tmp_path / "export-profile.json",
+            fps=30.0,
+            features=features,
+            tasks=_tasks(),
+            episodes=_episodes(),
+        )
+
+
+def test_lerobot_metadata_plan_rejects_unknown_episode_task(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    episode = LeRobotEpisodeMetadata(
+        episode_index=3,
+        length=2,
+        dataset_from_index=0,
+        dataset_to_index=2,
+        task_indices=(1,),
+        data_chunk_index=0,
+        data_file_index=0,
+    )
+
+    with pytest.raises(ValueError, match="unknown task index"):
+        build_lerobot_metadata_plan(
+            export_input_gate_path=gate_path,
+            export_profile_path=tmp_path / "export-profile.json",
+            fps=30.0,
+            features=_features(),
+            tasks=_tasks(),
+            episodes=(episode,),
+        )
+
+
+def test_lerobot_metadata_plan_rejects_allowlist_drift(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    episode = LeRobotEpisodeMetadata(
+        episode_index=4,
+        length=2,
+        dataset_from_index=0,
+        dataset_to_index=2,
+        task_indices=(0,),
+        data_chunk_index=0,
+        data_file_index=0,
+    )
+
+    with pytest.raises(ValueError, match="must match the export gate episode allowlist"):
+        build_lerobot_metadata_plan(
+            export_input_gate_path=gate_path,
+            export_profile_path=tmp_path / "export-profile.json",
+            fps=30.0,
+            features=_features(),
+            tasks=_tasks(),
+            episodes=(episode,),
+        )
+
+
 def test_lerobot_metadata_plan_cli_round_trip(tmp_path: Path, capsys) -> None:
     bundle_path = _write_bundle(tmp_path)
     gate_path = _write_gate(tmp_path, bundle_path)

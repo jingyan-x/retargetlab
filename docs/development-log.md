@@ -1901,3 +1901,27 @@ Remote verification:
 The next implementation boundary is a metadata-plan tamper/negative-test
 expansion, followed by a synthetic writer that emits the planned metadata
 files only after the plan is verified.
+
+### M1b.3b: expand LeRobot metadata-plan negative coverage
+
+The metadata-only plan now has explicit failure coverage for non-contiguous
+episode data ranges, missing v3 required frame features, unknown task
+references, and episode allowlist drift. These checks keep a structurally
+plausible JSON plan from being promoted into a training-ready dataset claim.
+The plan remains bound to the existing gate/profile hashes and still emits no
+dataset rows, statistics values, or video files.
+
+Remote verification:
+
+- metadata-plan happy path, CLI round-trip, shape mismatch, range gap, missing
+  feature, unknown task, and allowlist-drift tests: 7 passed;
+- full regression with the real OpenArm asset smoke enabled: 112 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is a synthetic-only metadata skeleton writer
+that materializes the plan's `info`, tasks, and episode metadata files only
+after re-verifying the plan; it will leave data/video/statistics values
+explicitly incomplete.
