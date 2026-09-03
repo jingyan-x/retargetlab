@@ -318,6 +318,8 @@ def test_calibrate_cli_writes_audit_only_for_approved_slice(tmp_path, capsys) ->
                 "verify-calibration",
                 "--run",
                 str(output_path.parent),
+                "--decision",
+                str(decision_path),
                 "--json",
             ]
         )
@@ -327,3 +329,28 @@ def test_calibrate_cli_writes_audit_only_for_approved_slice(tmp_path, capsys) ->
     assert verification_payload["status"] == "VERIFIED"
     assert verification_payload["selected_frame_count"] == 2
     assert verification_payload["decision_sha256"] == recipe_payload["decision_sha256"]
+    assert verification_payload["decision_verified"] is True
+
+    tampered_decision_path = tmp_path / "tampered-decision.json"
+    tampered_decision = json.loads(decision_path.read_text(encoding="utf-8"))
+    tampered_decision["coordinate_frame"] = "tampered"
+    tampered_decision_path.write_text(
+        json.dumps(tampered_decision),
+        encoding="utf-8",
+    )
+    assert (
+        app(
+            [
+                "verify-calibration",
+                "--run",
+                str(output_path.parent),
+                "--decision",
+                str(tampered_decision_path),
+                "--json",
+            ]
+        )
+        != EXIT_OK
+    )
+    tampered_payload = json.loads(capsys.readouterr().out)
+    assert tampered_payload["status"] == "INVALID_INPUT"
+    assert "decision file hash" in tampered_payload["error"]

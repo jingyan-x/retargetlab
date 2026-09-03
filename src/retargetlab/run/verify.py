@@ -10,6 +10,7 @@ from retargetlab.contracts import (
     CalibrationRecipe,
     CalibrationRunManifest,
     CalibrationRunVerification,
+    ReviewDecisionArtifact,
     ReviewRunArtifact,
 )
 from retargetlab.run.calibration_report import render_calibration_summary
@@ -41,7 +42,11 @@ def _require_artifact_names(run_path: Path, names: tuple[str, ...]) -> Path:
     return run_path / audit_names[0]
 
 
-def verify_calibration_run(run_path: Path) -> CalibrationRunVerification:
+def verify_calibration_run(
+    run_path: Path,
+    *,
+    decision_path: Path | None = None,
+) -> CalibrationRunVerification:
     """Verify a bounded calibration artifact set without reading source data."""
 
     if not run_path.is_dir():
@@ -58,6 +63,20 @@ def verify_calibration_run(run_path: Path) -> CalibrationRunVerification:
         raise ValueError("calibration recipe sidecar does not match canonical recipe hash")
     if manifest.recipe_sha256 != recipe_digest:
         raise ValueError("calibration manifest recipe hash does not match recipe")
+
+    decision_verified = False
+    if decision_path is not None:
+        if recipe.decision_sha256 is None:
+            raise ValueError("decision file supplied but recipe has no decision hash")
+        decision = _read_json_model(decision_path, ReviewDecisionArtifact)
+        decision_digest = sha256_bytes(canonical_json_bytes(decision))
+        if decision_digest != recipe.decision_sha256:
+            raise ValueError("decision file hash does not match calibration recipe")
+        if decision.dataset_alias != recipe.dataset_alias:
+            raise ValueError("decision dataset alias does not match recipe")
+        if decision.source_revision != recipe.source_revision:
+            raise ValueError("decision source revision does not match recipe")
+        decision_verified = True
 
     audit = _read_json_model(audit_path, ReviewRunArtifact)
     audit_digest = sha256_bytes(canonical_json_bytes(audit))
@@ -110,6 +129,7 @@ def verify_calibration_run(run_path: Path) -> CalibrationRunVerification:
         selected_frame_count=audit.selection.selected_frame_count,
         recipe_sha256=recipe_digest,
         decision_sha256=recipe.decision_sha256,
+        decision_verified=decision_verified,
         audit_sha256=audit_digest,
         summary_sha256=summary_digest,
         artifacts=manifest.artifacts,

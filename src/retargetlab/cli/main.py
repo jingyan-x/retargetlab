@@ -50,6 +50,7 @@ from retargetlab.run import (
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
+
 EXIT_OK = 0
 EXIT_USAGE = 2
 EXIT_SEMANTIC = 3
@@ -134,6 +135,11 @@ def _parser() -> argparse.ArgumentParser:
         "verify-calibration", help="verify a bounded calibration artifact set"
     )
     verify_calibration.add_argument("--run", required=True, type=Path)
+    verify_calibration.add_argument(
+        "--decision",
+        type=Path,
+        help="optionally verify the archived decision file against the run recipe",
+    )
     verify_calibration.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
@@ -505,8 +511,11 @@ def _calibrate_payload(
     }
 
 
-def _verify_calibration_payload(run_path: Path) -> dict[str, Any]:
-    verification = verify_calibration_run(run_path)
+def _verify_calibration_payload(
+    run_path: Path,
+    decision_path: Path | None = None,
+) -> dict[str, Any]:
+    verification = verify_calibration_run(run_path, decision_path=decision_path)
     return {
         "command": "verify-calibration",
         **verification.model_dump(mode="json"),
@@ -652,7 +661,9 @@ def _solve_run_payload(
         "run_id": run_id,
         "quality_status": result.report.status,
         "frame_count": len(result.results),
-        "converged_count": sum(item.status.value == "CONVERGED" for item in result.results),
+        "converged_count": sum(
+            item.status.value == "CONVERGED" for item in result.results
+        ),
         "recipe_sha256": result.manifest.recipe_sha256,
         "report_sha256": result.manifest.report_sha256,
     }
@@ -677,13 +688,15 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
         return
     if payload.get("command") == "diagnose":
         print(
-            f"diagnostic report: {payload['status']} ({payload['episode_count']} episodes)",
+            f"diagnostic report: {payload['status']} "
+            f"({payload['episode_count']} episodes)",
             file=stdout,
         )
         return
     if payload.get("kind") == "parquet":
         print(
-            f"parquet structure: {payload['row_count']} rows, {len(payload['fields'])} fields",
+            f"parquet structure: {payload['row_count']} rows, "
+            f"{len(payload['fields'])} fields",
             file=stdout,
         )
         comparison = payload.get("comparison")
@@ -716,13 +729,15 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
         return
     if payload.get("command") == "inspect-review-package":
         print(
-            f"review package: {payload['status']} (next={payload['next_action']})",
+            f"review package: {payload['status']} "
+            f"(next={payload['next_action']})",
             file=stdout,
         )
         return
     if payload.get("command") == "verify-review-package":
         print(
-            f"review package preflight: {payload['status']} ({payload['inspection_status']})",
+            f"review package preflight: {payload['status']} "
+            f"({payload['inspection_status']})",
             file=stdout,
         )
         return
@@ -735,7 +750,8 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
         return
     if payload.get("command") == "verify-calibration":
         print(
-            f"calibration run: {payload['status']} ({payload['selected_frame_count']} frames)",
+            f"calibration run: {payload['status']} "
+            f"({payload['selected_frame_count']} frames)",
             file=stdout,
         )
         return
@@ -887,7 +903,7 @@ def app(argv: list[str] | None = None) -> int:
         return EXIT_OK
     if args.command == "verify-calibration":
         try:
-            payload = _verify_calibration_payload(args.run)
+            payload = _verify_calibration_payload(args.run, args.decision)
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-calibration",

@@ -1079,3 +1079,28 @@ The next boundary is to add an explicit read-only lineage check for the
 decision artifact itself, so a completed run can optionally prove that its
 recorded decision hash still resolves to the supplied decision file without
 making calibration depend on source-row access.
+
+### M1a.20: optionally recheck the decision file from a completed run
+
+`verify-calibration` now accepts an optional `--decision` path. For a
+decision-aware run, the verifier parses the value-free semantic decision
+artifact, recomputes its canonical hash, and checks dataset/source lineage
+against the recipe. The result reports both the recorded `decision_sha256` and
+whether the supplied file was verified. Legacy runs remain valid and report a
+null hash with `decision_verified=false`.
+
+The calibration verification fixture covers the success path and a tampered
+decision file. The latter is rejected before a verified result is emitted;
+verification remains read-only and does not access source rows or held-out
+data.
+
+Remote verification:
+
+- full `pytest -q`: 61 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by the lineage check.
+
+The next boundary is to keep the real private-sample approval gate pending:
+there is still no approved decision artifact for production calibration, so no
+real calibration or retargeting run should be started automatically.

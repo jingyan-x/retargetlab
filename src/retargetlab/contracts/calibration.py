@@ -82,6 +82,7 @@ class CalibrationRunVerification(BaseModel):
     selected_frame_count: int = Field(gt=0)
     recipe_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     decision_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    decision_verified: bool = False
     audit_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     summary_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     artifacts: tuple[str, ...] = Field(min_length=1)
