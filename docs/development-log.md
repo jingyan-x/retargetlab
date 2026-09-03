@@ -1170,3 +1170,40 @@ Remote verification:
 The next boundary is the DataProfile contract: capture the dataset revision,
 stream-specific pose/gripper semantics, timing evidence scope, and the
 explicit mapping formula as one reviewable value-free input to M1a.
+
+### M1a.23: bind the private dataset revision into a pending DataProfile
+
+The repository now has a value-free `DataProfile` contract and an exclusive
+writer. It binds the five source revision hashes (`info`, `data`, `episodes`,
+`tasks`, and `stats`) to the current review-only `MappingSpec`, records the two
+stream families for both grippers, and makes the observation/action aperture
+affine maps explicit. It also binds each timing report by canonical report
+hash, selected joint indices, action transform, same-step pairing, and
+`shift_policy=none`.
+
+The private `private-sample-20` builder produced:
+
+- `projects/private-sample-openarm/runs/20260903-m1-005/data-profile-review-required.json`;
+- profile status `REVIEW_REQUIRED`, with `coordinate_frame=UNRESOLVED`;
+- source revision `info.json@sha256:5447be7ef21b29fb03e04871ee6b908e3013051217b757fd9a3f30c8d3555a40`;
+- arm and gripper timing evidence bound to the same data hash, with observed
+  best shifts `4` and `6` respectively, both `SUPPORTED`;
+- no trajectory rows, held-out values, video, or production export in the
+  profile; the unresolved EEF frame and absent source robot identity remain
+  explicit limitations.
+
+The profile cannot be certified: no approved review-decision hash exists and
+the EEF frame mapping is still unresolved. This artifact is therefore a
+review input only and does not authorize calibration or retargeting.
+
+Remote verification:
+
+- profile unit tests: 2 passed;
+- full `pytest -q`: 65 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- the broader legacy `harness/m_minus_1` lint scope still has pre-existing
+  style findings and was not modified by this slice.
+
+The next boundary is to add an explicit profile/review-decision cross-check,
+then keep the production gate closed until the semantic frame decision is
+actually approved.

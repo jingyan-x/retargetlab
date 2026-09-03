@@ -27,6 +27,14 @@ from .mapping import (
     StructureField,
     StructureManifest,
 )
+from .profile import (
+    AffineMap,
+    DataProfile,
+    DatasetRevision,
+    GripperProfile,
+    ProfileChannel,
+    TimingEvidence,
+)
 from .recipe import Recipe, RunManifest
 from .robot_profile import CollisionProfile, KinematicGroup, RobotProfile
 from .selection import CalibrationSelection, EpisodeRange
@@ -77,4 +85,10 @@ __all__ = [
     "Threshold",
     "CommandTimingReport",
     "TimingShiftResult",
+    "AffineMap",
+    "DataProfile",
+    "DatasetRevision",
+    "GripperProfile",
+    "ProfileChannel",
+    "TimingEvidence",
 ]
