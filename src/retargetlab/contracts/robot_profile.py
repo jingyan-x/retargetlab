@@ -31,6 +31,7 @@ class CollisionProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     srdf_path: str | None = None
+    srdf_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     allowed_contact_pairs: tuple[tuple[str, str], ...] = ()
     required_barrier_pairs: tuple[tuple[str, str], ...] = ()
     strategy: str = Field(default="srdf", min_length=1)

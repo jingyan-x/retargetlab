@@ -81,6 +81,24 @@ def validate_urdf_meshes(asset_dir: Path, urdf_path: Path) -> list[str]:
     return references
 
 
+def verify_profile_urdf(
+    asset_dir: Path,
+    urdf_path: Path,
+    expected_hash: str,
+) -> Path:
+    """Verify one profile URDF hash and all portable mesh references."""
+
+    if not urdf_path.is_file():
+        raise FileNotFoundError(f"robot URDF does not exist: {urdf_path}")
+    actual_hash = sha256_file(urdf_path)
+    if actual_hash.lower() != expected_hash.lower():
+        raise ValueError(
+            f"URDF hash mismatch: expected {expected_hash.lower()}, got {actual_hash.lower()}"
+        )
+    validate_urdf_meshes(asset_dir, urdf_path)
+    return urdf_path
+
+
 def verify_urdf_manifest(asset_dir: Path, manifest: dict[str, Any]) -> Path:
     """Check the manifest's generated URDF path and recorded SHA-256."""
 
@@ -89,12 +107,4 @@ def verify_urdf_manifest(asset_dir: Path, manifest: dict[str, Any]) -> Path:
     if not isinstance(raw_path, str) or not isinstance(expected_hash, str):
         raise ValueError("manifest is missing generated URDF path or hash")
     urdf_path = resolve_asset_file(asset_dir, raw_path)
-    if not urdf_path.is_file():
-        raise FileNotFoundError(f"manifest URDF is missing: {urdf_path}")
-    actual_hash = sha256_file(urdf_path)
-    if actual_hash.lower() != expected_hash.lower():
-        raise ValueError(
-            f"URDF hash mismatch: expected {expected_hash.lower()}, got {actual_hash.lower()}"
-        )
-    validate_urdf_meshes(asset_dir, urdf_path)
-    return urdf_path
+    return verify_profile_urdf(asset_dir, urdf_path, expected_hash)

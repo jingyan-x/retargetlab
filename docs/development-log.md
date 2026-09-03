@@ -492,3 +492,28 @@ Remote verification:
 The next boundary is either a static numerical confirmation utility or a
 profile-loader contract for SRDF/mesh policy; real-data normalization remains
 gated behind an explicit container prober and has not started.
+
+### M0 continuation: collision asset-chain hash enforcement
+
+The profile asset check is now shared by Pinocchio FK loading and the collision
+model. Both paths verify the URDF digest and portable mesh references before
+constructing runtime geometry. `CollisionProfile` can additionally carry an
+explicit SRDF digest; when present, the collision loader verifies it before
+applying the disabled-pair policy. This prevents direct collision-model use
+from bypassing the same asset boundary enforced by the FK backend.
+
+The synthetic fixtures now derive their URDF digests from the exact UTF-8
+fixture bytes. Negative coverage includes mismatched URDF and SRDF hashes.
+The real Panda profile path was not changed because its target asset directory
+is currently absent from the remote mount; the integration test remains an
+explicit skip rather than a synthetic substitute.
+
+Remote verification:
+
+- full `pytest -q tests`: 36 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no private data, held-out episode, or production asset was modified.
+
+The next M0 boundary remains a static numerical confirmation/report utility;
+the real-container prober and OpenArm formalization stay outside this slice.

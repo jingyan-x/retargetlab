@@ -5,8 +5,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from retargetlab.contracts import KinematicGroup, RobotProfile
+from retargetlab.contracts import CollisionProfile, KinematicGroup, RobotProfile
 from retargetlab.kinematics.pinocchio_backend import PinocchioBackend
+from retargetlab.robot.collision import PinocchioCollisionModel
 
 FIXTURE_URDF = """<?xml version="1.0"?>
 <robot name="fixture">
@@ -76,3 +77,18 @@ def test_urdf_hash_mismatch_is_rejected(tmp_path: Path) -> None:
     profile = make_profile(tmp_path).model_copy(update={"urdf_sha256": "f" * 64})
     with pytest.raises(ValueError, match="URDF hash mismatch"):
         PinocchioBackend(profile)
+
+
+def test_declared_srdf_hash_mismatch_is_rejected(tmp_path: Path) -> None:
+    pytest.importorskip("pinocchio")
+    (tmp_path / "fixture.srdf").write_text('<robot name="fixture"/>', encoding="utf-8")
+    profile = make_profile(tmp_path).model_copy(
+        update={
+            "collision": CollisionProfile(
+                srdf_path="fixture.srdf",
+                srdf_sha256="f" * 64,
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="SRDF hash mismatch"):
+        PinocchioCollisionModel(profile)

@@ -11,7 +11,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from retargetlab.contracts import RobotProfile
-from retargetlab.robot.assets import resolve_asset_file
+from retargetlab.robot.assets import (
+    resolve_asset_file,
+    sha256_file,
+    verify_profile_urdf,
+)
 
 try:
     import pinocchio as pin  # type: ignore[import-untyped]
@@ -149,8 +153,7 @@ class PinocchioCollisionModel:
         if pin is None:
             raise RuntimeError("Pinocchio is required for collision geometry")
         urdf_path = resolve_asset_file(Path(profile.asset_dir), profile.urdf_path)
-        if not urdf_path.is_file():
-            raise FileNotFoundError(f"robot URDF does not exist: {urdf_path}")
+        verify_profile_urdf(Path(profile.asset_dir), urdf_path, profile.urdf_sha256)
         self.profile = profile
         self.model = pin.buildModelFromUrdf(str(urdf_path))
         full_geometry = pin.buildGeomFromUrdf(
@@ -166,6 +169,14 @@ class PinocchioCollisionModel:
         self.srdf_disabled_pairs: set[tuple[str, str]] = set()
         if profile.collision is not None and profile.collision.srdf_path:
             srdf_path = resolve_asset_file(Path(profile.asset_dir), profile.collision.srdf_path)
+            if profile.collision.srdf_sha256 is not None:
+                actual_hash = sha256_file(srdf_path)
+                if actual_hash.lower() != profile.collision.srdf_sha256.lower():
+                    raise ValueError(
+                        "SRDF hash mismatch: "
+                        f"expected {profile.collision.srdf_sha256.lower()}, "
+                        f"got {actual_hash.lower()}"
+                    )
             self.srdf_disabled_pairs = parse_srdf_disabled_pairs(srdf_path)
         self.geometry, self.srdf_removed_pair_count = _apply_srdf(
             policy_geometry, self.srdf_disabled_pairs
