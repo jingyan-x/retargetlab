@@ -22,7 +22,7 @@ from retargetlab.contracts import (
     StructureManifest,
 )
 from retargetlab.io import normalize_rows, validate_mapping
-from retargetlab.run import recipe_sha256
+from retargetlab.run import execute_solve_run, recipe_sha256
 from retargetlab.run.fingerprint import sha256_bytes
 
 EXIT_OK = 0
@@ -69,7 +69,10 @@ def _parser() -> argparse.ArgumentParser:
     solve.add_argument("--recipe", required=True, type=Path)
     solve.add_argument("--group", required=True)
     solve.add_argument("--initial-q", required=True, nargs="+", type=float)
-    solve.add_argument("--output", required=True, type=Path)
+    output_or_project = solve.add_mutually_exclusive_group(required=True)
+    output_or_project.add_argument("--output", type=Path)
+    output_or_project.add_argument("--project", type=Path)
+    solve.add_argument("--run-id")
     solve.add_argument("--json", action="store_true", help="emit JSON to stdout")
     return parser
 
@@ -231,6 +234,43 @@ def _solve_payload(
     }
 
 
+def _solve_run_payload(
+    trajectory_path: Path,
+    profile_path: Path,
+    recipe_path: Path,
+    group: str,
+    initial_q: list[float],
+    project_dir: Path,
+    run_id: str,
+) -> tuple[dict[str, Any], int]:
+    trajectory = CanonicalTrajectory.model_validate_json(
+        trajectory_path.read_text(encoding="utf-8")
+    )
+    profile = RobotProfile.model_validate_json(profile_path.read_text(encoding="utf-8"))
+    recipe = Recipe.model_validate_json(recipe_path.read_text(encoding="utf-8"))
+    result = execute_solve_run(
+        project_dir,
+        run_id,
+        trajectory,
+        profile,
+        recipe,
+        group,
+        initial_q,
+        input_sha256=sha256_bytes(trajectory_path.read_bytes()),
+    )
+    payload = {
+        "command": "solve",
+        "status": "RUN_COMPLETED",
+        "run_id": run_id,
+        "quality_status": result.report.status,
+        "frame_count": len(result.results),
+        "converged_count": sum(item.status.value == "CONVERGED" for item in result.results),
+        "recipe_sha256": result.manifest.recipe_sha256,
+        "report_sha256": result.manifest.report_sha256,
+    }
+    return payload, EXIT_QUALITY if result.report.status == "FAIL" else EXIT_OK
+
+
 def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if as_json:
         json.dump(payload, stdout, ensure_ascii=False, sort_keys=True)
@@ -263,6 +303,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
         )
         return
     if payload.get("command") == "solve":
+        if payload.get("status") == "RUN_COMPLETED":
+            print(
+                f"run completed: {payload['converged_count']}/{payload['frame_count']} "
+                f"converged, quality={payload['quality_status']}",
+                file=stdout,
+            )
+            return
         print(
             f"solved trajectory: {payload['converged_count']}/{payload['frame_count']} "
             f"converged -> {payload['output']}",
@@ -329,15 +376,43 @@ def app(argv: list[str] | None = None) -> int:
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
     if args.command == "solve":
+        if args.output is None and args.run_id is None:
+            error = {
+                "command": "solve",
+                "status": "INVALID_INPUT",
+                "error": "--run-id is required with --project",
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        if args.output is not None and args.run_id is not None:
+            error = {
+                "command": "solve",
+                "status": "INVALID_INPUT",
+                "error": "--run-id is only valid with --project",
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
         try:
-            payload = _solve_payload(
-                args.trajectory,
-                args.profile,
-                args.recipe,
-                args.group,
-                args.initial_q,
-                args.output,
-            )
+            if args.output is not None:
+                payload = _solve_payload(
+                    args.trajectory,
+                    args.profile,
+                    args.recipe,
+                    args.group,
+                    args.initial_q,
+                    args.output,
+                )
+                exit_code = EXIT_OK
+            else:
+                payload, exit_code = _solve_run_payload(
+                    args.trajectory,
+                    args.profile,
+                    args.recipe,
+                    args.group,
+                    args.initial_q,
+                    args.project,
+                    args.run_id,
+                )
         except RuntimeError as exc:
             error = {"command": "solve", "status": "ENVIRONMENT_ERROR", "error": str(exc)}
             _emit(error, args.json, sys.stdout)
@@ -347,7 +422,7 @@ def app(argv: list[str] | None = None) -> int:
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
-        return EXIT_OK
+        return exit_code
     return EXIT_ERROR
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -85,8 +86,27 @@ def _metrics_csv(report: DatasetReport) -> str:
     return output.getvalue()
 
 
-def write_dataset_report(workspace: RunWorkspace, report: DatasetReport) -> RunManifest:
+def write_dataset_report(
+    workspace: RunWorkspace,
+    report: DatasetReport,
+    *,
+    extra_artifacts: Sequence[str] = (),
+) -> RunManifest:
     """Persist one report and completion manifest without overwriting files."""
+
+    artifacts = (
+        "recipe.json",
+        "recipe.sha256",
+        "result/report.json",
+        "result/report.md",
+        "result/metrics.csv",
+        "result/metrics.jsonl",
+        *extra_artifacts,
+    )
+    if any(not artifact.strip() for artifact in extra_artifacts):
+        raise ValueError("extra artifact paths must not be blank")
+    if len(set(artifacts)) != len(artifacts):
+        raise ValueError("run artifact paths must be unique")
 
     report_payload = report.model_dump(mode="json")
     report_digest = sha256_bytes(canonical_json_bytes(report))
@@ -109,14 +129,7 @@ def write_dataset_report(workspace: RunWorkspace, report: DatasetReport) -> RunM
         run_id=workspace.run_id,
         recipe_sha256=workspace.recipe_sha256,
         report_sha256=report_digest,
-        artifacts=(
-            "recipe.json",
-            "recipe.sha256",
-            "result/report.json",
-            "result/report.md",
-            "result/metrics.csv",
-            "result/metrics.jsonl",
-        ),
+        artifacts=artifacts,
         completed_at_utc=datetime.now(UTC).isoformat(),
     )
     _write_json_exclusive(workspace.path / "run-manifest.json", manifest.model_dump(mode="json"))

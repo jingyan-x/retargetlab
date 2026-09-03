@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
+from retargetlab.cli.main import EXIT_OK, EXIT_QUALITY, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
     CanonicalFrame,
     CanonicalTrajectory,
@@ -129,6 +129,44 @@ def test_solve_cli_binds_recipe_hash_and_writes_results(tmp_path, capsys) -> Non
     result_payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert result_payload["results"][0]["status"] == "CONVERGED"
     assert len(result_payload["results"][0]["q"]) == 2
+
+    project_dir = tmp_path / "project"
+    assert (
+        app(
+            [
+                "solve",
+                "--trajectory",
+                str(trajectory_path),
+                "--profile",
+                str(profile_path),
+                "--recipe",
+                str(recipe_path),
+                "--group",
+                "arm",
+                "--initial-q",
+                "0.0",
+                "0.0",
+                "--project",
+                str(project_dir),
+                "--run-id",
+                "run-001",
+                "--json",
+            ]
+        )
+        == EXIT_QUALITY
+    )
+    run_summary = json.loads(capsys.readouterr().out)
+    assert run_summary["quality_status"] == "FAIL"
+    run_path = project_dir / "runs" / "run-001"
+    assert (run_path / "recipe.json").is_file()
+    assert (run_path / "result" / "solutions.json").is_file()
+    manifest = json.loads((run_path / "run-manifest.json").read_text(encoding="utf-8"))
+    assert "result/solutions.json" in manifest["artifacts"]
+
+    assert app(["diagnose", "--run", str(run_path), "--json"]) == EXIT_QUALITY
+    diagnosis = json.loads(capsys.readouterr().out)
+    assert diagnosis["status"] == "FAIL"
+    assert "q" not in json.dumps(diagnosis)
 
     trajectory_path.write_text(trajectory.model_dump_json(indent=2), encoding="utf-8")
     assert (

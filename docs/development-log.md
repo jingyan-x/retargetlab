@@ -433,3 +433,35 @@ Remote verification:
 No private or held-out trajectory was used. The next step is to connect solve
 and diagnose through a run workspace, so result files cannot exist without the
 recipe/report lineage already recorded.
+
+### M0 continuation: solve-to-run lineage
+
+The solve path now has a reusable execution layer that connects the recipe-bound
+solver to the run workspace. `solve --project <project> --run-id <id>` creates
+the non-overwriting run directory, writes `recipe.json` and its digest, stores
+the full `result/solutions.json`, runs the read-only episode diagnosis, and
+materializes JSON/Markdown/CSV/JSONL reports plus `run-manifest.json`. The
+manifest records both recipe and report hashes and includes the solution
+artifact. A solver result with unknown collision verification therefore stays
+visible as a completed run with quality `FAIL`; it is not silently upgraded to
+pass.
+
+The standalone `solve --output` mode remains available for fixture-level use.
+The project mode requires `--run-id` and rejects incompatible output/project
+argument combinations. The run layer validates the trajectory source hash and
+robot/backend identity before execution; backend failures leave the recipe-only
+partial directory as evidence rather than overwriting or fabricating a report.
+
+Remote verification:
+
+- solve-to-run integration, report artifact, and CLI regression tests: 4
+  targeted tests passed;
+- full `pytest -q tests`: 34 passed and 1 Panda asset smoke skipped when the
+  gitignored project asset path is not mounted;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed.
+
+This completes the first reproducible synthetic solve/diagnose loop. It still
+does not read private data, open held-out episodes, or authorize export. The
+next slice can add the M0 static numerical confirmation or improve the profile
+loader before any real-data adapter is enabled.
