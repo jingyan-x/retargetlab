@@ -465,3 +465,30 @@ This completes the first reproducible synthetic solve/diagnose loop. It still
 does not read private data, open held-out episodes, or authorize export. The
 next slice can add the M0 static numerical confirmation or improve the profile
 loader before any real-data adapter is enabled.
+
+### M0 continuation: profile asset hash enforcement
+
+The Pinocchio profile loader now verifies the resolved URDF SHA-256 against
+`RobotProfile.urdf_sha256` before model construction and validates every URDF
+mesh reference against the declared asset root. This closes the path where a
+profile could carry a syntactically valid but stale or placeholder hash. The
+existing Panda manifest path keeps its earlier manifest verification, so the
+runtime loader and the manifest loader now enforce the same asset boundary.
+
+All solver and synthetic fixture profiles were updated to derive their hash
+from the fixture bytes. A dedicated negative test mutates the hash and asserts
+that model loading fails before FK is available. No production profile or
+private asset was modified; the remote Panda asset integration remains skipped
+because that gitignored target directory is not mounted in this checkout.
+
+Remote verification:
+
+- full `pytest -q tests`: 35 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- the registered solver environment and all synthetic solve/diagnose paths
+  remain green after the stricter loader check.
+
+The next boundary is either a static numerical confirmation utility or a
+profile-loader contract for SRDF/mesh policy; real-data normalization remains
+gated behind an explicit container prober and has not started.

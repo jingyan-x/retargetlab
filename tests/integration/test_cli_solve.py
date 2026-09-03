@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 import pytest
@@ -48,7 +49,7 @@ def test_solve_cli_binds_recipe_hash_and_writes_results(tmp_path, capsys) -> Non
         robot_id="cli-fixture",
         asset_dir=str(asset_dir),
         urdf_path="fixture.urdf",
-        urdf_sha256="0" * 64,
+        urdf_sha256=hashlib.sha256(FIXTURE_URDF.encode("utf-8")).hexdigest(),
         groups=(
             KinematicGroup(
                 name="arm",

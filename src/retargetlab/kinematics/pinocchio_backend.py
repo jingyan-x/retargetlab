@@ -12,6 +12,7 @@ from numpy.typing import NDArray
 from retargetlab.contracts import IKResult, Pose, RobotProfile, SolveOptions
 from retargetlab.kinematics.base import Capabilities
 from retargetlab.kinematics.transforms import matrix_to_quaternion_wxyz
+from retargetlab.robot.assets import sha256_file, validate_urdf_meshes
 
 try:
     import pinocchio as pin  # type: ignore[import-untyped]
@@ -52,6 +53,13 @@ class PinocchioBackend:
         urdf_path = self._resolve_path(profile.asset_dir, profile.urdf_path)
         if not urdf_path.is_file():
             raise FileNotFoundError(f"robot URDF does not exist: {urdf_path}")
+        actual_hash = sha256_file(urdf_path)
+        if actual_hash.lower() != profile.urdf_sha256.lower():
+            raise ValueError(
+                f"URDF hash mismatch: expected {profile.urdf_sha256.lower()}, "
+                f"got {actual_hash.lower()}"
+            )
+        validate_urdf_meshes(Path(profile.asset_dir), urdf_path)
         self.model = pin.buildModelFromUrdf(str(urdf_path))
         self.data = self.model.createData()
         self.profile = profile

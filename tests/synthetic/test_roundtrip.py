@@ -1,3 +1,5 @@
+import hashlib
+
 import numpy as np
 import pytest
 
@@ -34,7 +36,7 @@ def make_profile(tmp_path):
         robot_id="synthetic-fixture",
         asset_dir=str(tmp_path),
         urdf_path="fixture.urdf",
-        urdf_sha256="0" * 64,
+        urdf_sha256=hashlib.sha256(FIXTURE_URDF.encode("utf-8")).hexdigest(),
         root_frame="base",
         groups=(
             KinematicGroup(

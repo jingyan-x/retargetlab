@@ -1,3 +1,4 @@
+import hashlib
 import math
 
 import pytest
@@ -30,7 +31,7 @@ def make_backend(tmp_path):
         robot_id="negative-fixture",
         asset_dir=str(tmp_path),
         urdf_path="fixture.urdf",
-        urdf_sha256="0" * 64,
+        urdf_sha256=hashlib.sha256(FIXTURE_URDF.encode("utf-8")).hexdigest(),
         groups=(
             KinematicGroup(
                 name="arm",

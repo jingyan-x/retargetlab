@@ -1,3 +1,4 @@
+import hashlib
 import math
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def make_profile(tmp_path: Path) -> RobotProfile:
         robot_id="fixture",
         asset_dir=str(tmp_path),
         urdf_path="fixture.urdf",
-        urdf_sha256="0" * 64,
+        urdf_sha256=hashlib.sha256(FIXTURE_URDF.encode("utf-8")).hexdigest(),
         root_frame="base",
         groups=(
             KinematicGroup(
@@ -68,3 +69,10 @@ def test_unknown_group_and_bad_q_are_rejected(tmp_path: Path) -> None:
         backend.fk("missing", [0.0, 0.0])
     with pytest.raises(ValueError, match="shape"):
         backend.fk("arm", [0.0])
+
+
+def test_urdf_hash_mismatch_is_rejected(tmp_path: Path) -> None:
+    pytest.importorskip("pinocchio")
+    profile = make_profile(tmp_path).model_copy(update={"urdf_sha256": "f" * 64})
+    with pytest.raises(ValueError, match="URDF hash mismatch"):
+        PinocchioBackend(profile)
