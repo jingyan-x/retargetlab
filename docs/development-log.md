@@ -344,3 +344,30 @@ Remote verification:
 The next boundary is input/schema inspection and validation, still synthetic or
 explicitly mapped only; no real-data normalization is authorized by this
 slice.
+
+### M0 continuation: explicit mapping and structure validation
+
+The input boundary now has value-free contracts for `MappingSpec`,
+`StructureManifest`, and `MappingValidation`. A mapping declares the dataset
+alias, source revision, coordinate frame, timestamp reference, stream role,
+source paths, expected shapes, indices, units, and frames. The validator checks
+alias/revision, missing paths, shape mismatches, and out-of-range indices
+without reading sample values. This keeps container layout separate from
+trajectory semantics and makes an implicit column-order mapping impossible.
+
+The CLI exposes `validate-input <manifest.json> --spec <mapping.json>` using
+those contracts. It returns exit code `0` for a valid explicit mapping and
+exit code `3` for a structurally invalid mapping or malformed contract. The
+current fixtures are synthetic JSON manifests only; no Parquet/HDF5 reader and
+no private-data path were added in this slice.
+
+Remote verification:
+
+- mapping and CLI tests: 9 passed;
+- `doctor --json`: still `READY` with the registered solver environment;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed.
+
+The next implementation step can add a narrow synthetic normalize adapter over
+these mappings, followed by a real-container prober only when its dependency
+and private-data boundary are explicitly registered.

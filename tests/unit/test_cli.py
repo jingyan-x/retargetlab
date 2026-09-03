@@ -4,11 +4,16 @@ from retargetlab.cli.main import EXIT_OK, EXIT_QUALITY, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
     CanonicalFrame,
     CanonicalTrajectory,
+    ColumnRef,
     DatasetReport,
     EpisodeReport,
     FrameDiagnostics,
     IKStatus,
+    MappingSpec,
     Pose,
+    StreamMapping,
+    StructureField,
+    StructureManifest,
 )
 
 
@@ -78,3 +83,35 @@ def test_diagnose_completed_run_uses_quality_exit_without_joint_arrays(tmp_path,
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "FAIL"
     assert "q" not in json.dumps(payload)
+
+
+def test_validate_input_json_uses_explicit_mapping(tmp_path, capsys) -> None:
+    manifest = StructureManifest(
+        dataset_alias="fixture",
+        source_revision="v1",
+        row_count=1,
+        fields={"timestamp": StructureField(dtype="float64", shape=())},
+    )
+    spec = MappingSpec(
+        dataset_alias="fixture",
+        source_revision="v1",
+        coordinate_frame="dataset_native",
+        timestamp=ColumnRef(source="timestamp", expected_shape=()),
+        streams=(
+            StreamMapping(
+                name="state",
+                role="robot_state",
+                fields={"time": ColumnRef(source="timestamp", expected_shape=())},
+            ),
+        ),
+    )
+    manifest_path = tmp_path / "manifest.json"
+    spec_path = tmp_path / "spec.json"
+    manifest_path.write_text(manifest.model_dump_json(), encoding="utf-8")
+    spec_path.write_text(spec.model_dump_json(), encoding="utf-8")
+
+    assert (
+        app(["validate-input", str(manifest_path), "--spec", str(spec_path), "--json"]) == EXIT_OK
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["valid"] is True

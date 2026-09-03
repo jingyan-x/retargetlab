@@ -13,7 +13,13 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 from retargetlab import __version__
-from retargetlab.contracts import CanonicalTrajectory, DatasetReport
+from retargetlab.contracts import (
+    CanonicalTrajectory,
+    DatasetReport,
+    MappingSpec,
+    StructureManifest,
+)
+from retargetlab.io import validate_mapping
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -37,6 +43,13 @@ def _parser() -> argparse.ArgumentParser:
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
     diagnose.add_argument("--run", required=True, type=Path)
     diagnose.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    validate_input = subparsers.add_parser(
+        "validate-input", help="validate a mapping against a structure manifest"
+    )
+    validate_input.add_argument("manifest", type=Path)
+    validate_input.add_argument("--spec", required=True, type=Path)
+    validate_input.add_argument("--json", action="store_true", help="emit JSON to stdout")
     return parser
 
 
@@ -109,6 +122,14 @@ def _diagnose_payload(run_path: Path) -> tuple[dict[str, Any], int]:
     return payload, EXIT_QUALITY if report.status == "FAIL" else EXIT_OK
 
 
+def _validate_input_payload(manifest_path: Path, spec_path: Path) -> tuple[dict[str, Any], int]:
+    manifest = StructureManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+    spec = MappingSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    result = validate_mapping(spec, manifest)
+    payload = {"command": "validate-input", **result.model_dump(mode="json")}
+    return payload, EXIT_OK if result.valid else EXIT_SEMANTIC
+
+
 def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if as_json:
         json.dump(payload, stdout, ensure_ascii=False, sort_keys=True)
@@ -125,6 +146,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("command") == "diagnose":
         print(
             f"diagnostic report: {payload['status']} ({payload['episode_count']} episodes)",
+            file=stdout,
+        )
+        return
+    if payload.get("command") == "validate-input":
+        print(
+            f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
             file=stdout,
         )
         return
@@ -157,6 +184,19 @@ def app(argv: list[str] | None = None) -> int:
             payload, exit_code = _diagnose_payload(args.run)
         except (OSError, ValidationError, ValueError) as exc:
             error = {"command": "diagnose", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "validate-input":
+        try:
+            payload, exit_code = _validate_input_payload(args.manifest, args.spec)
+        except (OSError, ValidationError, ValueError) as exc:
+            error = {
+                "command": "validate-input",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
