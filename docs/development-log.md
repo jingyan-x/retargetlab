@@ -1557,3 +1557,36 @@ The next implementation boundary is to use the verified profile and replay
 lineage as the prerequisite for a deterministic target-side execution/export
 artifact, while preserving the separation between arm IK results and gripper
 aperture replay.
+
+### M1b.1: freeze the target vector layout contract
+
+The export layer now materializes an explicit `TargetVectorLayout` and
+`ExportProfile` bound to the canonical hash of the verified target
+`RobotProfile`. The layout is deterministic in profile group order: each arm's
+declared joints come first in `rad`, followed by that group's physical gripper
+driver in `m`; URDF mimic joints are deliberately not independent output
+dimensions. The contract records `float32`, the one-dimensional shape, ordered
+names, units, robot identity, and normalization exclusions, so downstream
+writers do not infer meaning from numeric positions.
+
+`build-export-profile` verifies the target assets before writing the profile
+exclusively. A real OpenArm artifact was materialized at
+`projects/private-sample-openarm/runs/20260904-m1b1-001/export-profile.json`
+with SHA-256
+`db37586f85bd3e64a216a21fcb46d546654ccae42eebcb0f595401ed43d54cdf`; its
+layout is shape `[16]` with the expected left-arm/left-gripper/right-arm/right-
+gripper order from the target profile.
+
+Remote verification:
+
+- export-layout contract and CLI tests: 5 passed;
+- full regression with real OpenArm profile smoke enabled: 90 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- the artifact contains layout metadata only; no private dataset rows, video,
+  or solve values were read or exported.
+
+The next implementation boundary is to bind value-bearing arm-solve and
+gripper frames into this verified layout as a separate deterministic replay
+command artifact, without presenting it as a LeRobot dataset export or as a
+real-robot safety guarantee.

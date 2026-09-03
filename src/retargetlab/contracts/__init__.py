@@ -11,6 +11,7 @@ from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
 from .coverage import DatasetCoverage, EpisodeCoverage
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
+from .export_profile import ExportProfile, TargetVectorLayout
 from .gripper import TargetGripperFrame, TargetGripperTrajectory
 from .mapping import (
     ColumnRef,
@@ -68,6 +69,7 @@ __all__ = [
     "EpisodeReport",
     "EpisodeCoverage",
     "EvidenceLevel",
+    "ExportProfile",
     "EpisodeRange",
     "FeatureDeclaration",
     "IKResult",
@@ -100,6 +102,7 @@ __all__ = [
     "Threshold",
     "TargetGripperFrame",
     "TargetGripperTrajectory",
+    "TargetVectorLayout",
     "TargetReplayManifest",
     "TargetReplayVerification",
     "CommandTimingReport",

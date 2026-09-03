@@ -24,6 +24,7 @@ from retargetlab.contracts import (
     StructureComparison,
     StructureManifest,
 )
+from retargetlab.export import build_export_profile
 from retargetlab.io import (
     DEFAULT_CALIBRATION_COLUMNS,
     analyze_command_timing,
@@ -54,6 +55,7 @@ from retargetlab.run import (
     verify_target_replay_manifest,
     write_calibration_run,
     write_dataset_coverage,
+    write_export_profile,
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
@@ -84,6 +86,13 @@ def _parser() -> argparse.ArgumentParser:
     build_robot_profile.add_argument("--asset-dir", required=True, type=Path)
     build_robot_profile.add_argument("--output", required=True, type=Path)
     build_robot_profile.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    build_export = subparsers.add_parser(
+        "build-export-profile", help="build an explicit target vector export profile"
+    )
+    build_export.add_argument("--profile", required=True, type=Path)
+    build_export.add_argument("--output", required=True, type=Path)
+    build_export.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     map_grippers = subparsers.add_parser(
         "map-grippers", help="map canonical aperture streams to target gripper joints"
@@ -470,6 +479,28 @@ def _robot_profile_payload(
         "root_frame": profile.root_frame,
         "group_names": [group.name for group in profile.groups],
         "profile_sha256": sha256_bytes(canonical_json_bytes(profile)),
+        "output": str(output_path),
+    }
+
+
+def _export_profile_payload(
+    *,
+    profile_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    profile = RobotProfile.model_validate_json(profile_path.read_text(encoding="utf-8"))
+    export_profile = build_export_profile(profile)
+    write_export_profile(output_path, export_profile)
+    layout = export_profile.target_layout
+    return {
+        "command": "build-export-profile",
+        "status": "WRITTEN",
+        "robot_id": export_profile.robot_id,
+        "robot_profile_sha256": export_profile.robot_profile_sha256,
+        "dtype": layout.dtype,
+        "shape": list(layout.shape),
+        "joint_names": list(layout.names),
+        "joint_units": list(layout.units),
         "output": str(output_path),
     }
 
@@ -1258,6 +1289,30 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "build-robot-profile",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "build-export-profile":
+        try:
+            payload = _export_profile_payload(
+                profile_path=args.profile,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-export-profile",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-export-profile",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }
