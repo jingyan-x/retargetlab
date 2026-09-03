@@ -1499,3 +1499,31 @@ Remote verification:
 The next implementation boundary is an explicit multi-group arm-solve binding
 for the replay manifest, so a bimanual target cannot be represented by one
 arm result while still being called complete.
+
+### M1a.33: require complete multi-group arm-solve binding
+
+The replay manifest schema is now `0.2` and supports repeated `arm_solve`
+artifact references, each carrying its target group. The builder and verifier
+require the arm-solve group set to equal the target robot group set, require
+one frame-count/backend/recipe check per group, and preserve deterministic
+profile-order hashing in the manifest. The CLI accepts `--arm-solve` once per
+target group and reports all bound groups. A bimanual OpenArm profile therefore
+cannot be labeled `READY` from only one arm result.
+
+The single-group fixture remains supported as the smallest valid case, while a
+dual-group fixture now exercises two solve artifacts and rejects a missing
+second group. This keeps the first stable Panda/OpenArm loop composable without
+silently weakening the bimanual completeness rule.
+
+Remote verification:
+
+- multi-group replay builder, CLI, and missing-group rejection tests: 3 passed;
+- full regression with real OpenArm profile smoke enabled: 85 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or real solve/export artifact was read or
+  changed.
+
+The next implementation boundary is to add a target-profile asset verifier to
+the replay gate, so the recorded URDF/SRDF hashes are checked again before a
+replay is accepted as ready.

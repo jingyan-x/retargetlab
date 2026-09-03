@@ -107,7 +107,13 @@ def _parser() -> argparse.ArgumentParser:
     build_replay.add_argument("--trajectory", required=True, type=Path)
     build_replay.add_argument("--profile", required=True, type=Path)
     build_replay.add_argument("--recipe", required=True, type=Path)
-    build_replay.add_argument("--arm-solve", required=True, type=Path)
+    build_replay.add_argument(
+        "--arm-solve",
+        required=True,
+        action="append",
+        type=Path,
+        help="one arm solve artifact; repeat once per target robot group",
+    )
     build_replay.add_argument("--target-grippers", required=True, type=Path)
     build_replay.add_argument("--coupling", required=True)
     build_replay.add_argument("--output", required=True, type=Path)
@@ -515,7 +521,7 @@ def _replay_manifest_payload(
     trajectory_path: Path,
     profile_path: Path,
     recipe_path: Path,
-    arm_solve_path: Path,
+    arm_solve_paths: list[Path],
     target_grippers_path: Path,
     coupling: str,
     output_path: Path,
@@ -525,7 +531,7 @@ def _replay_manifest_payload(
         trajectory_path=trajectory_path,
         profile_path=profile_path,
         recipe_path=recipe_path,
-        arm_solve_path=arm_solve_path,
+        arm_solve_paths=arm_solve_paths,
         target_grippers_path=target_grippers_path,
         coupling=coupling,
     )
@@ -536,7 +542,7 @@ def _replay_manifest_payload(
         "replay_id": manifest.replay_id,
         "robot_id": manifest.robot_id,
         "frame_count": manifest.frame_count,
-        "arm_group": manifest.arm_group,
+        "arm_groups": list(manifest.arm_groups),
         "profile_sha256": manifest.robot_profile_sha256,
         "artifact_roles": [artifact.role for artifact in manifest.artifacts],
         "output": str(output_path),
@@ -1292,7 +1298,7 @@ def app(argv: list[str] | None = None) -> int:
                 trajectory_path=args.trajectory,
                 profile_path=args.profile,
                 recipe_path=args.recipe,
-                arm_solve_path=args.arm_solve,
+                arm_solve_paths=args.arm_solve,
                 target_grippers_path=args.target_grippers,
                 coupling=args.coupling,
                 output_path=args.output,
