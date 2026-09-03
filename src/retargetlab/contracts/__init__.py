@@ -32,6 +32,7 @@ from .robot_profile import CollisionProfile, KinematicGroup, RobotProfile
 from .selection import CalibrationSelection, EpisodeRange
 from .solve import IKResult, IKStatus, SolveOptions
 from .threshold import Threshold
+from .timing import CommandTimingReport, TimingShiftResult
 
 __all__ = [
     "CanonicalFrame",
@@ -74,4 +75,6 @@ __all__ = [
     "StructureField",
     "StructureManifest",
     "Threshold",
+    "CommandTimingReport",
+    "TimingShiftResult",
 ]

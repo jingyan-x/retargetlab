@@ -26,6 +26,7 @@ from retargetlab.contracts import (
 )
 from retargetlab.io import (
     DEFAULT_CALIBRATION_COLUMNS,
+    analyze_command_timing,
     apply_mapping_review,
     build_pose_mapping_candidate,
     compare_info_to_structure,
@@ -49,7 +50,6 @@ from retargetlab.run import (
     write_review_package_preflight,
 )
 from retargetlab.run.fingerprint import sha256_bytes
-
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -130,6 +130,28 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--max-frames", default=60, type=int)
     calibrate.add_argument("--output", required=True, type=Path)
     calibrate.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    timing = subparsers.add_parser(
+        "analyze-timing",
+        help="rank action.position[t] against observation.state.position[t+k]",
+    )
+    timing.add_argument("--data", required=True, type=Path)
+    timing.add_argument("--dataset-alias", required=True)
+    timing.add_argument("--source-revision", required=True)
+    timing.add_argument("--episode-indices", required=True, nargs="+", type=int)
+    timing.add_argument("--joint-indices", required=True, nargs="+", type=int)
+    timing.add_argument("--action-scales", nargs="+", type=float)
+    timing.add_argument("--action-offsets", nargs="+", type=float)
+    timing.add_argument("--max-shift", default=8, type=int)
+    timing.add_argument(
+        "--expected-shifts",
+        default=(4, 5),
+        nargs=2,
+        type=int,
+        metavar=("MIN", "MAX"),
+    )
+    timing.add_argument("--output", required=True, type=Path)
+    timing.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_calibration = subparsers.add_parser(
         "verify-calibration", help="verify a bounded calibration artifact set"
@@ -522,6 +544,42 @@ def _verify_calibration_payload(
     }
 
 
+def _timing_payload(
+    *,
+    data_path: Path,
+    dataset_alias: str,
+    source_revision: str,
+    episode_indices: list[int],
+    joint_indices: list[int],
+    action_scales: list[float] | None,
+    action_offsets: list[float] | None,
+    max_shift: int,
+    expected_shifts: list[int],
+    output_path: Path,
+) -> tuple[dict[str, Any], int]:
+    report = analyze_command_timing(
+        data_path,
+        dataset_alias=dataset_alias,
+        source_revision=source_revision,
+        episode_indices=tuple(episode_indices),
+        joint_indices=tuple(joint_indices),
+        action_scales=tuple(action_scales) if action_scales is not None else None,
+        action_offsets=tuple(action_offsets) if action_offsets is not None else None,
+        max_shift=max_shift,
+        expected_shift_range=(expected_shifts[0], expected_shifts[1]),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(report.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    payload = {
+        "command": "analyze-timing",
+        **report.model_dump(mode="json"),
+        "output": str(output_path),
+    }
+    return payload, EXIT_OK if report.status == "SUPPORTED" else EXIT_QUALITY
+
+
 def _diagnose_payload(run_path: Path) -> tuple[dict[str, Any], int]:
     report_path = run_path / "result" / "report.json"
     report = DatasetReport.model_validate_json(report_path.read_text(encoding="utf-8"))
@@ -661,9 +719,7 @@ def _solve_run_payload(
         "run_id": run_id,
         "quality_status": result.report.status,
         "frame_count": len(result.results),
-        "converged_count": sum(
-            item.status.value == "CONVERGED" for item in result.results
-        ),
+        "converged_count": sum(item.status.value == "CONVERGED" for item in result.results),
         "recipe_sha256": result.manifest.recipe_sha256,
         "report_sha256": result.manifest.report_sha256,
     }
@@ -688,15 +744,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
         return
     if payload.get("command") == "diagnose":
         print(
-            f"diagnostic report: {payload['status']} "
-            f"({payload['episode_count']} episodes)",
+            f"diagnostic report: {payload['status']} ({payload['episode_count']} episodes)",
             file=stdout,
         )
         return
     if payload.get("kind") == "parquet":
         print(
-            f"parquet structure: {payload['row_count']} rows, "
-            f"{len(payload['fields'])} fields",
+            f"parquet structure: {payload['row_count']} rows, {len(payload['fields'])} fields",
             file=stdout,
         )
         comparison = payload.get("comparison")
@@ -729,15 +783,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
         return
     if payload.get("command") == "inspect-review-package":
         print(
-            f"review package: {payload['status']} "
-            f"(next={payload['next_action']})",
+            f"review package: {payload['status']} (next={payload['next_action']})",
             file=stdout,
         )
         return
     if payload.get("command") == "verify-review-package":
         print(
-            f"review package preflight: {payload['status']} "
-            f"({payload['inspection_status']})",
+            f"review package preflight: {payload['status']} ({payload['inspection_status']})",
             file=stdout,
         )
         return
@@ -748,10 +800,16 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "analyze-timing":
+        print(
+            f"command timing: {payload['status']} "
+            f"(best shift={payload['best_shift']}) -> {payload['output']}",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "verify-calibration":
         print(
-            f"calibration run: {payload['status']} "
-            f"({payload['selected_frame_count']} frames)",
+            f"calibration run: {payload['status']} ({payload['selected_frame_count']} frames)",
             file=stdout,
         )
         return
@@ -914,6 +972,38 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "analyze-timing":
+        try:
+            payload, exit_code = _timing_payload(
+                data_path=args.data,
+                dataset_alias=args.dataset_alias,
+                source_revision=args.source_revision,
+                episode_indices=args.episode_indices,
+                joint_indices=args.joint_indices,
+                action_scales=args.action_scales,
+                action_offsets=args.action_offsets,
+                max_shift=args.max_shift,
+                expected_shifts=args.expected_shifts,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "analyze-timing",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "analyze-timing",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
     if args.command == "diagnose":
         try:
             payload, exit_code = _diagnose_payload(args.run)

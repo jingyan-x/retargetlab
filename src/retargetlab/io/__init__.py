@@ -8,6 +8,7 @@ from .probe import probe_lerobot_info, probe_parquet
 from .review import apply_mapping_review
 from .review_package import inspect_review_package
 from .select import DEFAULT_CALIBRATION_COLUMNS, select_calibration_rows
+from .timing import analyze_command_timing
 from .validate import validate_mapping
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "probe_lerobot_info",
     "probe_parquet",
     "validate_mapping",
+    "analyze_command_timing",
 ]

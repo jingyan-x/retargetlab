@@ -1104,3 +1104,36 @@ Remote verification:
 The next boundary is to keep the real private-sample approval gate pending:
 there is still no approved decision artifact for production calibration, so no
 real calibration or retargeting run should be started automatically.
+
+### M1a.21: explicit pure joint-space command timing verification
+
+The repository now provides a read-only `analyze-timing` command and contracts
+for ranking `action.position[t]` against `observation.state.position[t+k]`
+within an explicit episode allowlist. The report records only input hash,
+episode and joint indices, pair counts, aggregate/per-joint RMSE, and the
+expected shift window; it never emits source rows or held-out values.
+
+The implementation requires explicit `joint_indices` instead of silently
+aggregating heterogeneous channels. It also supports an explicit affine action
+transform for channels whose command and state units differ. On the
+calibration subset, the 14 arm joints use identity and produce best shift `4`
+within the registered `4..5` window. The two gripper joints use the separately
+declared `5*x-3` transform and produce best shift `6` within their registered
+`5..6` window. The earlier all-16-dimension diagnostic was retained only as a
+debug artifact; it is not used as the timing conclusion because it mixed
+normalized gripper commands with radian joint states.
+
+This timing result is a physical tracking-delay diagnostic only. It does not
+change the training pairing rule: source `observation[t]` remains paired with
+`action[t]`, with no row shift.
+
+Remote verification:
+
+- calibration timing reports for arm and gripper groups: both `SUPPORTED`;
+- full `pytest -q`: 63 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no held-out data, video, or production export was read or modified.
+
+The next boundary is to formalize the reviewed dataset profile and its explicit
+source-side gripper/timing declarations; the semantic review gate remains
+pending for the unresolved EEF frame mapping.
