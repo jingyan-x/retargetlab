@@ -21,7 +21,13 @@ from retargetlab.contracts import (
     RobotProfile,
     StructureManifest,
 )
-from retargetlab.io import normalize_rows, probe_parquet, validate_mapping
+from retargetlab.io import (
+    compare_info_to_structure,
+    normalize_rows,
+    probe_lerobot_info,
+    probe_parquet,
+    validate_mapping,
+)
 from retargetlab.run import execute_solve_run, recipe_sha256
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -40,10 +46,13 @@ def _parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="check the local runtime")
     doctor.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
-    inspect = subparsers.add_parser("inspect", help="inspect a canonical JSON trajectory")
+    inspect = subparsers.add_parser(
+        "inspect", help="inspect a canonical JSON trajectory or source structure"
+    )
     inspect.add_argument("path", type=Path)
     inspect.add_argument("--dataset-alias")
     inspect.add_argument("--source-revision")
+    inspect.add_argument("--metadata", type=Path, help="LeRobot info.json for Parquet comparison")
     inspect.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
@@ -120,6 +129,7 @@ def _inspect_payload(
     path: Path,
     dataset_alias: str | None = None,
     source_revision: str | None = None,
+    metadata_path: Path | None = None,
 ) -> dict[str, Any]:
     if path.suffix.lower() == ".parquet":
         if not dataset_alias or not source_revision:
@@ -129,7 +139,7 @@ def _inspect_payload(
             dataset_alias=dataset_alias,
             source_revision=source_revision,
         )
-        return {
+        payload: dict[str, Any] = {
             "command": "inspect",
             "kind": "parquet",
             "dataset_alias": manifest.dataset_alias,
@@ -139,6 +149,55 @@ def _inspect_payload(
             "fields": {
                 name: field.model_dump(mode="json")
                 for name, field in sorted(manifest.fields.items())
+            },
+        }
+        if metadata_path is not None:
+            info = probe_lerobot_info(
+                metadata_path,
+                dataset_alias=dataset_alias,
+                source_revision=source_revision,
+            )
+            comparison = compare_info_to_structure(info, manifest)
+            payload["metadata"] = {
+                "source_sha256": info.source_sha256,
+                "dataset_name": info.dataset_name,
+                "total_episodes": info.total_episodes,
+                "total_frames": info.total_frames,
+                "total_tasks": info.total_tasks,
+                "total_chunks": info.total_chunks,
+                "fps": info.fps,
+                "features": {
+                    name: feature.model_dump(mode="json")
+                    for name, feature in sorted(info.features.items())
+                },
+            }
+            payload["comparison"] = comparison.model_dump(mode="json")
+        return payload
+    if metadata_path is not None:
+        raise ValueError("--metadata is only supported when inspecting a Parquet file")
+    if path.name.lower() == "info.json":
+        if not dataset_alias or not source_revision:
+            raise ValueError("info.json inspect requires --dataset-alias and --source-revision")
+        info = probe_lerobot_info(
+            path,
+            dataset_alias=dataset_alias,
+            source_revision=source_revision,
+        )
+        return {
+            "command": "inspect",
+            "kind": "lerobot-info",
+            "dataset_alias": info.dataset_alias,
+            "source_revision": info.source_revision,
+            "source_sha256": info.source_sha256,
+            "dataset_name": info.dataset_name,
+            "total_episodes": info.total_episodes,
+            "total_frames": info.total_frames,
+            "total_tasks": info.total_tasks,
+            "total_chunks": info.total_chunks,
+            "fps": info.fps,
+            "features": {
+                name: feature.model_dump(mode="json")
+                for name, feature in sorted(info.features.items())
             },
         }
     trajectory = CanonicalTrajectory.model_validate_json(path.read_text(encoding="utf-8"))
@@ -325,6 +384,23 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             f"parquet structure: {payload['row_count']} rows, {len(payload['fields'])} fields",
             file=stdout,
         )
+        comparison = payload.get("comparison")
+        if comparison is not None:
+            status = (
+                "FULLY_VERIFIED"
+                if comparison["fully_verified"]
+                else "COMPATIBLE_UNVERIFIED"
+                if comparison["compatible"]
+                else "INCONSISTENT"
+            )
+            print(f"metadata comparison: {status}", file=stdout)
+        return
+    if payload.get("kind") == "lerobot-info":
+        print(
+            f"metadata manifest: {payload['total_frames']} frames, "
+            f"{len(payload['features'])} features",
+            file=stdout,
+        )
         return
     if payload.get("command") == "validate-input":
         print(
@@ -369,7 +445,12 @@ def app(argv: list[str] | None = None) -> int:
         return exit_code
     if args.command == "inspect":
         try:
-            payload = _inspect_payload(args.path, args.dataset_alias, args.source_revision)
+            payload = _inspect_payload(
+                args.path,
+                args.dataset_alias,
+                args.source_revision,
+                args.metadata,
+            )
         except RuntimeError as exc:
             error = {"command": "inspect", "status": "ENVIRONMENT_ERROR", "error": str(exc)}
             _emit(error, args.json, sys.stdout)

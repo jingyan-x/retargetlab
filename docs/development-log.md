@@ -576,3 +576,34 @@ Remote verification:
 The next boundary is an explicit metadata-manifest prober that can compare
 declared feature shapes and dtypes with the value-free Parquet structure before
 any mapping or normalization is enabled.
+
+### M1a.2: explicit metadata/Parquet cross-check
+
+The input boundary now probes the selected declarations from a LeRobot-style
+`info.json` and compares them with the value-free Parquet manifest. Feature
+dtype, shape, element names, dataset counts, and FPS remain metadata-only; the
+video features are marked external and are not incorrectly expected to appear
+as Parquet columns. Arrow's `float` is compared to the declared `float32`, and
+the known `[1]` declaration versus scalar `()` storage representation is
+reported as `shape_normalized` rather than a silent match. Variable-width list
+storage remains `shape_unverified`.
+
+For the remote private sample, the declaration and the main Parquet footer are
+compatible: alias, revision, row count, field presence, and dtypes all agree.
+The result is intentionally not fully verified: eight vector features have
+unverified physical width, and seven scalar features use the explicit
+singleton-to-scalar storage normalization. No feature mapping or normalization
+was enabled as a consequence of this comparison.
+
+Remote verification:
+
+- metadata/comparison and CLI tests: 11 passed;
+- full `pytest -q tests`: 42 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no row values, held-out episodes, videos, or production assets were read or
+  modified.
+
+The next boundary is to generate a reviewable, explicit mapping candidate from
+the declared element names, while keeping frame, unit, quaternion order, and
+source-to-target semantics unresolved until separately evidenced.

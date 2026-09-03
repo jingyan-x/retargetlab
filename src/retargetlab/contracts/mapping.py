@@ -95,6 +95,61 @@ class StructureManifest(BaseModel):
     fields: dict[str, StructureField] = Field(min_length=1)
 
 
+class FeatureDeclaration(BaseModel):
+    """Value-free feature declaration from a dataset metadata manifest."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    dtype: str = Field(min_length=1)
+    shape: tuple[int, ...] | None
+    names: tuple[str, ...] = ()
+    storage: Literal["parquet", "external"] = "parquet"
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> FeatureDeclaration:
+        if self.shape is not None and any(size < 0 for size in self.shape):
+            raise ValueError("feature declaration dimensions must be non-negative")
+        return self
+
+
+class DatasetInfoManifest(BaseModel):
+    """Selected metadata from a LeRobot-style ``info.json`` manifest."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    source_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    dataset_name: str = Field(min_length=1)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+    total_chunks: int = Field(gt=0)
+    fps: float = Field(gt=0)
+    features: dict[str, FeatureDeclaration] = Field(min_length=1)
+
+
+class StructureComparison(BaseModel):
+    """Explicit comparison between declared features and physical columns."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    compatible: bool
+    fully_verified: bool
+    alias_match: bool
+    revision_match: bool
+    row_count_match: bool
+    declared_total_frames: int = Field(gt=0)
+    observed_row_count: int = Field(gt=0)
+    missing_features: tuple[str, ...] = ()
+    dtype_mismatches: tuple[str, ...] = ()
+    shape_mismatches: tuple[str, ...] = ()
+    shape_unverified: tuple[str, ...] = ()
+    shape_normalized: tuple[str, ...] = ()
+    extra_fields: tuple[str, ...] = ()
+
+
 class MappingValidation(BaseModel):
     """Machine-readable result of mapping a spec onto a structure manifest."""
 

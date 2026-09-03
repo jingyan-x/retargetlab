@@ -5,9 +5,12 @@ from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
 from .mapping import (
     ColumnRef,
+    DatasetInfoManifest,
+    FeatureDeclaration,
     MappingSpec,
     MappingValidation,
     StreamMapping,
+    StructureComparison,
     StructureField,
     StructureManifest,
 )
@@ -21,9 +24,11 @@ __all__ = [
     "CanonicalTrajectory",
     "ColumnRef",
     "CollisionProfile",
+    "DatasetInfoManifest",
     "DatasetReport",
     "EpisodeReport",
     "EvidenceLevel",
+    "FeatureDeclaration",
     "IKResult",
     "IKStatus",
     "KinematicGroup",
@@ -38,6 +43,7 @@ __all__ = [
     "SemanticField",
     "SolveOptions",
     "StreamMapping",
+    "StructureComparison",
     "StructureField",
     "StructureManifest",
     "Threshold",

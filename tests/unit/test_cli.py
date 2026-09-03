@@ -21,7 +21,8 @@ from retargetlab.contracts import (
 
 def test_doctor_json_is_structured(capsys) -> None:
     exit_code = app(["doctor", "--json"])
-    payload = json.loads(capsys.readouterr().out)
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
     assert exit_code in {EXIT_OK, 5}
     assert payload["command"] == "doctor"
     assert set(payload["dependencies"]) >= {"numpy", "pydantic"}
@@ -82,6 +83,62 @@ def test_inspect_parquet_reports_structure_only(tmp_path, capsys) -> None:
     assert payload["row_count"] == 2
     assert payload["fields"]["timestamp"]["shape"] == []
     assert payload["source_sha256"]
+
+
+def test_inspect_parquet_compares_lerobot_metadata_without_rows(tmp_path, capsys) -> None:
+    pa = pytest.importorskip("pyarrow")
+    parquet = pytest.importorskip("pyarrow.parquet")
+    data_path = tmp_path / "data.parquet"
+    parquet.write_table(
+        pa.table(
+            {
+                "timestamp": pa.array([0.0, 0.01], type=pa.float32()),
+                "state": pa.array(
+                    [[0.0, 1.0], [2.0, 3.0]],
+                    type=pa.list_(pa.float32()),
+                ),
+            }
+        ),
+        data_path,
+    )
+    info_path = tmp_path / "info.json"
+    info_path.write_text(
+        json.dumps(
+            {
+                "dataset_name": "synthetic",
+                "total_episodes": 1,
+                "total_frames": 2,
+                "total_tasks": 1,
+                "total_chunks": 1,
+                "fps": 30.0,
+                "features": {"state": {"dtype": "float32", "shape": [2], "names": ["x", "y"]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        app(
+            [
+                "inspect",
+                str(data_path),
+                "--dataset-alias",
+                "fixture",
+                "--source-revision",
+                "v1",
+                "--metadata",
+                str(info_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert payload["comparison"]["compatible"] is True
+    assert payload["comparison"]["fully_verified"] is False
+    assert payload["comparison"]["shape_unverified"] == ["state"]
+    assert "values" not in captured.out
 
 
 def test_diagnose_completed_run_uses_quality_exit_without_joint_arrays(tmp_path, capsys) -> None:

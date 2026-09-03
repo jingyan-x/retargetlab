@@ -21,6 +21,9 @@ solver = [
   "pink>=3.0",
   "qpsolvers[osqp]>=4.0",
 ]
+data = [
+  "pyarrow>=15",
+]
 viz = [
   "matplotlib>=3.8",
 ]
