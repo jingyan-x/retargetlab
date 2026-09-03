@@ -11,7 +11,11 @@ from retargetlab.contracts import (
     StructureComparison,
 )
 from retargetlab.io import apply_mapping_review, build_pose_mapping_candidate
-from retargetlab.run import canonical_json_bytes, write_review_decision_artifact
+from retargetlab.run import (
+    canonical_json_bytes,
+    verify_review_decision_artifact,
+    write_review_decision_artifact,
+)
 from retargetlab.run.fingerprint import sha256_bytes
 
 
@@ -164,6 +168,36 @@ def test_review_decision_artifact_binds_approved_mapping_without_values(tmp_path
             candidate=candidate,
             review=review,
             comparison=comparison,
+        )
+
+
+def test_review_decision_artifact_verifier_rechecks_review_inputs(tmp_path) -> None:
+    candidate = build_pose_mapping_candidate(_info())
+    review = _review(approved=True, accept_unverified_shape=True)
+    comparison = _comparison()
+    path = tmp_path / "review-decision.json"
+    artifact = write_review_decision_artifact(
+        path,
+        candidate=candidate,
+        review=review,
+        comparison=comparison,
+    )
+
+    assert (
+        verify_review_decision_artifact(
+            path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison,
+        )
+        == artifact
+    )
+    with pytest.raises(ValueError, match="does not match review inputs"):
+        verify_review_decision_artifact(
+            path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison.model_copy(update={"observed_row_count": 3}),
         )
 
 

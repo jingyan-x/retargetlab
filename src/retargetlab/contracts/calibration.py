@@ -37,6 +37,7 @@ class CalibrationRecipe(BaseModel):
     mapping_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     comparison_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     review_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    decision_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     episode_indices: tuple[int, ...] = Field(min_length=1)
     frames_per_episode: int = Field(gt=0, le=60)
     max_frames: int = Field(gt=0, le=60)

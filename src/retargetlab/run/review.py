@@ -86,6 +86,7 @@ def write_calibration_run(
     review_sha256: str,
     selection: CalibrationSelection,
     calibration: CalibrationReport,
+    decision_sha256: str | None = None,
 ) -> CalibrationRunManifest:
     """Write recipe, audit, and completion manifest without source rows."""
 
@@ -105,6 +106,8 @@ def write_calibration_run(
         raise ValueError("calibration recipe comparison hash does not match comparison")
     if recipe.review_sha256 != review_sha256:
         raise ValueError("calibration recipe review hash does not match review")
+    if recipe.decision_sha256 != decision_sha256:
+        raise ValueError("calibration recipe decision hash does not match decision")
     if recipe.frames_per_episode != selection.frames_per_episode:
         raise ValueError("calibration recipe frame count does not match selection")
     selected_episodes = tuple(item.episode_index for item in selection.episode_ranges)

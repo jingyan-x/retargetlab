@@ -42,6 +42,7 @@ from retargetlab.run import (
     execute_solve_run,
     recipe_sha256,
     verify_calibration_run,
+    verify_review_decision_artifact,
     verify_review_package_preflight,
     write_calibration_run,
     write_review_decision_artifact,
@@ -118,6 +119,11 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--candidate", required=True, type=Path)
     calibrate.add_argument("--review", required=True, type=Path)
     calibrate.add_argument("--comparison", required=True, type=Path)
+    calibrate.add_argument(
+        "--decision",
+        type=Path,
+        help="optional approved semantic decision artifact to verify before reading data",
+    )
     calibrate.add_argument("--episode-indices", required=True, nargs="+", type=int)
     calibrate.add_argument("--frames-per-episode", required=True, type=int)
     calibrate.add_argument("--max-frames", default=60, type=int)
@@ -429,16 +435,26 @@ def _calibrate_payload(
     candidate_path: Path,
     review_path: Path,
     comparison_path: Path,
+    decision_path: Path | None,
     episode_indices: list[int],
     frames_per_episode: int,
     max_frames: int,
     output_path: Path,
 ) -> dict[str, Any]:
-    mapping, comparison = _load_reviewed_mapping(
+    candidate, review, comparison = _load_review_package(
         candidate_path,
         review_path,
         comparison_path,
     )
+    mapping = apply_mapping_review(candidate, review, comparison)
+    decision = None
+    if decision_path is not None:
+        decision = verify_review_decision_artifact(
+            decision_path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison,
+        )
     trajectory, calibration, selection = run_parquet_calibration(
         data_path,
         episodes_path,
@@ -457,6 +473,9 @@ def _calibrate_payload(
         mapping_sha256=sha256_bytes(canonical_json_bytes(mapping)),
         comparison_sha256=sha256_bytes(canonical_json_bytes(comparison)),
         review_sha256=sha256_file(review_path),
+        decision_sha256=(
+            sha256_bytes(canonical_json_bytes(decision)) if decision is not None else None
+        ),
         episode_indices=tuple(episode_indices),
         frames_per_episode=frames_per_episode,
         max_frames=max_frames,
@@ -468,6 +487,7 @@ def _calibrate_payload(
         mapping=mapping,
         comparison=comparison,
         review_sha256=recipe.review_sha256,
+        decision_sha256=recipe.decision_sha256,
         selection=selection,
         calibration=calibration,
     )
@@ -481,6 +501,7 @@ def _calibrate_payload(
         "recipe_sha256": manifest.recipe_sha256,
         "run_manifest": str(output_path.with_name("calibration-run-manifest.json")),
         "artifact_sha256": manifest.audit_sha256,
+        "decision_sha256": recipe.decision_sha256,
     }
 
 
@@ -848,6 +869,7 @@ def app(argv: list[str] | None = None) -> int:
                 candidate_path=args.candidate,
                 review_path=args.review,
                 comparison_path=args.comparison,
+                decision_path=args.decision,
                 episode_indices=args.episode_indices,
                 frames_per_episode=args.frames_per_episode,
                 max_frames=args.max_frames,

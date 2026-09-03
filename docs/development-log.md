@@ -1032,3 +1032,30 @@ Remote verification:
 The next boundary is to make an approved decision artifact consumable by the
 bounded calibration command, while rechecking its hashes and preserving the
 existing explicit review inputs as the source of truth.
+
+### M1a.18: consume the semantic decision artifact in calibration
+
+The bounded `calibrate` command now accepts an optional `--decision` path. When
+provided, it loads the candidate, review, and structure comparison, applies the
+existing approval gate, and verifies that the saved decision artifact exactly
+matches those explicit inputs before invoking any Parquet selection. The
+calibration recipe records the canonical decision hash, and the run writer
+checks that the recipe and call-site agree so the lineage cannot be silently
+omitted or substituted.
+
+The verifier rebuilds the decision artifact from the value-free review inputs;
+it does not trust a hash copied from the decision file and it does not read
+dataset rows. The CLI calibration fixture now exercises the full decision-aware
+path, while a tampered-comparison test confirms that drift is rejected.
+
+Remote verification:
+
+- full `pytest -q`: 61 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by decision verification tests.
+
+The next boundary is to expose the optional decision hash from the read-only
+calibration-run verifier, so downstream review tooling can distinguish legacy
+runs from runs carrying an archived semantic decision without reopening source
+data.
