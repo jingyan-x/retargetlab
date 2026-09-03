@@ -1770,3 +1770,27 @@ Remote verification:
 The next implementation boundary is to make the preflight's episode/frame
 selection executable for a deliberately small synthetic multi-row fixture,
 before considering any real dataset materialization.
+
+### M1b.2c: execute the preflight episode selection on a synthetic multi-episode table
+
+When a verified synthetic-table preflight is supplied, the writer now requires
+one allowlisted episode for one flat replay and filters the source table to
+that episode before checking row count, contiguous `frame_index`, and replay
+timestamps. The output therefore cannot accidentally include an adjacent
+episode whose local frame indices or timestamps happen to look valid. The
+selected episode id is recorded in the value-free write summary and Parquet
+metadata. The no-preflight path remains deliberately single-episode and
+rejects multi-episode input rather than guessing a selection.
+
+Remote verification:
+
+- synthetic single- and multi-episode selection tests: 6 passed;
+- full regression with the real OpenArm asset smoke enabled: 103 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is a value-aware synthetic-output verifier
+that rechecks the written Parquet vectors and preserved row alignment against
+the verified replay and preflight, before any real dataset materialization.

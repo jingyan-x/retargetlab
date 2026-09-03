@@ -92,6 +92,28 @@ def _write_source_table(path: Path, *, timestamps: list[float] | None = None) ->
     parquet.write_table(table, path)
 
 
+def _write_multi_episode_source_table(path: Path) -> None:
+    table = pa.table(
+        {
+            "index": pa.array([17, 18, 27, 28], type=pa.int64()),
+            "episode_index": pa.array([3, 3, 4, 4], type=pa.int64()),
+            "frame_index": pa.array([0, 1, 0, 1], type=pa.int64()),
+            "timestamp": pa.array([0.0, 0.1, 0.0, 0.1], type=pa.float64()),
+            "task_index": pa.array([0, 0, 1, 1], type=pa.int64()),
+            "observation.state": pa.array(
+                [[99.0, 99.0], [98.0, 98.0], [89.0, 89.0], [88.0, 88.0]],
+                type=pa.list_(pa.float32(), 2),
+            ),
+            "action": pa.array(
+                [[97.0, 97.0], [96.0, 96.0], [87.0, 87.0], [86.0, 86.0]],
+                type=pa.list_(pa.float32(), 2),
+            ),
+            "next.done": pa.array([False, True, False, True], type=pa.bool_()),
+        }
+    )
+    parquet.write_table(table, path)
+
+
 def test_synthetic_table_writer_replaces_only_target_streams(tmp_path: Path) -> None:
     bundle_path = _write_bundle(tmp_path)
     source_path = tmp_path / "synthetic-source.parquet"
@@ -107,6 +129,7 @@ def test_synthetic_table_writer_replaces_only_target_streams(tmp_path: Path) -> 
 
     assert result.source_scope == "synthetic_public_only"
     assert result.frame_count == 2
+    assert result.selected_episode_indices == (3,)
     assert result.preserved_columns == (
         "index",
         "episode_index",
@@ -306,3 +329,48 @@ def test_synthetic_table_preflight_cli_round_trip(tmp_path: Path, capsys) -> Non
     )
     verification_payload = json.loads(capsys.readouterr().out)
     assert verification_payload["status"] == "VERIFIED"
+
+
+def test_synthetic_table_writer_uses_preflight_episode_selection(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    source_path = tmp_path / "synthetic-multi-episode-source.parquet"
+    output_path = tmp_path / "synthetic-selected-target.parquet"
+    preflight_path = tmp_path / "synthetic-selected-preflight.json"
+    _write_multi_episode_source_table(source_path)
+    bundle_verification = verify_target_replay_bundle(bundle_path)
+    gate_path = tmp_path / "export-input-gate.json"
+    gate = ExportInputGate(
+        dataset_alias="fixture",
+        source_revision="v1",
+        data_profile_sha256="a" * 64,
+        coverage_sha256="b" * 64,
+        target_replay_bundle_sha256=bundle_verification.bundle_sha256,
+        export_profile_sha256=bundle_verification.export_profile_sha256,
+        robot_id="fixture",
+        source_frame_count=4,
+        target_replay_frame_count=2,
+        training_episode_allowlist=(3,),
+    )
+    gate_path.write_text(gate.model_dump_json(), encoding="utf-8")
+    preflight = build_synthetic_table_write_preflight(
+        export_input_gate_path=gate_path,
+        source_table_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_table_path=output_path,
+    )
+    write_synthetic_table_write_preflight(preflight_path, preflight)
+
+    result = write_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+        preflight_path=preflight_path,
+    )
+    output = parquet.read_table(output_path)
+
+    assert result.selected_episode_indices == (3,)
+    assert output.num_rows == 2
+    assert output["index"].to_pylist() == [17, 18]
+    assert output["episode_index"].to_pylist() == [3, 3]
+    assert output["frame_index"].to_pylist() == [0, 1]
+    assert output["task_index"].to_pylist() == [0, 0]

@@ -144,6 +144,7 @@ def write_synthetic_target_table(
     output_path = output_path.resolve()
     if source_path == output_path:
         raise ValueError("synthetic table source and output paths must be different")
+    preflight: SyntheticTableWritePreflight | None = None
     preflight_sha256: str | None = None
     preflight_path_string: str | None = None
     if preflight_path is not None:
@@ -176,7 +177,38 @@ def write_synthetic_target_table(
     if not source_path.is_file():
         raise FileNotFoundError(f"synthetic source table does not exist: {source_path}")
     table = parquet.read_table(source_path)
-    source_columns = _validate_source_table(table, bundle, state)
+    source_columns = tuple(str(column) for column in table.column_names)
+    missing = [column for column in _REQUIRED_SOURCE_COLUMNS if column not in source_columns]
+    if missing:
+        raise ValueError(f"synthetic table is missing required columns: {missing}")
+    if "valid.retarget" in source_columns:
+        raise ValueError("source table must not already contain valid.retarget")
+    if preflight is not None:
+        if len(preflight.training_episode_allowlist) != 1:
+            raise ValueError(
+                "synthetic table writer requires exactly one allowlisted episode for one replay"
+            )
+        selected_episode = preflight.training_episode_allowlist[0]
+        episode_values = [
+            _integer(value, column="episode_index", row=row)
+            for row, value in enumerate(table["episode_index"].to_pylist())
+        ]
+        mask = pa.array(
+            [episode == selected_episode for episode in episode_values],
+            type=pa.bool_(),
+        )
+        table = table.filter(mask)
+        if table.num_rows == 0:
+            raise ValueError(
+                f"synthetic table does not contain allowlisted episode {selected_episode}"
+            )
+    _validate_source_table(table, bundle, state)
+    selected_episode_indices = tuple(
+        dict.fromkeys(
+            _integer(value, column="episode_index", row=row)
+            for row, value in enumerate(table["episode_index"].to_pylist())
+        )
+    )
 
     for column_name, replay in (("observation.state", state), ("action", action)):
         table = table.set_column(
@@ -198,6 +230,9 @@ def write_synthetic_target_table(
             ),
             b"retargetlab.robot_id": bundle.robot_id.encode("utf-8"),
             b"retargetlab.replay_id": bundle.replay_id.encode("utf-8"),
+            b"retargetlab.selected_episode_indices": ",".join(
+                str(index) for index in selected_episode_indices
+            ).encode("ascii"),
         }
     )
     table = table.replace_schema_metadata(metadata)
@@ -221,6 +256,7 @@ def write_synthetic_target_table(
         preserved_columns=tuple(
             column for column in source_columns if column not in _REPLACED_COLUMNS
         ),
+        selected_episode_indices=selected_episode_indices,
         valid_retarget_count=bundle.frame_count,
         output_table_sha256=sha256_file(output_path),
     )

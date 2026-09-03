@@ -33,6 +33,7 @@ class SyntheticTargetTableExport(BaseModel):
     source_columns: tuple[str, ...] = Field(min_length=1)
     output_columns: tuple[str, ...] = Field(min_length=1)
     preserved_columns: tuple[str, ...] = Field(min_length=1)
+    selected_episode_indices: tuple[int, ...] = Field(min_length=1)
     replaced_columns: tuple[str, ...] = ("observation.state", "action")
     valid_retarget_count: int = Field(ge=0)
     output_table_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
@@ -60,6 +61,10 @@ class SyntheticTargetTableExport(BaseModel):
             raise ValueError("preserved columns do not match the source table")
         if self.valid_retarget_count != self.frame_count:
             raise ValueError("valid.retarget must be true for every written frame")
+        if len(set(self.selected_episode_indices)) != len(self.selected_episode_indices):
+            raise ValueError("selected episode indices must be unique")
+        if any(index < 0 for index in self.selected_episode_indices):
+            raise ValueError("selected episode indices must be non-negative")
         if (self.preflight_path is None) != (self.preflight_sha256 is None):
             raise ValueError("preflight path and hash must be supplied together")
         return self
