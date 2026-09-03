@@ -24,7 +24,7 @@ from retargetlab.contracts import (
     StructureComparison,
     StructureManifest,
 )
-from retargetlab.export import build_export_profile
+from retargetlab.export import build_export_profile, write_synthetic_target_table
 from retargetlab.io import (
     DEFAULT_CALIBRATION_COLUMNS,
     analyze_command_timing,
@@ -187,6 +187,15 @@ def _parser() -> argparse.ArgumentParser:
     verify_export_inputs.add_argument("--episode-indices", required=True, nargs="+", type=int)
     verify_export_inputs.add_argument("--output", required=True, type=Path)
     verify_export_inputs.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    write_synthetic_table = subparsers.add_parser(
+        "write-synthetic-table",
+        help="write one synthetic/public target Parquet table from a verified replay bundle",
+    )
+    write_synthetic_table.add_argument("--source", required=True, type=Path)
+    write_synthetic_table.add_argument("--target-replay-bundle", required=True, type=Path)
+    write_synthetic_table.add_argument("--output", required=True, type=Path)
+    write_synthetic_table.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -734,6 +743,23 @@ def _verify_export_inputs_payload(
         "command": "verify-export-inputs",
         **gate.model_dump(mode="json"),
         "output": str(output_path),
+    }
+
+
+def _write_synthetic_table_payload(
+    *,
+    source_path: Path,
+    target_replay_bundle_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    artifact = write_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=target_replay_bundle_path,
+        output_path=output_path,
+    )
+    return {
+        "command": "write-synthetic-table",
+        **artifact.model_dump(mode="json"),
     }
 
 
@@ -1661,6 +1687,31 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-export-inputs",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "write-synthetic-table":
+        try:
+            payload = _write_synthetic_table_payload(
+                source_path=args.source,
+                target_replay_bundle_path=args.target_replay_bundle,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "write-synthetic-table",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "write-synthetic-table",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

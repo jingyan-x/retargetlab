@@ -1706,3 +1706,34 @@ Remote verification:
 The next implementation boundary remains a synthetic/public-only dataset
 writer prototype, but it must consume the verified state/action bundle and
 must not collapse the two streams or infer missing source semantics.
+
+### M1b.2a: add the synthetic/public single-trajectory table writer
+
+The first table-writer slice now materializes one explicitly scoped
+`synthetic_public_only` Parquet trajectory from a verified state/action replay
+bundle. Before opening the source table it re-verifies the bundle and both
+value-bearing replay artifacts. It then requires the source row count and
+timestamps to match the target replay, accepts exactly one contiguous episode,
+preserves all source columns other than `observation.state` and `action`,
+rewrites those two columns in the target layout as fixed-size `float32`
+vectors, and appends `valid.retarget=True` for every row. The output metadata
+records the synthetic scope, replay id, robot id, and bundle hash, and output
+creation is exclusive so an existing file is never silently overwritten.
+
+This is intentionally not a complete LeRobot dataset writer: it does not copy
+videos, create `info.json`/episode/task metadata, or infer private source
+semantics. The CLI is named `write-synthetic-table` to keep that boundary
+visible.
+
+Remote verification:
+
+- synthetic writer and CLI tests: 3 passed;
+- full regression with the real OpenArm asset smoke enabled: 100 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is a value-free writer preflight that can
+bind this table rewrite to the certified source/export gate without claiming
+that this prototype is already a complete LeRobot dataset export.

@@ -13,6 +13,7 @@ from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
 from .export_gate import ExportInputGate
 from .export_profile import ExportProfile, TargetVectorLayout
+from .export_table import SyntheticTargetTableExport
 from .gripper import TargetGripperFrame, TargetGripperTrajectory
 from .mapping import (
     ColumnRef,
@@ -81,6 +82,7 @@ __all__ = [
     "EvidenceLevel",
     "ExportInputGate",
     "ExportProfile",
+    "SyntheticTargetTableExport",
     "EpisodeRange",
     "FeatureDeclaration",
     "IKResult",

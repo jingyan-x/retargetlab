@@ -1,5 +1,10 @@
-"""Target-side export layout builders."""
+"""Target-side export layout and synthetic table builders."""
 
 from .layout import build_export_profile, build_target_vector_layout
+from .table import write_synthetic_target_table
 
-__all__ = ["build_export_profile", "build_target_vector_layout"]
+__all__ = [
+    "build_export_profile",
+    "build_target_vector_layout",
+    "write_synthetic_target_table",
+]
