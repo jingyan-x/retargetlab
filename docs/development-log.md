@@ -641,3 +641,31 @@ Remote verification:
 The next boundary is a human-review contract for frame/unit and slot-to-target
 semantics, followed by a separate bounded calibration slice only after those
 fields are explicitly supplied.
+
+### M1a.4: explicit semantic review gate
+
+The mapping layer now has a `MappingReview` contract and a promotion function.
+An approved review must explicitly provide a non-placeholder coordinate frame,
+metres for position, seconds for timestamps, `wxyz` quaternion order, unique
+labels for `slot_0` and `slot_1`, a target group for each slot, reviewer
+identity, and evidence. Without `approved=true`, promotion fails. Promotion
+renames streams and fills frame/unit fields but keeps target groups as
+traceable metadata; it does not run normalization or IK.
+
+The real private-sample candidate remains `REVIEW_REQUIRED`; no guessed frame,
+unit, left/right assignment, or target-group assignment was promoted. This
+keeps the current evidence boundary intact while making the next human-owned
+decision machine-checkable.
+
+Remote verification:
+
+- candidate, review-gate, and CLI tests: 12 passed;
+- full `pytest -q tests`: 45 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real-data normalization, IK solving, or target-side semantic promotion
+  was performed.
+
+The next boundary is to supply or derive review evidence for frame/unit and
+slot-to-target semantics, then run only a bounded calibration check before any
+full trajectory conversion.

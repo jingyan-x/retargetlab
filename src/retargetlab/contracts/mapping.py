@@ -150,6 +150,39 @@ class StructureComparison(BaseModel):
     extra_fields: tuple[str, ...] = ()
 
 
+class MappingReview(BaseModel):
+    """Explicit human review required before a candidate becomes executable."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    coordinate_frame: str = Field(min_length=1)
+    position_unit: Literal["m"]
+    timestamp_unit: Literal["s"]
+    orientation_quaternion_order: Literal["wxyz"]
+    slot_labels: dict[str, str] = Field(min_length=2, max_length=2)
+    target_group_by_slot: dict[str, str] = Field(min_length=2, max_length=2)
+    evidence: tuple[str, ...] = Field(min_length=1)
+    reviewer: str = Field(min_length=1)
+    approved: bool = False
+
+    @model_validator(mode="after")
+    def validate_slots(self) -> MappingReview:
+        expected = {"slot_0", "slot_1"}
+        if set(self.slot_labels) != expected:
+            raise ValueError("slot_labels must define exactly slot_0 and slot_1")
+        if set(self.target_group_by_slot) != expected:
+            raise ValueError("target_group_by_slot must define exactly slot_0 and slot_1")
+        values = (*self.slot_labels.values(), *self.target_group_by_slot.values())
+        if any(not value.strip() for value in values):
+            raise ValueError("slot labels and target groups must not be blank")
+        if len(set(self.slot_labels.values())) != 2:
+            raise ValueError("slot labels must be unique")
+        return self
+
+
 class MappingValidation(BaseModel):
     """Machine-readable result of mapping a spec onto a structure manifest."""
 

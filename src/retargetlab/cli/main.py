@@ -16,12 +16,14 @@ from retargetlab import __version__
 from retargetlab.contracts import (
     CanonicalTrajectory,
     DatasetReport,
+    MappingReview,
     MappingSpec,
     Recipe,
     RobotProfile,
     StructureManifest,
 )
 from retargetlab.io import (
+    apply_mapping_review,
     build_pose_mapping_candidate,
     compare_info_to_structure,
     normalize_rows,
@@ -63,6 +65,13 @@ def _parser() -> argparse.ArgumentParser:
     candidate.add_argument("--dataset-alias", required=True)
     candidate.add_argument("--source-revision", required=True)
     candidate.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    review_mapping = subparsers.add_parser(
+        "review-mapping", help="apply an explicit semantic review to a mapping candidate"
+    )
+    review_mapping.add_argument("candidate", type=Path)
+    review_mapping.add_argument("--review", required=True, type=Path)
+    review_mapping.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
     diagnose.add_argument("--run", required=True, type=Path)
@@ -236,6 +245,20 @@ def _candidate_payload(
         "status": candidate.metadata["candidate_status"],
         "metadata_sha256": info.source_sha256,
         "mapping": candidate.model_dump(mode="json"),
+    }
+
+
+def _review_mapping_payload(candidate_path: Path, review_path: Path) -> dict[str, Any]:
+    raw = json.loads(candidate_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("mapping candidate must contain a JSON object")
+    candidate = MappingSpec.model_validate(raw.get("mapping", raw))
+    review = MappingReview.model_validate_json(review_path.read_text(encoding="utf-8"))
+    approved = apply_mapping_review(candidate, review)
+    return {
+        "command": "review-mapping",
+        "status": "APPROVED",
+        "mapping": approved.model_dump(mode="json"),
     }
 
 
@@ -437,6 +460,9 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "review-mapping":
+        print(f"mapping review: {payload['status']}", file=stdout)
+        return
     if payload.get("command") == "validate-input":
         print(
             f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
@@ -505,6 +531,15 @@ def app(argv: list[str] | None = None) -> int:
             )
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {"command": "candidate", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "review-mapping":
+        try:
+            payload = _review_mapping_payload(args.candidate, args.review)
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {"command": "review-mapping", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)

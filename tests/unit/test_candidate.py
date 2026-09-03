@@ -1,7 +1,9 @@
 import json
 
-from retargetlab.contracts import DatasetInfoManifest, FeatureDeclaration
-from retargetlab.io import build_pose_mapping_candidate
+import pytest
+
+from retargetlab.contracts import DatasetInfoManifest, FeatureDeclaration, MappingReview
+from retargetlab.io import apply_mapping_review, build_pose_mapping_candidate
 
 
 def _info() -> DatasetInfoManifest:
@@ -58,6 +60,43 @@ def test_pose_candidate_uses_declared_names_but_keeps_semantics_unresolved() -> 
     assert state_slot_0.fields["orientation"].quaternion_order == "wxyz"
     assert state_slot_0.fields["position"].unit is None
     assert state_slot_0.fields["position"].frame is None
+
+
+def _review(*, approved: bool) -> MappingReview:
+    return MappingReview(
+        dataset_alias="fixture",
+        source_revision="v1",
+        coordinate_frame="dataset_native",
+        position_unit="m",
+        timestamp_unit="s",
+        orientation_quaternion_order="wxyz",
+        slot_labels={"slot_0": "left", "slot_1": "right"},
+        target_group_by_slot={"slot_0": "panda_2", "slot_1": "panda_1"},
+        evidence=("manual-review-fixture",),
+        reviewer="test",
+        approved=approved,
+    )
+
+
+def test_review_must_be_explicit_before_candidate_promotion() -> None:
+    candidate = build_pose_mapping_candidate(_info())
+
+    with pytest.raises(ValueError, match="not approved"):
+        apply_mapping_review(candidate, _review(approved=False))
+
+    approved = apply_mapping_review(candidate, _review(approved=True))
+    assert approved.coordinate_frame == "dataset_native"
+    assert approved.timestamp.unit == "s"
+    assert [stream.name for stream in approved.streams] == [
+        "observation.state.left",
+        "observation.state.right",
+        "action.left",
+        "action.right",
+    ]
+    assert approved.streams[0].fields["position"].unit == "m"
+    assert approved.streams[0].fields["position"].frame == "dataset_native"
+    assert approved.metadata["candidate_status"] == "APPROVED"
+    assert approved.metadata["target_group.slot_0"] == "panda_2"
 
 
 def test_candidate_cli_emits_review_only_mapping(tmp_path, capsys) -> None:
