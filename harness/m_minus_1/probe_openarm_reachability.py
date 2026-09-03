@@ -1387,10 +1387,15 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if args.prescreen_report is not None:
         if args.prescreen_only:
             raise ValueError("prescreen-report cannot be used with prescreen-only")
-        if args.candidate_limit is not None or args.frame_limit is not None:
+        if (
+            args.candidate_start is not None
+            or args.candidate_limit is not None
+            or args.frame_limit is not None
+        ):
             raise ValueError(
                 "prescreen-report reuse requires the complete candidate and frame budget"
             )
+        candidate_start = 0
         candidates_to_run = candidates
         summaries, prescreen_report_sha256 = load_frozen_prescreen(
             args.prescreen_report.resolve(),
@@ -1405,10 +1410,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             flush=True,
         )
     else:
-        candidate_limit = args.candidate_limit or len(candidates)
-        if candidate_limit < 1 or candidate_limit > len(candidates):
+        candidate_start = args.candidate_start or 0
+        if candidate_start < 0 or candidate_start >= len(candidates):
+            raise ValueError("candidate-start is outside the frozen T2 budget")
+        candidate_limit = args.candidate_limit or len(candidates) - candidate_start
+        if (
+            candidate_limit < 1
+            or candidate_start + candidate_limit > len(candidates)
+        ):
             raise ValueError("candidate-limit is outside the frozen T2 budget")
-        candidates_to_run = candidates[:candidate_limit]
+        candidates_to_run = candidates[
+            candidate_start : candidate_start + candidate_limit
+        ]
         summaries = []
         for index, candidate in enumerate(candidates_to_run, start=1):
             print(
@@ -1582,6 +1595,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "candidate_budget": {
             "expected_candidates": len(candidates),
             "candidates_run": len(candidates_to_run),
+            "candidate_start": candidate_start,
             "translation_offset_count": {
                 "x": len(x_offsets),
                 "y": len(y_offsets),
@@ -1622,6 +1636,7 @@ def main() -> int:
     parser.add_argument("--asset-dir", type=Path, required=True)
     parser.add_argument("--srdf", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--candidate-start", type=int)
     parser.add_argument("--candidate-limit", type=int)
     parser.add_argument("--frame-limit", type=int)
     parser.add_argument("--prescreen-only", action="store_true")
