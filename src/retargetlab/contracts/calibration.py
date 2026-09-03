@@ -23,6 +23,50 @@ class CalibrationReport(BaseModel):
     structure_status: Literal["FULLY_VERIFIED", "COMPATIBLE_UNVERIFIED"]
 
 
+class CalibrationRecipe(BaseModel):
+    """Reproducible inputs for one bounded calibration run."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    recipe_id: str = Field(min_length=1)
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    data_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    episodes_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    mapping_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    comparison_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    review_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    episode_indices: tuple[int, ...] = Field(min_length=1)
+    frames_per_episode: int = Field(gt=0, le=60)
+    max_frames: int = Field(gt=0, le=60)
+    columns: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_selection_budget(self) -> CalibrationRecipe:
+        if any(index < 0 for index in self.episode_indices):
+            raise ValueError("episode indices must be non-negative")
+        if len(set(self.episode_indices)) != len(self.episode_indices):
+            raise ValueError("episode indices must be unique")
+        if len(self.episode_indices) * self.frames_per_episode > self.max_frames:
+            raise ValueError("calibration recipe exceeds max_frames")
+        return self
+
+
+class CalibrationRunManifest(BaseModel):
+    """Completion record for a bounded calibration artifact set."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    run_id: str = Field(min_length=1)
+    status: Literal["COMPLETED"] = "COMPLETED"
+    recipe_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    audit_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    artifacts: tuple[str, ...] = Field(min_length=1)
+    completed_at_utc: str = Field(min_length=1)
+
+
 class ReviewRunArtifact(BaseModel):
     """Audit record for one bounded calibration without source rows."""
 
@@ -34,6 +78,7 @@ class ReviewRunArtifact(BaseModel):
     source_revision: str = Field(min_length=1)
     mapping_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     comparison_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    review_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
     reviewer: str = Field(min_length=1)
     review_evidence: tuple[str, ...] = Field(min_length=1)
     coordinate_frame: str = Field(min_length=1)

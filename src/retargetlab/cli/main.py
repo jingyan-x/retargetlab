@@ -14,17 +14,18 @@ from pydantic import ValidationError
 
 from retargetlab import __version__
 from retargetlab.contracts import (
+    CalibrationRecipe,
     CanonicalTrajectory,
     DatasetReport,
     MappingReview,
     MappingSpec,
     Recipe,
-    ReviewRunArtifact,
     RobotProfile,
     StructureComparison,
     StructureManifest,
 )
 from retargetlab.io import (
+    DEFAULT_CALIBRATION_COLUMNS,
     apply_mapping_review,
     build_pose_mapping_candidate,
     compare_info_to_structure,
@@ -34,11 +35,12 @@ from retargetlab.io import (
     run_parquet_calibration,
     validate_mapping,
 )
+from retargetlab.robot.assets import sha256_file
 from retargetlab.run import (
     canonical_json_bytes,
     execute_solve_run,
     recipe_sha256,
-    write_review_run_artifact,
+    write_calibration_run,
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -331,21 +333,39 @@ def _calibrate_payload(
         frames_per_episode=frames_per_episode,
         max_frames=max_frames,
     )
-    artifact: ReviewRunArtifact = write_review_run_artifact(
+    recipe = CalibrationRecipe(
+        recipe_id=f"calibration-{output_path.stem}",
+        dataset_alias=mapping.dataset_alias,
+        source_revision=mapping.source_revision,
+        data_sha256=selection.data_sha256,
+        episodes_sha256=selection.episodes_sha256,
+        mapping_sha256=sha256_bytes(canonical_json_bytes(mapping)),
+        comparison_sha256=sha256_bytes(canonical_json_bytes(comparison)),
+        review_sha256=sha256_file(review_path),
+        episode_indices=tuple(episode_indices),
+        frames_per_episode=frames_per_episode,
+        max_frames=max_frames,
+        columns=tuple(DEFAULT_CALIBRATION_COLUMNS),
+    )
+    manifest = write_calibration_run(
         output_path,
+        recipe=recipe,
         mapping=mapping,
         comparison=comparison,
+        review_sha256=recipe.review_sha256,
         selection=selection,
         calibration=calibration,
     )
     del trajectory
     return {
         "command": "calibrate",
-        "status": artifact.calibration.status,
+        "status": calibration.status,
         "output": str(output_path),
-        "frame_count": artifact.calibration.frame_count,
-        "selected_row_count": artifact.selection.selected_frame_count,
-        "artifact_sha256": sha256_bytes(canonical_json_bytes(artifact)),
+        "frame_count": calibration.frame_count,
+        "selected_row_count": selection.selected_frame_count,
+        "recipe_sha256": manifest.recipe_sha256,
+        "run_manifest": str(output_path.with_name("calibration-run-manifest.json")),
+        "artifact_sha256": manifest.audit_sha256,
     }
 
 

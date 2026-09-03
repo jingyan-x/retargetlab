@@ -807,3 +807,33 @@ Remote verification:
 The next boundary is to add an explicit calibration recipe/run manifest so a
 future approved real run records parameters and hashes alongside the audit
 artifact without changing the default bounded behavior.
+
+### M1a.10: explicit calibration recipe and run manifest
+
+The bounded calibration command now emits a complete, exclusive audit set:
+the value-free calibration audit, a canonical `calibration-recipe.json`, its
+SHA-256 sidecar, and a `calibration-run-manifest.json`. The recipe records the
+dataset and source revision, data and episode hashes, mapping/structure/review
+hashes, selected episode ids, frame budget, and exact Parquet columns. The
+writer cross-checks these hashes and selection parameters before writing, and
+refuses partial or overwriting artifact sets. The manifest records the recipe
+and audit hashes plus the sibling artifact names; no trajectory arrays are
+serialized.
+
+The recipe/run writer and the CLI wrapper were exercised only with synthetic
+approved calibration output. The archived real private-sample review remains
+unapproved, so it still cannot create a calibration artifact or read source
+rows through the CLI path.
+
+Remote verification:
+
+- recipe/run-manifest and command-level calibration tests: 8 passed;
+- full `pytest -q tests`: 55 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real source rows, held-out content, videos, or production assets were
+  read or modified by the calibration path.
+
+The next boundary is a read-only verifier for the recipe, sidecar, manifest,
+and audit lineage, so a future approved real run can be checked without
+opening or rewriting its source rows.

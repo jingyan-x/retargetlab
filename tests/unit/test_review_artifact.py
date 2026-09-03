@@ -3,6 +3,7 @@ import json
 import pytest
 
 from retargetlab.contracts import (
+    CalibrationRecipe,
     CalibrationReport,
     CalibrationSelection,
     ColumnRef,
@@ -12,7 +13,12 @@ from retargetlab.contracts import (
     StreamMapping,
     StructureComparison,
 )
-from retargetlab.run import write_review_run_artifact
+from retargetlab.run import (
+    canonical_json_bytes,
+    write_calibration_run,
+    write_review_run_artifact,
+)
+from retargetlab.run.fingerprint import sha256_bytes
 
 
 def _mapping() -> MappingSpec:
@@ -92,6 +98,7 @@ def test_review_artifact_is_exclusive_and_contains_no_trajectory_arrays(tmp_path
         path,
         mapping=_mapping(),
         comparison=_comparison(),
+        review_sha256="c" * 64,
         selection=_selection(),
         calibration=report,
     )
@@ -108,6 +115,70 @@ def test_review_artifact_is_exclusive_and_contains_no_trajectory_arrays(tmp_path
             path,
             mapping=_mapping(),
             comparison=_comparison(),
+            review_sha256="c" * 64,
             selection=_selection(),
+            calibration=report,
+        )
+
+
+def test_calibration_run_writes_recipe_and_manifest_without_source_rows(tmp_path) -> None:
+    output_path = tmp_path / "run" / "calibration-audit.json"
+    mapping = _mapping()
+    comparison = _comparison()
+    selection = _selection()
+    report = CalibrationReport(
+        frame_count=2,
+        max_frames=2,
+        stream_names=("left",),
+        structure_status="FULLY_VERIFIED",
+    )
+    review_sha256 = "c" * 64
+    recipe = CalibrationRecipe(
+        recipe_id="calibration-fixture",
+        dataset_alias="fixture",
+        source_revision="v1",
+        data_sha256=selection.data_sha256,
+        episodes_sha256=selection.episodes_sha256,
+        mapping_sha256=sha256_bytes(canonical_json_bytes(mapping)),
+        comparison_sha256=sha256_bytes(canonical_json_bytes(comparison)),
+        review_sha256=review_sha256,
+        episode_indices=(0,),
+        frames_per_episode=2,
+        max_frames=2,
+        columns=("episode_index", "frame_index", "index"),
+    )
+
+    manifest = write_calibration_run(
+        output_path,
+        recipe=recipe,
+        mapping=mapping,
+        comparison=comparison,
+        review_sha256=review_sha256,
+        selection=selection,
+        calibration=report,
+    )
+
+    recipe_path = output_path.with_name("calibration-recipe.json")
+    digest_path = output_path.with_name("calibration-recipe.sha256")
+    manifest_path = output_path.with_name("calibration-run-manifest.json")
+    assert manifest.recipe_sha256 == digest_path.read_text(encoding="utf-8").strip()
+    assert manifest_path.is_file()
+    assert set(manifest.artifacts) == {
+        output_path.name,
+        recipe_path.name,
+        digest_path.name,
+        manifest_path.name,
+    }
+    for path in (output_path, recipe_path, manifest_path):
+        assert "position_m" not in path.read_text(encoding="utf-8")
+        assert "poses" not in path.read_text(encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        write_calibration_run(
+            output_path,
+            recipe=recipe,
+            mapping=mapping,
+            comparison=comparison,
+            review_sha256=review_sha256,
+            selection=selection,
             calibration=report,
         )

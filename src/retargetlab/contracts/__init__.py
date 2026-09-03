@@ -1,6 +1,11 @@
 """Backend-independent data contracts."""
 
-from .calibration import CalibrationReport, ReviewRunArtifact
+from .calibration import (
+    CalibrationRecipe,
+    CalibrationReport,
+    CalibrationRunManifest,
+    ReviewRunArtifact,
+)
 from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
@@ -26,6 +31,8 @@ __all__ = [
     "CanonicalFrame",
     "CanonicalTrajectory",
     "CalibrationReport",
+    "CalibrationRecipe",
+    "CalibrationRunManifest",
     "CalibrationSelection",
     "ColumnRef",
     "CollisionProfile",
