@@ -1649,3 +1649,34 @@ The next implementation boundary is to define the dataset-writer input gate
 around this verified command artifact, keeping the current work limited to
 layout/provenance/value correctness and not yet copying or rewriting private
 LeRobot data.
+
+### M1b.1c: add the value-free dataset-export input gate
+
+The export preflight now binds the source and target sides without opening
+source rows or videos. `build_export_input_gate` requires a `CERTIFIED`
+DataProfile with a verified semantic decision, `COMPLETE` coverage with fully
+verified source structure and no unverified shapes, exact dataset revision and
+coverage hash lineage, an explicit training episode allowlist contained in the
+covered episodes, a verified target replay artifact, and a matching
+ExportProfile. It emits an exclusive value-free `ExportInputGate` artifact;
+the `verify-export-inputs` CLI reports metadata only and does not write an
+artifact when the gate fails.
+
+The current real private-sample profile is intentionally rejected at the first
+gate because it is still `REVIEW_REQUIRED`; the current coverage also records
+unverified vector shapes. This is the correct pre-export state and does not
+authorize a dataset rewrite. Synthetic tests cover a passing gate, pending
+profile rejection, unverified-shape rejection, and CLI behavior.
+
+Remote verification:
+
+- export-input gate and CLI tests: 4 passed;
+- full regression with real OpenArm profile smoke enabled: 97 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is the dataset writer itself, beginning with
+synthetic/public parquet metadata only and requiring this gate before any
+private source materialization is considered.

@@ -4,6 +4,7 @@ from .calibration_report import render_calibration_summary
 from .coverage import write_dataset_coverage
 from .decision import verify_review_decision_artifact, write_review_decision_artifact
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
+from .export_gate import build_export_input_gate, write_export_input_gate
 from .export_profile import write_export_profile
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
@@ -41,6 +42,8 @@ __all__ = [
     "write_data_profile",
     "write_robot_profile",
     "write_export_profile",
+    "build_export_input_gate",
+    "write_export_input_gate",
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_target_replay_manifest",

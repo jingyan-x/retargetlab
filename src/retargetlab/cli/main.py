@@ -42,6 +42,7 @@ from retargetlab.io import (
 from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
+    build_export_input_gate,
     build_target_replay_manifest,
     build_target_replay_trajectory,
     canonical_json_bytes,
@@ -57,6 +58,7 @@ from retargetlab.run import (
     verify_target_replay_trajectory,
     write_calibration_run,
     write_dataset_coverage,
+    write_export_input_gate,
     write_export_profile,
     write_review_decision_artifact,
     write_review_package_preflight,
@@ -150,6 +152,18 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_target_replay.add_argument("--artifact", required=True, type=Path)
     verify_target_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_export_inputs = subparsers.add_parser(
+        "verify-export-inputs", help="verify value-free prerequisites for dataset export"
+    )
+    verify_export_inputs.add_argument("--data-profile", required=True, type=Path)
+    verify_export_inputs.add_argument("--decision", required=True, type=Path)
+    verify_export_inputs.add_argument("--coverage", required=True, type=Path)
+    verify_export_inputs.add_argument("--target-replay", required=True, type=Path)
+    verify_export_inputs.add_argument("--export-profile", required=True, type=Path)
+    verify_export_inputs.add_argument("--episode-indices", required=True, nargs="+", type=int)
+    verify_export_inputs.add_argument("--output", required=True, type=Path)
+    verify_export_inputs.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -636,6 +650,32 @@ def _verify_target_replay_payload(artifact_path: Path) -> dict[str, Any]:
     return {
         "command": "verify-target-replay",
         **verification.model_dump(mode="json"),
+    }
+
+
+def _verify_export_inputs_payload(
+    *,
+    data_profile_path: Path,
+    decision_path: Path,
+    coverage_path: Path,
+    target_replay_path: Path,
+    export_profile_path: Path,
+    episode_indices: list[int],
+    output_path: Path,
+) -> dict[str, Any]:
+    gate = build_export_input_gate(
+        data_profile_path=data_profile_path,
+        decision_path=decision_path,
+        coverage_path=coverage_path,
+        target_replay_path=target_replay_path,
+        export_profile_path=export_profile_path,
+        training_episode_allowlist=episode_indices,
+    )
+    write_export_input_gate(output_path, gate)
+    return {
+        "command": "verify-export-inputs",
+        **gate.model_dump(mode="json"),
+        "output": str(output_path),
     }
 
 
@@ -1487,6 +1527,35 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-target-replay",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-export-inputs":
+        try:
+            payload = _verify_export_inputs_payload(
+                data_profile_path=args.data_profile,
+                decision_path=args.decision,
+                coverage_path=args.coverage,
+                target_replay_path=args.target_replay,
+                export_profile_path=args.export_profile,
+                episode_indices=args.episode_indices,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-export-inputs",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-export-inputs",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

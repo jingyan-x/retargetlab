@@ -11,6 +11,7 @@ from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
 from .coverage import DatasetCoverage, EpisodeCoverage
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
+from .export_gate import ExportInputGate
 from .export_profile import ExportProfile, TargetVectorLayout
 from .gripper import TargetGripperFrame, TargetGripperTrajectory
 from .mapping import (
@@ -76,6 +77,7 @@ __all__ = [
     "EpisodeReport",
     "EpisodeCoverage",
     "EvidenceLevel",
+    "ExportInputGate",
     "ExportProfile",
     "EpisodeRange",
     "FeatureDeclaration",
