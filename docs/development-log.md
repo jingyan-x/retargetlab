@@ -402,3 +402,34 @@ Remote verification:
 The next boundary is a synthetic solve command that consumes a canonical file
 and an explicit RobotProfile/asset reference, or a separately reviewed real
 container prober. Neither path should bypass the recipe hash and report layer.
+
+### M0 continuation: recipe-bound solve CLI
+
+The CLI now exposes an explicit `solve` path requiring a CanonicalTrajectory
+JSON, RobotProfile JSON, Recipe JSON, named stream/group, full initial joint
+seed, and a new output path. Before Pink runs, it validates the canonical input
+file hash from the recipe and the recipe/profile robot identity. After backend
+construction it also requires exact backend name and version agreement. The
+full output stores per-frame `IKResult` values, including joint vectors for
+the intended solve artifact; structured stdout remains a metadata-only
+summary. Existing output files are rejected.
+
+This is an M0 fixture-capable command, not a product claim for arbitrary
+robots: it currently selects Pink, uses the existing profile-driven backend,
+and leaves quality adjudication to `diagnose`. A mismatch in input hash,
+robot identity, or backend version returns semantic exit code `3`; missing
+solver runtime returns environment exit code `5`.
+
+Remote verification:
+
+- synthetic Pink solve CLI integration and CLI regression tests: 8 passed;
+- full `pytest -q tests`: 33 passed and 1 Panda asset smoke skipped when the
+  gitignored project asset path is not mounted;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- the solve output was verified to contain a result joint vector only in the
+  explicitly requested artifact, not in the JSON stdout summary.
+
+No private or held-out trajectory was used. The next step is to connect solve
+and diagnose through a run workspace, so result files cannot exist without the
+recipe/report lineage already recorded.

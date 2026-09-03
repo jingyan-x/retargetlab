@@ -17,9 +17,13 @@ from retargetlab.contracts import (
     CanonicalTrajectory,
     DatasetReport,
     MappingSpec,
+    Recipe,
+    RobotProfile,
     StructureManifest,
 )
 from retargetlab.io import normalize_rows, validate_mapping
+from retargetlab.run import recipe_sha256
+from retargetlab.run.fingerprint import sha256_bytes
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -58,6 +62,15 @@ def _parser() -> argparse.ArgumentParser:
     normalize.add_argument("--spec", required=True, type=Path)
     normalize.add_argument("--output", required=True, type=Path)
     normalize.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    solve = subparsers.add_parser("solve", help="solve one canonical stream with Pink")
+    solve.add_argument("--trajectory", required=True, type=Path)
+    solve.add_argument("--profile", required=True, type=Path)
+    solve.add_argument("--recipe", required=True, type=Path)
+    solve.add_argument("--group", required=True)
+    solve.add_argument("--initial-q", required=True, nargs="+", type=float)
+    solve.add_argument("--output", required=True, type=Path)
+    solve.add_argument("--json", action="store_true", help="emit JSON to stdout")
     return parser
 
 
@@ -162,6 +175,62 @@ def _normalize_payload(
     }
 
 
+def _solve_payload(
+    trajectory_path: Path,
+    profile_path: Path,
+    recipe_path: Path,
+    group: str,
+    initial_q: list[float],
+    output_path: Path,
+) -> dict[str, Any]:
+    trajectory = CanonicalTrajectory.model_validate_json(
+        trajectory_path.read_text(encoding="utf-8")
+    )
+    profile = RobotProfile.model_validate_json(profile_path.read_text(encoding="utf-8"))
+    recipe = Recipe.model_validate_json(recipe_path.read_text(encoding="utf-8"))
+    if recipe.input_sha256.lower() != sha256_bytes(trajectory_path.read_bytes()):
+        raise ValueError("recipe input_sha256 does not match the trajectory file")
+    if recipe.robot_id != profile.robot_id:
+        raise ValueError("recipe robot_id does not match the robot profile")
+    if group not in trajectory.stream_names:
+        raise ValueError(f"trajectory stream is not present: {group}")
+
+    from retargetlab.kinematics.pink_backend import PinkBackend
+
+    backend = PinkBackend(profile)
+    if recipe.backend_name != backend.name:
+        raise ValueError("recipe backend_name does not match the selected backend")
+    if recipe.backend_version != backend.version:
+        raise ValueError("recipe backend_version does not match the selected backend")
+    results = backend.solve_sequence(
+        group,
+        [frame.poses[group] for frame in trajectory.frames],
+        initial_q,
+        recipe.solve_options,
+    )
+    payload = {
+        "schema_version": "0.1",
+        "recipe_sha256": recipe_sha256(recipe),
+        "backend_name": backend.name,
+        "backend_version": backend.version,
+        "robot_id": profile.robot_id,
+        "group": group,
+        "frame_count": len(results),
+        "results": [result.model_dump(mode="json") for result in results],
+    }
+    with output_path.open("x", encoding="utf-8", newline="\n") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        handle.write("\n")
+    return {
+        "command": "solve",
+        "status": "SOLVED",
+        "output": output_path.name,
+        "frame_count": len(results),
+        "converged_count": sum(result.status.value == "CONVERGED" for result in results),
+        "recipe_sha256": payload["recipe_sha256"],
+    }
+
+
 def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if as_json:
         json.dump(payload, stdout, ensure_ascii=False, sort_keys=True)
@@ -190,6 +259,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("command") == "normalize":
         print(
             f"normalized trajectory: {payload['frame_count']} frames -> {payload['output']}",
+            file=stdout,
+        )
+        return
+    if payload.get("command") == "solve":
+        print(
+            f"solved trajectory: {payload['converged_count']}/{payload['frame_count']} "
+            f"converged -> {payload['output']}",
             file=stdout,
         )
         return
@@ -248,6 +324,26 @@ def app(argv: list[str] | None = None) -> int:
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "solve":
+        try:
+            payload = _solve_payload(
+                args.trajectory,
+                args.profile,
+                args.recipe,
+                args.group,
+                args.initial_q,
+                args.output,
+            )
+        except RuntimeError as exc:
+            error = {"command": "solve", "status": "ENVIRONMENT_ERROR", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {"command": "solve", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
