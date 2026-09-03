@@ -15,13 +15,16 @@ from retargetlab.export import (
 )
 from retargetlab.run import (
     build_synthetic_table_write_preflight,
+    build_synthetic_table_write_report,
     build_target_replay_bundle,
     build_target_replay_manifest,
     build_target_replay_trajectory,
     verify_synthetic_table_write_preflight,
+    verify_synthetic_table_write_report,
     verify_target_replay_bundle,
     write_export_profile,
     write_synthetic_table_write_preflight,
+    write_synthetic_table_write_report,
     write_target_replay_bundle,
     write_target_replay_manifest,
     write_target_replay_trajectory,
@@ -442,3 +445,33 @@ def test_synthetic_table_writer_uses_preflight_episode_selection(tmp_path: Path)
     assert output["episode_index"].to_pylist() == [3, 3]
     assert output["frame_index"].to_pylist() == [0, 1]
     assert output["task_index"].to_pylist() == [0, 0]
+
+
+def test_synthetic_table_report_rejects_tampered_output_hash(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    source_path = tmp_path / "synthetic-source.parquet"
+    output_path = tmp_path / "synthetic-target.parquet"
+    report_path = tmp_path / "synthetic-write-report.json"
+    _write_source_table(source_path)
+    write_result = write_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+    )
+    verification = verify_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+    )
+    write_synthetic_table_write_report(
+        report_path,
+        build_synthetic_table_write_report(write=write_result, verification=verification),
+    )
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report["write"]["output_table_sha256"] = "0" * 64
+    report["verification"]["output_table_sha256"] = "0" * 64
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="does not match its output"):
+        verify_synthetic_table_write_report(report_path)

@@ -1846,3 +1846,26 @@ Remote verification:
 The next implementation boundary is to validate report persistence under
 report/output tampering and then decide the minimal metadata needed for a
 complete multi-episode LeRobot writer.
+
+### M1b.2f: close report tamper coverage
+
+The archived synthetic write report now has a negative test for an altered
+output hash. Even when both the write and verification JSON fields are
+changed together, report verification reruns the actual Parquet verifier and
+rejects the mismatch. This keeps the report an audit pointer rather than a
+self-authenticating claim.
+
+Remote verification:
+
+- synthetic write/verify/report, preflight, selection, CLI, and report-tamper
+  tests: 8 passed;
+- full regression with the real OpenArm asset smoke enabled: 105 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is a metadata-only design/contract slice
+for a complete multi-episode LeRobot export. It will first bind episode
+ranges, tasks, fps, and feature declarations without writing real dataset
+rows or videos.
