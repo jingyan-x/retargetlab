@@ -750,3 +750,32 @@ Remote verification:
 
 The next boundary is to expose a bounded review-run artifact that records the
 selection and calibration report without serializing source rows by default.
+
+### M1a.8: exclusive bounded calibration audit artifact
+
+The run layer now writes an exclusive JSON audit artifact for a completed
+bounded calibration. It records the approved mapping hash, structure-comparison
+hash, reviewer/evidence, coordinate frame, selection provenance, and the
+value-free calibration report. It validates alias/revision and selected-frame
+lineage and refuses to overwrite an existing artifact. A canonical trajectory
+is intentionally not an input to this writer, so pose/joint arrays cannot enter
+the artifact through the normal API.
+
+The artifact writer was exercised with synthetic approved calibration output;
+the real private-sample candidate remains unapproved and produced no
+calibration artifact. Real structure and candidate review artifacts remain
+under the private-sample project review directory, with their hashes recorded
+above.
+
+Remote verification:
+
+- review-artifact and calibration tests: 4 passed;
+- full `pytest -q tests`: 53 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real source rows, held-out episodes, videos, or production assets were
+  modified.
+
+The next boundary is to add a narrow command-level wrapper for this artifact,
+still requiring an explicit approved mapping and comparison before any real
+calibration read.

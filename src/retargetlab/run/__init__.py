@@ -3,6 +3,7 @@
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .report import write_dataset_report
+from .review import write_review_run_artifact
 from .workspace import RunWorkspace, create_run_workspace
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "recipe_sha256",
     "solve_canonical_stream",
     "write_dataset_report",
+    "write_review_run_artifact",
 ]

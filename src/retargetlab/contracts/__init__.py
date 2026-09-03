@@ -1,6 +1,6 @@
 """Backend-independent data contracts."""
 
-from .calibration import CalibrationReport
+from .calibration import CalibrationReport, ReviewRunArtifact
 from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
 from .diagnostics import DatasetReport, EpisodeReport, FrameDiagnostics
 from .evidence import EvidenceLevel, Provenance, SemanticField
@@ -47,6 +47,7 @@ __all__ = [
     "Recipe",
     "RobotProfile",
     "RunManifest",
+    "ReviewRunArtifact",
     "SemanticField",
     "SolveOptions",
     "StreamMapping",
