@@ -156,3 +156,18 @@ Verification on the remote environment:
 This slice stops before Pink IK, sequence solving, data normalization, CLI,
 and export. Those remain subsequent M0 work and must preserve the current
 yellow-gate condition.
+
+### M0 continuation: Pink single-group IK
+
+The next M0 slice adds `kinematics/pink_backend.py`. It implements the
+observable Pink loop `task target -> solve_ik -> integrate -> recompute
+residual`, maps backend exceptions to the declared `IKStatus` values, enforces
+the formal position/orientation tolerances, and uses the previous result as
+the warm start for `solve_sequence`. It deliberately solves one named profile
+group; dual-group coupling remains a later `solve/coupling.py` task.
+
+The synthetic two-joint fixture converges for both a single pose and a
+two-frame warm-started sequence. After adding this slice, remote verification
+was `pytest: 11 passed`, `ruff: passed`, and `mypy: passed`. The only test
+warnings are upstream qpsolvers/OSQP sparse-conversion and deprecation
+warnings. No private dataset or held-out value was read.
