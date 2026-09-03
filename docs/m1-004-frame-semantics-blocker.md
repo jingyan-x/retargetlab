@@ -9,18 +9,18 @@
 
 ## Solver checkpoint
 
-Recipe `20260902-m1-004` tests only the frozen dataset-native identity-pose hypothesis. It adds a deterministic target-only seed set, position-first continuation, and tolerance-normalized task costs. The 81-candidate single-frame prescreen is written to `runs/20260902-m1-004/prescreen-one-frame-final.json`.
+Recipe `20260902-m1-004` tests only the frozen dataset-native identity-pose hypothesis. It adds a deterministic target-only seed set, position-first continuation, and tolerance-normalized task costs. The completed 81-candidate single-frame prescreen is written to `runs/20260902-m1-004/prescreen-one-frame.json`; a later final-scale rerun was intentionally interrupted at the user's shutdown checkpoint.
 
 The diagnostic result separates the two questions:
 
 1. Position-only target IK can reach the selected calibration frame within the millimetre scale.
 2. Full pose IK does not satisfy the 5 mm / 2 degree gate under the identity hypothesis; strict position preservation still leaves a large orientation residual, and some better orientation branches are collision-blocked.
 
-Therefore the current result is `INCONCLUSIVE_FRAME_SEMANTICS`, not evidence that the OpenArm target is intrinsically unreachable.
+Therefore the current result is a red identity-hypothesis prescreen, not evidence that the OpenArm target is intrinsically unreachable. The missing source URDF is an optional cross-check limitation, not an M-1 prerequisite.
 
 ## Next gate
 
-Do not promote the identity mapping, the local Viser rotation, or the `link7` hypothesis into the formal recipe. The next formal recipe may proceed only after one of these is made explicit and reproducible:
+Do not promote the identity mapping, the local Viser rotation, or the `link7` hypothesis into the formal recipe. Following the pre-registered red-light procedure, the next formal recipe expands T2 outward from the observed boundary candidate. If that remains red, the route moves to the target-reselection spike. A source URDF or explicit mapping remains useful for later cross-checking, but is not silently assumed as a prerequisite:
 
 - the source URDF and source TCP/frame convention; or
 - an authorized source-to-target pose mapping with its evidence and validation set.

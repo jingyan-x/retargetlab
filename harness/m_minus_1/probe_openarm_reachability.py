@@ -295,13 +295,23 @@ def rotation_z(angle_deg: float) -> np.ndarray:
     )
 
 
-def build_candidates(anchor_translation: np.ndarray) -> list[Candidate]:
+def build_candidates(
+    anchor_translation: np.ndarray,
+    x_offsets: tuple[float, ...] = (-0.10, 0.0, 0.10),
+    y_offsets: tuple[float, ...] | None = None,
+    z_offsets: tuple[float, ...] | None = None,
+    yaw_offsets: tuple[float, ...] = (-10.0, 0.0, 10.0),
+) -> list[Candidate]:
     candidates: list[Candidate] = []
     index = 0
-    for dx in (-0.10, 0.0, 0.10):
-        for dy in (-0.10, 0.0, 0.10):
-            for dz in (-0.10, 0.0, 0.10):
-                for yaw in (-10.0, 0.0, 10.0):
+    y_offsets = x_offsets if y_offsets is None else y_offsets
+    z_offsets = x_offsets if z_offsets is None else z_offsets
+    if not x_offsets or not y_offsets or not z_offsets or not yaw_offsets:
+        raise ValueError("T2 offset grids must not be empty")
+    for dx in x_offsets:
+        for dy in y_offsets:
+            for dz in z_offsets:
+                for yaw in yaw_offsets:
                     candidates.append(
                         Candidate(
                             candidate_id=f"t2-{index:03d}",
@@ -1268,7 +1278,23 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         int(t2["anchor"]["point_cloud_random_seed"]),
     )
     anchor_translation = cloud_source - anchor_source
-    candidates = build_candidates(anchor_translation)
+    translation_grid = t2["grid"]["translation_offsets_m"]
+    if isinstance(translation_grid, dict):
+        x_offsets = tuple(float(value) for value in translation_grid["x"])
+        y_offsets = tuple(float(value) for value in translation_grid["y"])
+        z_offsets = tuple(float(value) for value in translation_grid["z"])
+    else:
+        x_offsets = tuple(float(value) for value in translation_grid)
+        y_offsets = x_offsets
+        z_offsets = x_offsets
+    yaw_offsets = tuple(float(value) for value in t2["grid"]["yaw_offsets_deg"])
+    candidates = build_candidates(
+        anchor_translation,
+        x_offsets=x_offsets,
+        y_offsets=y_offsets,
+        z_offsets=z_offsets,
+        yaw_offsets=yaw_offsets,
+    )
     expected_count = int(t2["grid"]["expected_candidate_count"])
     if len(candidates) != expected_count:
         raise ValueError("T2 candidate count does not match recipe")
@@ -1460,6 +1486,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "candidate_budget": {
             "expected_candidates": len(candidates),
             "candidates_run": len(candidates_to_run),
+            "translation_offset_count": {
+                "x": len(x_offsets),
+                "y": len(y_offsets),
+                "z": len(z_offsets),
+            },
+            "yaw_offset_count": len(yaw_offsets),
             "prescreen_frame_count": len(prescreen_indices),
             "retain_top_candidates": int(t2["budget"]["retain_top_candidates"]),
             "full_single_frame_count": int(t2["budget"]["full_single_frame_count"]),
