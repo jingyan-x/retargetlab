@@ -44,6 +44,7 @@ class CanonicalFrame(BaseModel):
 
     timestamp_s: float = Field(ge=0.0)
     poses: dict[str, Pose] = Field(min_length=1)
+    grippers: dict[str, float] = Field(default_factory=dict)
 
     @field_validator("timestamp_s")
     @classmethod
@@ -57,6 +58,16 @@ class CanonicalFrame(BaseModel):
     def validate_stream_names(cls, value: dict[str, Pose]) -> dict[str, Pose]:
         if any(not name.strip() for name in value):
             raise ValueError("stream names must not be blank")
+        return value
+
+    @field_validator("grippers")
+    @classmethod
+    def validate_grippers(cls, value: dict[str, float]) -> dict[str, float]:
+        for name, aperture in value.items():
+            if not name.strip():
+                raise ValueError("gripper stream names must not be blank")
+            if not math.isfinite(aperture) or not 0.0 <= aperture <= 1.0:
+                raise ValueError("gripper apertures must be finite values in [0, 1]")
         return value
 
 
@@ -73,10 +84,15 @@ class CanonicalTrajectory(BaseModel):
     @model_validator(mode="after")
     def validate_alignment(self) -> CanonicalTrajectory:
         first_streams = set(self.frames[0].poses)
+        first_grippers = set(self.frames[0].grippers)
         previous_timestamp = -math.inf
         for frame in self.frames:
             if set(frame.poses) != first_streams:
                 raise ValueError("all frames must contain the same stream names")
+            if set(frame.grippers) != first_grippers:
+                raise ValueError("all frames must contain the same gripper streams")
+            if not set(frame.grippers).issubset(first_streams):
+                raise ValueError("gripper streams must correspond to pose streams")
             if frame.timestamp_s <= previous_timestamp:
                 raise ValueError("timestamps must be strictly increasing")
             previous_timestamp = frame.timestamp_s

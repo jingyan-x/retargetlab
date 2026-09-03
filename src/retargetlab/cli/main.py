@@ -696,7 +696,11 @@ def _normalize_payload(
     raw_rows = json.loads(rows_path.read_text(encoding="utf-8"))
     if not isinstance(raw_rows, list) or not all(isinstance(row, dict) for row in raw_rows):
         raise ValueError("rows JSON must be a list of objects")
-    trajectory = normalize_rows(raw_rows, spec)
+    trajectory = normalize_rows(
+        raw_rows,
+        spec,
+        grippers=profile.grippers if profile is not None else (),
+    )
     if profile_sha256 is not None:
         trajectory = trajectory.model_copy(
             update={"metadata": {**trajectory.metadata, "data_profile_sha256": profile_sha256}}

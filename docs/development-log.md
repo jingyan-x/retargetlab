@@ -1268,3 +1268,33 @@ The next boundary is to use the certified profile as the single source of
 mapping and channel semantics in any future executable retargeting command;
 the current private profile remains intentionally non-executable until the
 semantic EEF frame decision is approved.
+
+### M1a.26: execute source-side gripper semantics in canonical normalization
+
+The canonical frame contract now carries optional per-stream gripper aperture
+values, constrained to finite `[0, 1]` and aligned with the pose streams. The
+normalizer accepts the explicit `GripperProfile` declarations and selects the
+correct source channel independently for each stream: observation state uses
+the measured joint-angle affine map, while action uses its normalized-open
+map. Reference joint streams are supported by the same explicit channel
+selection. Out-of-range mapped aperture values are rejected rather than
+silently clipped.
+
+`normalize --profile` now uses the certified profile mapping and gripper
+declarations, and records the profile hash in canonical metadata. The legacy
+pose-only `normalize --spec` path remains unchanged. The current private
+profile was not used for normalization because its frame semantics are still
+unresolved and its status is `REVIEW_REQUIRED`.
+
+Remote verification:
+
+- pose-only, profile-gripper, range, and canonical alignment tests passed;
+- full `pytest -q`: 71 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private trajectory rows were written or exported; only synthetic rows
+  were used to test the new value transformation.
+
+The next boundary is to carry the same certified profile semantics into the
+future target-side gripper mapping, while preserving the rule that grippers
+do not enter arm IK and that unresolved EEF frame semantics keep the private
+profile non-executable.
