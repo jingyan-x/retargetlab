@@ -11,8 +11,10 @@ from .preflight import verify_review_package_preflight, write_review_package_pre
 from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
 from .replay import (
     build_target_replay_manifest,
+    build_target_replay_trajectory,
     verify_target_replay_manifest,
     write_target_replay_manifest,
+    write_target_replay_trajectory,
 )
 from .report import write_dataset_report
 from .review import write_calibration_run, write_review_run_artifact
@@ -41,7 +43,9 @@ __all__ = [
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_target_replay_manifest",
+    "build_target_replay_trajectory",
     "write_target_replay_manifest",
+    "write_target_replay_trajectory",
     "verify_target_replay_manifest",
     "write_dataset_coverage",
     "verify_data_profile",

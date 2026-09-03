@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .export_profile import TargetVectorLayout
 
 Hash = str
 ReplayArtifactRole = Literal[
@@ -113,3 +116,51 @@ class TargetReplayVerification(BaseModel):
     robot_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     arm_groups: tuple[str, ...] = Field(min_length=1)
     artifact_roles: tuple[ReplayArtifactRole, ...] = Field(min_length=5)
+
+
+class TargetReplayFrame(BaseModel):
+    """One value-bearing target command row in export-layout order."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    timestamp_s: float = Field(ge=0.0)
+    joint_positions: tuple[float, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_finite(self) -> TargetReplayFrame:
+        if not math.isfinite(self.timestamp_s):
+            raise ValueError("target replay timestamp must be finite")
+        if not all(math.isfinite(value) for value in self.joint_positions):
+            raise ValueError("target replay joint positions must be finite")
+        return self
+
+
+class TargetReplayTrajectory(BaseModel):
+    """Deterministic target command values bound to verified provenance."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["READY"] = "READY"
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    replay_manifest_path: str = Field(min_length=1)
+    replay_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    export_profile_path: str = Field(min_length=1)
+    export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    layout: TargetVectorLayout
+    frame_count: int = Field(gt=0)
+    frames: list[TargetReplayFrame] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_alignment(self) -> TargetReplayTrajectory:
+        if self.frame_count != len(self.frames):
+            raise ValueError("target replay frame_count does not match frames")
+        previous_timestamp = -math.inf
+        for frame in self.frames:
+            if len(frame.joint_positions) != self.layout.dimension:
+                raise ValueError("target replay joint vector does not match export layout")
+            if frame.timestamp_s <= previous_timestamp:
+                raise ValueError("target replay timestamps must be strictly increasing")
+            previous_timestamp = frame.timestamp_s
+        return self

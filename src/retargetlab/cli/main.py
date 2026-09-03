@@ -43,6 +43,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_target_replay_manifest,
+    build_target_replay_trajectory,
     canonical_json_bytes,
     execute_solve_run,
     load_executable_data_profile,
@@ -61,6 +62,7 @@ from retargetlab.run import (
     write_robot_profile,
     write_target_gripper_trajectory,
     write_target_replay_manifest,
+    write_target_replay_trajectory,
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -133,6 +135,14 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_replay.add_argument("--manifest", required=True, type=Path)
     verify_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    materialize_replay = subparsers.add_parser(
+        "materialize-replay", help="materialize verified target command values"
+    )
+    materialize_replay.add_argument("--manifest", required=True, type=Path)
+    materialize_replay.add_argument("--export-profile", required=True, type=Path)
+    materialize_replay.add_argument("--output", required=True, type=Path)
+    materialize_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -585,6 +595,32 @@ def _verify_replay_payload(manifest_path: Path) -> dict[str, Any]:
     return {
         "command": "verify-replay-manifest",
         **verification.model_dump(mode="json"),
+    }
+
+
+def _materialize_replay_payload(
+    *,
+    manifest_path: Path,
+    export_profile_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    replay = build_target_replay_trajectory(
+        manifest_path=manifest_path,
+        export_profile_path=export_profile_path,
+    )
+    write_target_replay_trajectory(output_path, replay)
+    return {
+        "command": "materialize-replay",
+        "status": replay.status,
+        "replay_id": replay.replay_id,
+        "robot_id": replay.robot_id,
+        "frame_count": replay.frame_count,
+        "dtype": replay.layout.dtype,
+        "shape": list(replay.layout.shape),
+        "joint_names": list(replay.layout.names),
+        "export_profile_sha256": replay.export_profile_sha256,
+        "replay_manifest_sha256": replay.replay_manifest_sha256,
+        "output": str(output_path),
     }
 
 
@@ -1390,6 +1426,31 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-replay-manifest",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "materialize-replay":
+        try:
+            payload = _materialize_replay_payload(
+                manifest_path=args.manifest,
+                export_profile_path=args.export_profile,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "materialize-replay",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "materialize-replay",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

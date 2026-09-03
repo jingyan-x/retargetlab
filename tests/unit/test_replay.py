@@ -15,13 +15,17 @@ from retargetlab.contracts import (
     TargetGripperProfile,
     Threshold,
 )
+from retargetlab.export import build_export_profile
 from retargetlab.run import (
     build_target_replay_manifest,
+    build_target_replay_trajectory,
     map_target_grippers,
     verify_target_replay_manifest,
+    write_export_profile,
     write_robot_profile,
     write_target_gripper_trajectory,
     write_target_replay_manifest,
+    write_target_replay_trajectory,
 )
 from retargetlab.run.fingerprint import recipe_sha256, sha256_bytes
 
@@ -171,7 +175,10 @@ def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
                 "backend_version": "4.3.0",
                 "group": "arm",
                 "frame_count": 2,
-                "results": [{"status": "CONVERGED"}, {"status": "CONVERGED"}],
+                "results": [
+                    {"status": "CONVERGED", "q": [0.0]},
+                    {"status": "CONVERGED", "q": [0.1]},
+                ],
             }
         ),
         encoding="utf-8",
@@ -274,7 +281,10 @@ def _write_dual_inputs(
                     "backend_version": "4.3.0",
                     "group": group,
                     "frame_count": 2,
-                    "results": [{"status": "CONVERGED"}, {"status": "CONVERGED"}],
+                    "results": [
+                        {"status": "CONVERGED", "q": [0.0]},
+                        {"status": "CONVERGED", "q": [0.1]},
+                    ],
                 }
             ),
             encoding="utf-8",
@@ -444,3 +454,80 @@ def test_replay_manifest_requires_and_binds_every_bimanual_arm_solve(
             target_grippers_path=paths[4],
             coupling="independent",
         )
+
+
+def test_materialize_replay_binds_q_and_gripper_to_export_layout(tmp_path: Path) -> None:
+    paths = _write_inputs(tmp_path)
+    manifest = build_target_replay_manifest(
+        replay_id="fixture-replay",
+        trajectory_path=paths[0],
+        profile_path=paths[1],
+        recipe_path=paths[2],
+        arm_solve_paths=(paths[3],),
+        target_grippers_path=paths[4],
+        coupling="independent",
+    )
+    manifest_path = tmp_path / "replay-manifest.json"
+    write_target_replay_manifest(manifest_path, manifest)
+    profile = RobotProfile.model_validate_json(paths[1].read_text(encoding="utf-8"))
+    export_profile = build_export_profile(profile)
+    export_profile_path = tmp_path / "export-profile.json"
+    write_export_profile(export_profile_path, export_profile)
+
+    replay = build_target_replay_trajectory(
+        manifest_path=manifest_path,
+        export_profile_path=export_profile_path,
+    )
+    output = tmp_path / "target-replay.json"
+    write_target_replay_trajectory(output, replay)
+
+    assert replay.status == "READY"
+    assert replay.layout.names == ("joint1", "finger_joint1")
+    assert replay.frames[0].joint_positions == (0.0, 0.0)
+    assert replay.frames[1].joint_positions == (0.1, 0.044)
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert "poses" not in json.dumps(payload)
+    assert "results" not in json.dumps(payload)
+    with pytest.raises(FileExistsError):
+        write_target_replay_trajectory(output, replay)
+
+
+def test_materialize_replay_cli_rejects_nonconverged_arm_frame(tmp_path: Path, capsys) -> None:
+    paths = _write_inputs(tmp_path)
+    solve_payload = json.loads(paths[3].read_text(encoding="utf-8"))
+    solve_payload["results"][1]["status"] = "MAX_ITER"
+    paths[3].write_text(json.dumps(solve_payload), encoding="utf-8")
+    manifest = build_target_replay_manifest(
+        replay_id="fixture-replay",
+        trajectory_path=paths[0],
+        profile_path=paths[1],
+        recipe_path=paths[2],
+        arm_solve_paths=(paths[3],),
+        target_grippers_path=paths[4],
+        coupling="independent",
+    )
+    manifest_path = tmp_path / "replay-manifest.json"
+    write_target_replay_manifest(manifest_path, manifest)
+    profile = RobotProfile.model_validate_json(paths[1].read_text(encoding="utf-8"))
+    export_profile_path = tmp_path / "export-profile.json"
+    write_export_profile(export_profile_path, build_export_profile(profile))
+    output = tmp_path / "target-replay.json"
+
+    assert (
+        app(
+            [
+                "materialize-replay",
+                "--manifest",
+                str(manifest_path),
+                "--export-profile",
+                str(export_profile_path),
+                "--output",
+                str(output),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "INVALID_INPUT"
+    assert "not CONVERGED" in payload["error"]

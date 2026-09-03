@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from retargetlab.contracts import ExportProfile, RobotProfile, TargetVectorLayout
 from retargetlab.contracts.export_profile import JointUnit
 from retargetlab.robot.assets import verify_robot_profile_asset
-from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
+
+
+def _profile_sha256(profile: RobotProfile) -> str:
+    payload = json.dumps(
+        profile.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def build_target_vector_layout(profile: RobotProfile) -> TargetVectorLayout:
@@ -42,7 +54,7 @@ def build_export_profile(
     verify_robot_profile_asset(profile)
     return ExportProfile(
         robot_id=profile.robot_id,
-        robot_profile_sha256=sha256_bytes(canonical_json_bytes(profile)),
+        robot_profile_sha256=_profile_sha256(profile),
         target_layout=build_target_vector_layout(profile),
         normalization_exclude=normalization_exclude,
     )

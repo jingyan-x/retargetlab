@@ -1590,3 +1590,37 @@ The next implementation boundary is to bind value-bearing arm-solve and
 gripper frames into this verified layout as a separate deterministic replay
 command artifact, without presenting it as a LeRobot dataset export or as a
 real-robot safety guarantee.
+
+### M1b.1a: materialize a deterministic target replay command artifact
+
+The replay run layer now materializes a value-bearing
+`TargetReplayTrajectory` only after re-verifying the value-free replay
+manifest and checking the supplied `ExportProfile` against the target
+`RobotProfile` layout. It consumes each group's arm-solve `q` values and the
+target gripper artifact, requires every arm result to be `CONVERGED`, checks q
+dimensions and finiteness, checks gripper driver limits and mimic relations,
+checks timestamps, and emits one ordered float32-layout vector per frame.
+Mimic joints remain represented by the driver-derived target semantics and do
+not become duplicate output dimensions. The exclusive writer and
+`materialize-replay` CLI keep the value artifact separate from the provenance
+manifest and emit metadata-only stdout summaries.
+
+The artifact is deliberately not a LeRobot dataset export and does not claim
+controller compatibility or real-robot safety. A non-converged arm frame is
+rejected before any command artifact is written; the serialized artifact
+contains layout-bound values but no source poses or raw solve result objects.
+
+Remote verification:
+
+- target replay materialization, CLI rejection, and provenance tests: 5
+  replay tests passed;
+- full regression with real OpenArm profile smoke enabled: 92 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- only synthetic arm q values were used for this materialization test; no
+  private dataset rows, video, or real solve/export artifact was read or
+  changed.
+
+The next implementation boundary is a read-only verifier for this
+value-bearing command artifact, so a dataset writer cannot consume a modified
+vector file merely because its provenance manifest is still valid.

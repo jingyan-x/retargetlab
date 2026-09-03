@@ -40,7 +40,13 @@ from .profile import (
     TimingEvidence,
 )
 from .recipe import Recipe, RunManifest
-from .replay import ReplayArtifact, TargetReplayManifest, TargetReplayVerification
+from .replay import (
+    ReplayArtifact,
+    TargetReplayFrame,
+    TargetReplayManifest,
+    TargetReplayTrajectory,
+    TargetReplayVerification,
+)
 from .robot_profile import (
     CollisionProfile,
     KinematicGroup,
@@ -104,6 +110,8 @@ __all__ = [
     "TargetGripperTrajectory",
     "TargetVectorLayout",
     "TargetReplayManifest",
+    "TargetReplayFrame",
+    "TargetReplayTrajectory",
     "TargetReplayVerification",
     "CommandTimingReport",
     "TimingShiftResult",
