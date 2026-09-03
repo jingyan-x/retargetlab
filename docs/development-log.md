@@ -121,3 +121,38 @@ At this checkpoint, record the yellow condition and keep frame semantics
 the target before data export or opening held-out episodes. Any future change
 to the Panda mapping, T2 grid, solver options, collision policy, or tolerance
 requires a new recipe and a new report rather than rewriting this evidence.
+
+## 2026-09-04 · M0 Panda foundation slice
+
+After recording the yellow M-1 condition, the first M0 slice was implemented
+in the repository rather than in the disposable harness:
+
+- `pyproject.toml` and the `src/retargetlab/` package skeleton;
+- backend-independent contracts for evidence, canonical trajectories, robot
+  profiles, thresholds, solve options, and observable IK statuses;
+- one transform boundary in `kinematics/transforms.py`, with explicit wxyz
+  quaternion order, SE(3) validation, sign-invariant geodesic angle, and
+  quaternion sign continuity;
+- `PinocchioBackend` for profile-driven FK and Jacobians;
+- `PinocchioCollisionModel` for manifest-controlled geometry selection,
+  explicit SRDF filtering, and allowed-contact reporting;
+- a runtime dual-Panda profile factory that verifies the manifest URDF hash and
+  all referenced mesh paths before loading.
+
+The first integration attempt exposed two implementation issues and both were
+resolved before commit: the Panda smoke initially used the full fine-mesh
+geometry instead of the manifest's coarse policy, and Pinocchio's copied
+`GeometryModel` binding was unsafe to iterate while removing objects. The
+loader now applies the named coarse policy and removes objects using names
+collected from the original model.
+
+Verification on the remote environment:
+
+- `pytest`: 10 passed, including the remote Panda asset integration smoke;
+- `ruff check src tests` and `ruff format --check src tests`: passed;
+- `mypy src`: passed with the Pinocchio third-party import explicitly marked
+  as untyped.
+
+This slice stops before Pink IK, sequence solving, data normalization, CLI,
+and export. Those remain subsequent M0 work and must preserve the current
+yellow-gate condition.

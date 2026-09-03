@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retargetlab"
+version = "0.1.0.dev0"
+description = "Traceable end-effector trajectory retargeting primitives"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.0",
+  "pydantic>=2.8",
+]
+
+[project.optional-dependencies]
+solver = [
+  "pin>=3.7",
+  "pink>=3.0",
+  "qpsolvers[osqp]>=4.0",
+]
+dev = [
+  "mypy>=1.11",
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
