@@ -22,6 +22,7 @@ from retargetlab.contracts import (
     StructureManifest,
 )
 from retargetlab.io import (
+    build_pose_mapping_candidate,
     compare_info_to_structure,
     normalize_rows,
     probe_lerobot_info,
@@ -54,6 +55,14 @@ def _parser() -> argparse.ArgumentParser:
     inspect.add_argument("--source-revision")
     inspect.add_argument("--metadata", type=Path, help="LeRobot info.json for Parquet comparison")
     inspect.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    candidate = subparsers.add_parser(
+        "candidate", help="build a review-only pose mapping from info.json"
+    )
+    candidate.add_argument("metadata", type=Path)
+    candidate.add_argument("--dataset-alias", required=True)
+    candidate.add_argument("--source-revision", required=True)
+    candidate.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
     diagnose.add_argument("--run", required=True, type=Path)
@@ -208,6 +217,25 @@ def _inspect_payload(
         "frame_count": trajectory.frame_count,
         "stream_names": list(trajectory.stream_names),
         "metadata_keys": sorted(trajectory.metadata),
+    }
+
+
+def _candidate_payload(
+    metadata_path: Path,
+    dataset_alias: str,
+    source_revision: str,
+) -> dict[str, Any]:
+    info = probe_lerobot_info(
+        metadata_path,
+        dataset_alias=dataset_alias,
+        source_revision=source_revision,
+    )
+    candidate = build_pose_mapping_candidate(info)
+    return {
+        "command": "candidate",
+        "status": candidate.metadata["candidate_status"],
+        "metadata_sha256": info.source_sha256,
+        "mapping": candidate.model_dump(mode="json"),
     }
 
 
@@ -402,6 +430,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "candidate":
+        print(
+            f"mapping candidate: {payload['status']} "
+            f"({len(payload['mapping']['streams'])} streams)",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "validate-input":
         print(
             f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
@@ -457,6 +492,19 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_ENVIRONMENT
         except (OSError, ValidationError, ValueError) as exc:
             error = {"command": "inspect", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "candidate":
+        try:
+            payload = _candidate_payload(
+                args.metadata,
+                args.dataset_alias,
+                args.source_revision,
+            )
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {"command": "candidate", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)

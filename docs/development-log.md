@@ -607,3 +607,37 @@ Remote verification:
 The next boundary is to generate a reviewable, explicit mapping candidate from
 the declared element names, while keeping frame, unit, quaternion order, and
 source-to-target semantics unresolved until separately evidenced.
+
+### M1a.3: review-only pose mapping candidate
+
+The metadata boundary now produces a `MappingSpec` candidate from declared
+element names, without opening data rows. It identifies position indices from
+`epos_{slot}_{x,y,z}` and quaternion indices from
+`epos_{slot}_{q{w,x,y,z}}`, records the declared `wxyz` ordering basis, and
+keeps the two arms as `slot_0` and `slot_1`. It intentionally leaves the
+coordinate frame and position unit unset, retains both state and command
+roles, and records gripper indices as review metadata; the candidate status is
+`REVIEW_REQUIRED` and is not executable by the pose normalizer.
+
+For the remote private sample, the generated candidate contains four streams:
+`observation.state.slot_0`, `observation.state.slot_1`, `action.slot_0`, and
+`action.slot_1`. The review artifacts are stored under the gitignored project
+review directory: `mapping-candidate.json` has SHA-256
+`9b2067e39781e9dfe2949b8ae9900980a2a55b2a7b9a21fac64619a2bf4771d7`, and
+`structure-comparison.json` has SHA-256
+`f2c88269c7acf4e8c20d40255607e7f437599bc21e958526d3bf897a467d3e22`.
+These artifacts contain declarations, mappings, schema metadata, and hashes;
+they do not contain source row values or held-out content.
+
+Remote verification:
+
+- candidate and CLI tests: 11 passed;
+- full `pytest -q tests`: 44 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real-data normalization, IK solving, or target-side semantic promotion
+  was performed.
+
+The next boundary is a human-review contract for frame/unit and slot-to-target
+semantics, followed by a separate bounded calibration slice only after those
+fields are explicitly supplied.
