@@ -1952,3 +1952,29 @@ Remote verification:
 The next implementation boundary is to bind the skeleton's metadata contract
 to actual synthetic target-table shards, while retaining an explicit
 incomplete status until statistics and all declared data paths are verified.
+
+### M1b.3d: bind one verified synthetic target table to a LeRobot data shard
+
+The partial dataset writer now consumes only a verified synthetic table write
+report and an already verified metadata skeleton. For the current prototype it
+requires exactly one planned episode, checks robot/layout/frame/episode/task
+identity, casts every declared Parquet feature to the plan's physical Arrow
+type, writes the plan's `data/chunk-*/file-*.parquet` path exclusively, and
+updates `meta/info.json` through an explicit partial-dataset state transition.
+The partial verifier checks metadata, physical data values and types, lineage
+metadata, exact output-file inventory, and rejects extra files. It records the
+remaining omissions (`video_shards` and `meta/stats.json`) and refuses to
+claim multi-episode materialization before that path is implemented.
+
+Remote verification:
+
+- metadata plan/skeleton/partial-dataset writer, CLI, and tamper tests: 11
+  passed;
+- full regression with the real OpenArm asset smoke enabled: 116 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or statistics value was read or written.
+
+The next implementation boundary is multi-episode synthetic shard
+materialization, which must first introduce a value-free mapping from each
+episode's verified replay artifact to its declared data interval.

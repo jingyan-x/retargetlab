@@ -20,9 +20,12 @@ from .lerobot_export import (
     build_lerobot_metadata_plan,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
+    verify_lerobot_partial_dataset,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
     write_lerobot_metadata_skeleton_report,
+    write_lerobot_partial_dataset,
+    write_lerobot_partial_dataset_report,
 )
 from .preflight import verify_review_package_preflight, write_review_package_preflight
 from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
@@ -72,6 +75,9 @@ __all__ = [
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_lerobot_metadata_plan",
+    "write_lerobot_partial_dataset",
+    "write_lerobot_partial_dataset_report",
+    "verify_lerobot_partial_dataset",
     "write_lerobot_metadata_plan",
     "verify_lerobot_metadata_plan",
     "write_lerobot_metadata_skeleton",

@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
-from test_export_table import _write_bundle
+from test_export_table import _write_bundle, _write_source_table
 
 from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
@@ -11,13 +11,22 @@ from retargetlab.contracts import (
     LeRobotEpisodeMetadata,
     LeRobotTaskMetadata,
 )
+from retargetlab.export import (
+    verify_synthetic_target_table,
+    write_synthetic_target_table,
+)
 from retargetlab.run import (
     build_lerobot_metadata_plan,
+    build_synthetic_table_write_report,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
+    verify_lerobot_partial_dataset,
     verify_target_replay_bundle,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
+    write_lerobot_partial_dataset,
+    write_lerobot_partial_dataset_report,
+    write_synthetic_table_write_report,
 )
 
 
@@ -77,6 +86,28 @@ def _episodes() -> tuple[LeRobotEpisodeMetadata, ...]:
             data_file_index=0,
         ),
     )
+
+
+def _write_target_table_report(tmp_path: Path, bundle_path: Path) -> Path:
+    source_path = tmp_path / "synthetic-source.parquet"
+    target_path = tmp_path / "synthetic-target.parquet"
+    report_path = tmp_path / "synthetic-write-report.json"
+    _write_source_table(source_path)
+    write_result = write_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=target_path,
+    )
+    verification = verify_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=target_path,
+    )
+    write_synthetic_table_write_report(
+        report_path,
+        build_synthetic_table_write_report(write=write_result, verification=verification),
+    )
+    return report_path
 
 
 def test_lerobot_metadata_plan_binds_gate_profile_and_ranges(tmp_path: Path) -> None:
@@ -429,6 +460,137 @@ def test_lerobot_metadata_skeleton_cli_round_trip_and_tamper_detection(
                 str(plan_path),
                 "--output-root",
                 str(output_root),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "INVALID_INPUT"
+
+
+def test_lerobot_partial_dataset_binds_verified_target_table_to_data_shard(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("pyarrow")
+    import pyarrow as pa
+    import pyarrow.parquet as parquet
+
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_tasks(),
+        episodes=_episodes(),
+    )
+    plan_path = tmp_path / "metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    output_root = tmp_path / "dataset"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+    target_report_path = _write_target_table_report(tmp_path, bundle_path)
+    manifest_path = tmp_path / "partial-dataset-write.json"
+
+    manifest = write_lerobot_partial_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_report_path=target_report_path,
+    )
+    write_lerobot_partial_dataset_report(manifest_path, manifest)
+
+    assert manifest.status == "PARTIAL"
+    assert manifest.target_table_report_path == target_report_path.resolve().as_posix()
+    assert manifest.written_files == (
+        "data/chunk-000/file-000.parquet",
+        "meta/episodes/chunk-000/file-000.parquet",
+        "meta/info.json",
+        "meta/tasks.parquet",
+    )
+    assert manifest.omitted_components == ("video_shards", "meta/stats.json")
+    info = json.loads((output_root / "meta" / "info.json").read_text(encoding="utf-8"))
+    assert info["retargetlab"]["written_components"] == ["metadata", "data_shards"]
+    assert info["retargetlab"]["omitted_components"] == ["video_shards", "meta/stats.json"]
+    data_path = output_root / "data" / "chunk-000" / "file-000.parquet"
+    data = parquet.read_table(data_path)
+    assert data.num_rows == 2
+    assert data.schema.field("timestamp").type == pa.float32()
+    assert data.schema.field("action").type == pa.list_(pa.float32(), 2)
+    assert data["episode_index"].to_pylist() == [3, 3]
+    assert data["frame_index"].to_pylist() == [0, 1]
+    assert data["valid.retarget"].to_pylist() == [True, True]
+    assert not (output_root / "videos").exists()
+    assert not (output_root / "meta" / "stats.json").exists()
+
+    verification = verify_lerobot_partial_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_report_path=target_report_path,
+    )
+    assert verification.status == "VERIFIED"
+    assert verification.written_files == manifest.written_files
+    assert json.loads(manifest_path.read_text(encoding="utf-8"))["status"] == "PARTIAL"
+
+
+def test_lerobot_partial_dataset_cli_rejects_data_tamper(tmp_path: Path, capsys) -> None:
+    pytest.importorskip("pyarrow")
+    import pyarrow as pa
+    import pyarrow.parquet as parquet
+
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_tasks(),
+        episodes=_episodes(),
+    )
+    plan_path = tmp_path / "metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    output_root = tmp_path / "dataset"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+    target_report_path = _write_target_table_report(tmp_path, bundle_path)
+    report_path = tmp_path / "partial-write-report.json"
+
+    assert (
+        app(
+            [
+                "write-lerobot-partial-dataset",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(output_root),
+                "--target-table-report",
+                str(target_report_path),
+                "--report",
+                str(report_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "PARTIAL"
+
+    data_path = output_root / "data" / "chunk-000" / "file-000.parquet"
+    data = parquet.read_table(data_path)
+    tampered = data.set_column(
+        data.column_names.index("action"),
+        "action",
+        pa.array([[9.0, 9.0], [9.0, 9.0]], type=pa.list_(pa.float32(), 2)),
+    )
+    parquet.write_table(tampered, data_path)
+    assert (
+        app(
+            [
+                "verify-lerobot-partial-dataset",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(output_root),
+                "--target-table-report",
+                str(target_report_path),
                 "--json",
             ]
         )

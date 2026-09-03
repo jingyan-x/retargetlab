@@ -17,12 +17,16 @@ from retargetlab.contracts import (
     LeRobotMetadataPlanVerification,
     LeRobotMetadataSkeletonVerification,
     LeRobotMetadataSkeletonWrite,
+    LeRobotPartialDatasetVerification,
+    LeRobotPartialDatasetWrite,
     LeRobotTaskMetadata,
+    SyntheticTableWriteReport,
 )
 from retargetlab.robot.assets import sha256_file
 from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
 
 _SKELETON_OMISSIONS = ("data_shards", "video_shards", "meta/stats.json")
+_PARTIAL_DATASET_OMISSIONS = ("video_shards", "meta/stats.json")
 _DEFAULT_CHUNKS_SIZE = 1000
 
 
@@ -237,10 +241,17 @@ def _feature_payload(feature: FeatureDeclaration) -> dict[str, Any]:
     return payload
 
 
-def _info_payload(plan: LeRobotMetadataPlan, *, plan_sha256: str) -> dict[str, Any]:
+def _info_payload(
+    plan: LeRobotMetadataPlan,
+    *,
+    plan_sha256: str,
+    data_shards_written: bool = False,
+) -> dict[str, Any]:
     episode_indices = plan.training_episode_allowlist
     split_start = min(episode_indices)
     split_end = max(episode_indices) + 1
+    omissions = _PARTIAL_DATASET_OMISSIONS if data_shards_written else _SKELETON_OMISSIONS
+    written_components = ("metadata", "data_shards") if data_shards_written else ("metadata",)
     return {
         "codebase_version": plan.codebase_version,
         "dataset_name": plan.dataset_alias,
@@ -266,7 +277,8 @@ def _info_payload(plan: LeRobotMetadataPlan, *, plan_sha256: str) -> dict[str, A
             "training_episode_allowlist": list(plan.training_episode_allowlist),
             "episodes_path": plan.episodes_path_template,
             "stats_features": list(plan.stats_features),
-            "omitted_components": list(_SKELETON_OMISSIONS),
+            "written_components": list(written_components),
+            "omitted_components": list(omissions),
         },
     }
 
@@ -520,6 +532,356 @@ def verify_lerobot_metadata_skeleton(
         output_root=output_root.as_posix(),
         written_files=expected_manifest.written_files,
         omitted_components=expected_manifest.omitted_components,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def _arrow_type(pa: Any, feature: FeatureDeclaration) -> Any:
+    dtype = feature.dtype.strip().lower()
+    scalar_types = {
+        "bool": pa.bool_(),
+        "float": pa.float32(),
+        "float32": pa.float32(),
+        "double": pa.float64(),
+        "float64": pa.float64(),
+        "int": pa.int64(),
+        "int32": pa.int32(),
+        "int64": pa.int64(),
+        "uint8": pa.uint8(),
+        "uint64": pa.uint64(),
+    }
+    try:
+        scalar_type = scalar_types[dtype]
+    except KeyError as exc:
+        raise ValueError(f"unsupported parquet feature dtype: {feature.dtype}") from exc
+    if feature.shape is None:
+        raise ValueError("partial dataset writer does not support external features")
+    if feature.shape == ():
+        return scalar_type
+    if len(feature.shape) != 1 or feature.shape[0] <= 0:
+        raise ValueError("partial dataset writer supports only scalar or one-dimensional features")
+    return pa.list_(scalar_type, feature.shape[0])
+
+
+def _normalize_declared_table(pa: Any, table: Any, plan: LeRobotMetadataPlan) -> Any:
+    """Cast declared Parquet features to the physical types in the plan."""
+
+    for name, feature in plan.features.items():
+        if feature.storage != "parquet":
+            raise ValueError(f"video/external feature is not supported: {name}")
+        if name not in table.column_names:
+            raise ValueError(f"target table is missing planned feature: {name}")
+        values = table[name].to_pylist()
+        if any(value is None for value in values):
+            raise ValueError(f"target table contains null values in planned feature: {name}")
+        try:
+            column = pa.array(values, type=_arrow_type(pa, feature))
+        except Exception as exc:
+            raise ValueError(f"target table feature cannot match plan: {name}") from exc
+        table = table.set_column(table.column_names.index(name), name, column)
+    return table
+
+
+def _validate_single_episode_table(table: Any, plan: LeRobotMetadataPlan) -> None:
+    if len(plan.episodes) != 1:
+        raise ValueError(
+            "partial dataset writer currently binds exactly one synthetic episode; "
+            "multi-episode materialization is not implemented"
+        )
+    episode = plan.episodes[0]
+    if table.num_rows != plan.total_frames or table.num_rows != episode.length:
+        raise ValueError("target table row count does not match the metadata plan")
+    episode_values = [int(value) for value in table["episode_index"].to_pylist()]
+    if episode_values != [episode.episode_index] * episode.length:
+        raise ValueError("target table episode_index does not match the metadata plan")
+    frame_values = [int(value) for value in table["frame_index"].to_pylist()]
+    if frame_values != list(range(episode.length)):
+        raise ValueError("target table frame_index does not match the metadata plan")
+    task_values = [int(value) for value in table["task_index"].to_pylist()]
+    if any(value not in episode.task_indices for value in task_values):
+        raise ValueError("target table task_index does not match episode task metadata")
+
+
+def _load_verified_target_table(
+    *,
+    plan: LeRobotMetadataPlan,
+    target_table_report_path: Path,
+) -> tuple[SyntheticTableWriteReport, Any, Any]:
+    from retargetlab.run.export_table import verify_synthetic_table_write_report
+
+    report = SyntheticTableWriteReport.model_validate_json(
+        target_table_report_path.read_text(encoding="utf-8")
+    )
+    verification = verify_synthetic_table_write_report(target_table_report_path)
+    if report.write.layout != plan.target_layout:
+        raise ValueError("target table layout does not match the metadata plan")
+    if report.write.robot_id != plan.robot_id or verification.robot_id != plan.robot_id:
+        raise ValueError("target table robot does not match the metadata plan")
+    if report.write.frame_count != plan.total_frames:
+        raise ValueError("target table frame count does not match the metadata plan")
+    if report.write.selected_episode_indices != plan.training_episode_allowlist:
+        raise ValueError("target table episode selection does not match the metadata plan")
+    pa, parquet = _load_pyarrow()
+    table = parquet.read_table(report.write.output_table_path)
+    _validate_single_episode_table(table, plan)
+    normalized = _normalize_declared_table(pa, table, plan)
+    return report, normalized, pa
+
+
+def _data_metadata(
+    table: Any,
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_sha256: str,
+    target_table_report_sha256: str,
+) -> Any:
+    metadata = dict(table.schema.metadata or {})
+    metadata.update(
+        {
+            b"retargetlab.artifact_type": b"lerobot_partial_data_shard",
+            b"retargetlab.source_scope": b"synthetic_public_only",
+            b"retargetlab.plan_sha256": plan_sha256.encode("ascii"),
+            b"retargetlab.target_table_report_sha256": target_table_report_sha256.encode(
+                "ascii"
+            ),
+            b"retargetlab.robot_id": plan.robot_id.encode("utf-8"),
+        }
+    )
+    return table.replace_schema_metadata(metadata)
+
+
+def _replace_json(path: Path, payload: Mapping[str, Any]) -> None:
+    staged_path = path.with_name(f"{path.name}.next")
+    if staged_path.exists():
+        raise FileExistsError(f"staged metadata path already exists: {staged_path}")
+    try:
+        with staged_path.open("x", encoding="utf-8", newline="") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+        staged_path.replace(path)
+    except Exception:
+        staged_path.unlink(missing_ok=True)
+        raise
+
+
+def _partial_manifest(
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_path: Path,
+    plan_sha256: str,
+    output_root: Path,
+    target_table_report_path: Path,
+    target_table_report_sha256: str,
+    info_path: Path,
+    tasks_path: Path,
+    episode_paths: Mapping[tuple[int, int], Path],
+    data_path: Path,
+) -> LeRobotPartialDatasetWrite:
+    return LeRobotPartialDatasetWrite(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_sha256,
+        output_root=output_root.as_posix(),
+        target_table_report_path=target_table_report_path.as_posix(),
+        target_table_report_sha256=target_table_report_sha256,
+        written_files=_relative_files(
+            output_root,
+            (info_path, tasks_path, *episode_paths.values(), data_path),
+        ),
+        omitted_components=_PARTIAL_DATASET_OMISSIONS,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def write_lerobot_partial_dataset(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_report_path: Path,
+) -> LeRobotPartialDatasetWrite:
+    """Bind one verified synthetic target table to the plan's data shard path."""
+
+    plan_path = plan_path.resolve()
+    output_root = output_root.resolve()
+    target_table_report_path = target_table_report_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    if plan.video_keys:
+        raise ValueError("partial dataset writer currently supports video-free plans only")
+    if not target_table_report_path.is_file():
+        raise FileNotFoundError(
+            f"synthetic target table report does not exist: {target_table_report_path}"
+        )
+    if not output_root.is_dir():
+        raise FileNotFoundError(
+            f"metadata skeleton output root does not exist: {output_root}"
+        )
+    verify_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+    info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
+    if len(plan.episodes) != 1:
+        raise ValueError(
+            "partial dataset writer currently binds exactly one synthetic episode; "
+            "multi-episode materialization is not implemented"
+        )
+    episode = plan.episodes[0]
+    data_path = _format_output_path(
+        output_root,
+        plan.data_path_template,
+        chunk_index=episode.data_chunk_index,
+        file_index=episode.data_file_index,
+        label="data path",
+    )
+    report, normalized, _pa = _load_verified_target_table(
+        plan=plan,
+        target_table_report_path=target_table_report_path,
+    )
+    target_table_report_sha256 = sha256_file(target_table_report_path)
+    data_table = _data_metadata(
+        normalized,
+        plan=plan,
+        plan_sha256=plan_verification.plan_sha256,
+        target_table_report_sha256=target_table_report_sha256,
+    )
+    _validate_single_episode_table(data_table, plan)
+    parquet = _load_pyarrow()[1]
+    if Path(report.write.output_table_path).resolve() == data_path:
+        raise ValueError("target table output and LeRobot data shard paths must be different")
+    _write_parquet_exclusive(parquet, data_table, data_path)
+    _replace_json(
+        info_path,
+        _info_payload(
+            plan,
+            plan_sha256=plan_verification.plan_sha256,
+            data_shards_written=True,
+        ),
+    )
+    return _partial_manifest(
+        plan=plan,
+        plan_path=plan_path,
+        plan_sha256=plan_verification.plan_sha256,
+        output_root=output_root,
+        target_table_report_path=target_table_report_path,
+        target_table_report_sha256=target_table_report_sha256,
+        info_path=info_path,
+        tasks_path=tasks_path,
+        episode_paths=episode_paths,
+        data_path=data_path,
+    )
+
+
+def write_lerobot_partial_dataset_report(
+    path: Path,
+    manifest: LeRobotPartialDatasetWrite,
+) -> LeRobotPartialDatasetWrite:
+    """Persist one exclusive partial dataset write manifest."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(manifest.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return manifest
+
+
+def verify_lerobot_partial_dataset(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_report_path: Path,
+) -> LeRobotPartialDatasetVerification:
+    """Verify metadata plus one synthetic data shard, still without stats/videos."""
+
+    plan_path = plan_path.resolve()
+    output_root = output_root.resolve()
+    target_table_report_path = target_table_report_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    if plan.video_keys:
+        raise ValueError("partial dataset verifier currently supports video-free plans only")
+    if not output_root.is_dir():
+        raise FileNotFoundError(f"partial dataset output root does not exist: {output_root}")
+    if len(plan.episodes) != 1:
+        raise ValueError(
+            "partial dataset verifier currently binds exactly one synthetic episode; "
+            "multi-episode materialization is not implemented"
+        )
+    info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
+    _report, normalized, pa = _load_verified_target_table(
+        plan=plan,
+        target_table_report_path=target_table_report_path,
+    )
+    episode = plan.episodes[0]
+    data_path = _format_output_path(
+        output_root,
+        plan.data_path_template,
+        chunk_index=episode.data_chunk_index,
+        file_index=episode.data_file_index,
+        label="data path",
+    )
+    if not data_path.is_file():
+        raise FileNotFoundError(f"partial dataset data shard does not exist: {data_path}")
+    expected_files = _relative_files(
+        output_root,
+        (info_path, tasks_path, *episode_paths.values(), data_path),
+    )
+    if _actual_files(output_root) != expected_files:
+        raise ValueError("partial dataset output contains unexpected or missing files")
+    expected_info = _info_payload(
+        plan,
+        plan_sha256=plan_verification.plan_sha256,
+        data_shards_written=True,
+    )
+    if _read_json_object(info_path, label="partial dataset info") != expected_info:
+        raise ValueError("partial dataset info.json does not match the plan")
+    parquet = _load_pyarrow()[1]
+    _assert_table_matches(
+        parquet.read_table(tasks_path),
+        _tasks_table(pa, plan),
+        label="partial dataset tasks",
+    )
+    task_by_index = {task.task_index: task.task for task in plan.tasks}
+    for key, grouped in _episode_groups(plan).items():
+        _assert_table_matches(
+            parquet.read_table(episode_paths[key]),
+            _episodes_table(pa, grouped, task_by_index),
+            label=f"partial dataset episodes {key}",
+        )
+    actual_data = parquet.read_table(data_path)
+    expected_data = _data_metadata(
+        normalized,
+        plan=plan,
+        plan_sha256=plan_verification.plan_sha256,
+        target_table_report_sha256=sha256_file(target_table_report_path),
+    )
+    _assert_table_matches(actual_data, expected_data, label="partial dataset data")
+    metadata = actual_data.schema.metadata or {}
+    expected_metadata = expected_data.schema.metadata or {}
+    for metadata_key in (
+        b"retargetlab.artifact_type",
+        b"retargetlab.source_scope",
+        b"retargetlab.plan_sha256",
+        b"retargetlab.target_table_report_sha256",
+        b"retargetlab.robot_id",
+    ):
+        if metadata.get(metadata_key) != expected_metadata.get(metadata_key):
+            raise ValueError(
+                "partial dataset data metadata does not match: "
+                f"{metadata_key.decode()}"
+            )
+    return LeRobotPartialDatasetVerification(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        output_root=output_root.as_posix(),
+        target_table_report_path=target_table_report_path.as_posix(),
+        target_table_report_sha256=sha256_file(target_table_report_path),
+        written_files=expected_files,
+        omitted_components=_PARTIAL_DATASET_OMISSIONS,
         total_episodes=plan.total_episodes,
         total_frames=plan.total_frames,
         total_tasks=plan.total_tasks,

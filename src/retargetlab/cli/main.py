@@ -65,6 +65,7 @@ from retargetlab.run import (
     verify_data_profile,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
+    verify_lerobot_partial_dataset,
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_synthetic_table_write_preflight,
@@ -79,6 +80,8 @@ from retargetlab.run import (
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
     write_lerobot_metadata_skeleton_report,
+    write_lerobot_partial_dataset,
+    write_lerobot_partial_dataset_report,
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
@@ -322,6 +325,33 @@ def _parser() -> argparse.ArgumentParser:
     verify_lerobot_skeleton.add_argument("--plan", required=True, type=Path)
     verify_lerobot_skeleton.add_argument("--output-root", required=True, type=Path)
     verify_lerobot_skeleton.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    write_lerobot_partial = subparsers.add_parser(
+        "write-lerobot-partial-dataset",
+        help="bind one verified synthetic target table to a LeRobot data shard",
+    )
+    write_lerobot_partial.add_argument("--plan", required=True, type=Path)
+    write_lerobot_partial.add_argument("--output-root", required=True, type=Path)
+    write_lerobot_partial.add_argument("--target-table-report", required=True, type=Path)
+    write_lerobot_partial.add_argument(
+        "--report",
+        type=Path,
+        help="optional write manifest; keep it outside --output-root",
+    )
+    write_lerobot_partial.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_partial = subparsers.add_parser(
+        "verify-lerobot-partial-dataset",
+        help="verify metadata and one synthetic LeRobot data shard",
+    )
+    verify_lerobot_partial.add_argument("--plan", required=True, type=Path)
+    verify_lerobot_partial.add_argument("--output-root", required=True, type=Path)
+    verify_lerobot_partial.add_argument("--target-table-report", required=True, type=Path)
+    verify_lerobot_partial.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1060,6 +1090,53 @@ def _verify_lerobot_skeleton_payload(
     )
     return {
         "command": "verify-lerobot-metadata-skeleton",
+        **verification.model_dump(mode="json"),
+    }
+
+
+def _write_lerobot_partial_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_report_path: Path,
+    report_path: Path | None,
+) -> dict[str, Any]:
+    if report_path is not None:
+        try:
+            report_path.resolve().relative_to(output_root.resolve())
+        except ValueError:
+            pass
+        else:
+            raise ValueError("partial dataset report must be outside the output root")
+    manifest = write_lerobot_partial_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_report_path=target_table_report_path,
+    )
+    if report_path is not None:
+        write_lerobot_partial_dataset_report(report_path, manifest)
+    payload = {
+        "command": "write-lerobot-partial-dataset",
+        **manifest.model_dump(mode="json"),
+    }
+    if report_path is not None:
+        payload["report"] = str(report_path)
+    return payload
+
+
+def _verify_lerobot_partial_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_report_path: Path,
+) -> dict[str, Any]:
+    verification = verify_lerobot_partial_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_report_path=target_table_report_path,
+    )
+    return {
+        "command": "verify-lerobot-partial-dataset",
         **verification.model_dump(mode="json"),
     }
 
@@ -2189,6 +2266,57 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-metadata-skeleton",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "write-lerobot-partial-dataset":
+        try:
+            payload = _write_lerobot_partial_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+                target_table_report_path=args.target_table_report,
+                report_path=args.report,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "write-lerobot-partial-dataset",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "write-lerobot-partial-dataset",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-partial-dataset":
+        try:
+            payload = _verify_lerobot_partial_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+                target_table_report_path=args.target_table_report,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-partial-dataset",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-partial-dataset",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }
