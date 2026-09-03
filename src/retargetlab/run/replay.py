@@ -15,6 +15,7 @@ from retargetlab.contracts import (
     ReplayArtifact,
     RobotProfile,
     TargetGripperTrajectory,
+    TargetReplayArtifactVerification,
     TargetReplayFrame,
     TargetReplayManifest,
     TargetReplayTrajectory,
@@ -393,3 +394,23 @@ def write_target_replay_trajectory(
         json.dump(trajectory.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
         handle.write("\n")
     return trajectory
+
+
+def verify_target_replay_trajectory(path: Path) -> TargetReplayArtifactVerification:
+    """Rebuild and compare one materialized target replay artifact."""
+
+    artifact = TargetReplayTrajectory.model_validate_json(path.read_text(encoding="utf-8"))
+    expected = build_target_replay_trajectory(
+        manifest_path=Path(artifact.replay_manifest_path),
+        export_profile_path=Path(artifact.export_profile_path),
+    )
+    if expected != artifact:
+        raise ValueError("target replay artifact does not match its bound inputs")
+    return TargetReplayArtifactVerification(
+        replay_id=artifact.replay_id,
+        robot_id=artifact.robot_id,
+        frame_count=artifact.frame_count,
+        artifact_sha256=sha256_bytes(canonical_json_bytes(artifact)),
+        replay_manifest_sha256=artifact.replay_manifest_sha256,
+        export_profile_sha256=artifact.export_profile_sha256,
+    )

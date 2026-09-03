@@ -13,6 +13,7 @@ from .replay import (
     build_target_replay_manifest,
     build_target_replay_trajectory,
     verify_target_replay_manifest,
+    verify_target_replay_trajectory,
     write_target_replay_manifest,
     write_target_replay_trajectory,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "build_target_replay_trajectory",
     "write_target_replay_manifest",
     "write_target_replay_trajectory",
+    "verify_target_replay_trajectory",
     "verify_target_replay_manifest",
     "write_dataset_coverage",
     "verify_data_profile",

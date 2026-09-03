@@ -42,6 +42,7 @@ from .profile import (
 from .recipe import Recipe, RunManifest
 from .replay import (
     ReplayArtifact,
+    TargetReplayArtifactVerification,
     TargetReplayFrame,
     TargetReplayManifest,
     TargetReplayTrajectory,
@@ -110,6 +111,7 @@ __all__ = [
     "TargetGripperTrajectory",
     "TargetVectorLayout",
     "TargetReplayManifest",
+    "TargetReplayArtifactVerification",
     "TargetReplayFrame",
     "TargetReplayTrajectory",
     "TargetReplayVerification",

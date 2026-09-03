@@ -54,6 +54,7 @@ from retargetlab.run import (
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_target_replay_manifest,
+    verify_target_replay_trajectory,
     write_calibration_run,
     write_dataset_coverage,
     write_export_profile,
@@ -143,6 +144,12 @@ def _parser() -> argparse.ArgumentParser:
     materialize_replay.add_argument("--export-profile", required=True, type=Path)
     materialize_replay.add_argument("--output", required=True, type=Path)
     materialize_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_target_replay = subparsers.add_parser(
+        "verify-target-replay", help="verify a materialized target command artifact"
+    )
+    verify_target_replay.add_argument("--artifact", required=True, type=Path)
+    verify_target_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -621,6 +628,14 @@ def _materialize_replay_payload(
         "export_profile_sha256": replay.export_profile_sha256,
         "replay_manifest_sha256": replay.replay_manifest_sha256,
         "output": str(output_path),
+    }
+
+
+def _verify_target_replay_payload(artifact_path: Path) -> dict[str, Any]:
+    verification = verify_target_replay_trajectory(artifact_path)
+    return {
+        "command": "verify-target-replay",
+        **verification.model_dump(mode="json"),
     }
 
 
@@ -1451,6 +1466,27 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "materialize-replay",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-target-replay":
+        try:
+            payload = _verify_target_replay_payload(args.artifact)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-target-replay",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-target-replay",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

@@ -1624,3 +1624,28 @@ Remote verification:
 The next implementation boundary is a read-only verifier for this
 value-bearing command artifact, so a dataset writer cannot consume a modified
 vector file merely because its provenance manifest is still valid.
+
+### M1b.1b: verify materialized target replay values before downstream use
+
+The target replay layer now exposes a value-free verifier for
+`TargetReplayTrajectory`. It re-reads the bound replay manifest and export
+profile, regenerates the expected target vectors from the hashed arm-solve and
+gripper inputs, and compares the complete artifact rather than trusting the
+artifact's own metadata. A changed joint value therefore fails even when the
+provenance manifest itself remains untouched. The CLI command
+`verify-target-replay` returns the normal semantic-invalid status for such a
+tamper case and emits no joint values in its summary.
+
+Remote verification:
+
+- materialization/verifier and CLI tamper tests: 6 replay tests passed;
+- full regression with real OpenArm profile smoke enabled: 93 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- verification is read-only; no private dataset rows, video, or real solve
+  artifact was read or changed.
+
+The next implementation boundary is to define the dataset-writer input gate
+around this verified command artifact, keeping the current work limited to
+layout/provenance/value correctness and not yet copying or rewriting private
+LeRobot data.

@@ -164,3 +164,18 @@ class TargetReplayTrajectory(BaseModel):
                 raise ValueError("target replay timestamps must be strictly increasing")
             previous_timestamp = frame.timestamp_s
         return self
+
+
+class TargetReplayArtifactVerification(BaseModel):
+    """Value-free result of rechecking a materialized target replay."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    frame_count: int = Field(gt=0)
+    artifact_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    replay_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")

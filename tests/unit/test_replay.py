@@ -21,6 +21,7 @@ from retargetlab.run import (
     build_target_replay_trajectory,
     map_target_grippers,
     verify_target_replay_manifest,
+    verify_target_replay_trajectory,
     write_export_profile,
     write_robot_profile,
     write_target_gripper_trajectory,
@@ -531,3 +532,61 @@ def test_materialize_replay_cli_rejects_nonconverged_arm_frame(tmp_path: Path, c
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "INVALID_INPUT"
     assert "not CONVERGED" in payload["error"]
+
+
+def test_verify_target_replay_rejects_tampered_joint_value(tmp_path: Path, capsys) -> None:
+    paths = _write_inputs(tmp_path)
+    manifest = build_target_replay_manifest(
+        replay_id="fixture-replay",
+        trajectory_path=paths[0],
+        profile_path=paths[1],
+        recipe_path=paths[2],
+        arm_solve_paths=(paths[3],),
+        target_grippers_path=paths[4],
+        coupling="independent",
+    )
+    manifest_path = tmp_path / "replay-manifest.json"
+    write_target_replay_manifest(manifest_path, manifest)
+    profile = RobotProfile.model_validate_json(paths[1].read_text(encoding="utf-8"))
+    export_profile_path = tmp_path / "export-profile.json"
+    write_export_profile(export_profile_path, build_export_profile(profile))
+    artifact_path = tmp_path / "target-replay.json"
+    replay = build_target_replay_trajectory(
+        manifest_path=manifest_path,
+        export_profile_path=export_profile_path,
+    )
+    write_target_replay_trajectory(artifact_path, replay)
+
+    verification = verify_target_replay_trajectory(artifact_path)
+    assert verification.status == "VERIFIED"
+    assert (
+        app(
+            [
+                "verify-target-replay",
+                "--artifact",
+                str(artifact_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    payload["frames"][1]["joint_positions"][0] = 0.101
+    artifact_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match its bound inputs"):
+        verify_target_replay_trajectory(artifact_path)
+    assert (
+        app(
+            [
+                "verify-target-replay",
+                "--artifact",
+                str(artifact_path),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    tamper_payload = json.loads(capsys.readouterr().out)
+    assert tamper_payload["status"] == "INVALID_INPUT"
