@@ -21,6 +21,9 @@ solver = [
   "pink>=3.0",
   "qpsolvers[osqp]>=4.0",
 ]
+viz = [
+  "matplotlib>=3.8",
+]
 dev = [
   "mypy>=1.11",
   "pytest>=8.0",
