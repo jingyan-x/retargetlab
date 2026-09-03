@@ -44,6 +44,8 @@ from .recipe import Recipe, RunManifest
 from .replay import (
     ReplayArtifact,
     TargetReplayArtifactVerification,
+    TargetReplayBundle,
+    TargetReplayBundleVerification,
     TargetReplayFrame,
     TargetReplayManifest,
     TargetReplayTrajectory,
@@ -114,6 +116,8 @@ __all__ = [
     "TargetVectorLayout",
     "TargetReplayManifest",
     "TargetReplayArtifactVerification",
+    "TargetReplayBundle",
+    "TargetReplayBundleVerification",
     "TargetReplayFrame",
     "TargetReplayTrajectory",
     "TargetReplayVerification",

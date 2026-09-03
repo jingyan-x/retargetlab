@@ -43,6 +43,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_export_input_gate,
+    build_target_replay_bundle,
     build_target_replay_manifest,
     build_target_replay_trajectory,
     canonical_json_bytes,
@@ -54,6 +55,7 @@ from retargetlab.run import (
     verify_data_profile,
     verify_review_decision_artifact,
     verify_review_package_preflight,
+    verify_target_replay_bundle,
     verify_target_replay_manifest,
     verify_target_replay_trajectory,
     write_calibration_run,
@@ -64,6 +66,7 @@ from retargetlab.run import (
     write_review_package_preflight,
     write_robot_profile,
     write_target_gripper_trajectory,
+    write_target_replay_bundle,
     write_target_replay_manifest,
     write_target_replay_trajectory,
 )
@@ -144,6 +147,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     materialize_replay.add_argument("--manifest", required=True, type=Path)
     materialize_replay.add_argument("--export-profile", required=True, type=Path)
+    materialize_replay.add_argument(
+        "--stream",
+        choices=("observation.state", "action"),
+        default="action",
+        help="target output stream represented by this artifact",
+    )
     materialize_replay.add_argument("--output", required=True, type=Path)
     materialize_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
@@ -153,13 +162,27 @@ def _parser() -> argparse.ArgumentParser:
     verify_target_replay.add_argument("--artifact", required=True, type=Path)
     verify_target_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
+    build_replay_bundle = subparsers.add_parser(
+        "build-replay-bundle", help="bind distinct target state and action replay artifacts"
+    )
+    build_replay_bundle.add_argument("--observation-state", required=True, type=Path)
+    build_replay_bundle.add_argument("--action", required=True, type=Path)
+    build_replay_bundle.add_argument("--output", required=True, type=Path)
+    build_replay_bundle.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_replay_bundle = subparsers.add_parser(
+        "verify-replay-bundle", help="verify a target state/action replay bundle"
+    )
+    verify_replay_bundle.add_argument("--bundle", required=True, type=Path)
+    verify_replay_bundle.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
     verify_export_inputs = subparsers.add_parser(
         "verify-export-inputs", help="verify value-free prerequisites for dataset export"
     )
     verify_export_inputs.add_argument("--data-profile", required=True, type=Path)
     verify_export_inputs.add_argument("--decision", required=True, type=Path)
     verify_export_inputs.add_argument("--coverage", required=True, type=Path)
-    verify_export_inputs.add_argument("--target-replay", required=True, type=Path)
+    verify_export_inputs.add_argument("--target-replay-bundle", required=True, type=Path)
     verify_export_inputs.add_argument("--export-profile", required=True, type=Path)
     verify_export_inputs.add_argument("--episode-indices", required=True, nargs="+", type=int)
     verify_export_inputs.add_argument("--output", required=True, type=Path)
@@ -623,16 +646,19 @@ def _materialize_replay_payload(
     *,
     manifest_path: Path,
     export_profile_path: Path,
+    stream_name: str,
     output_path: Path,
 ) -> dict[str, Any]:
     replay = build_target_replay_trajectory(
         manifest_path=manifest_path,
         export_profile_path=export_profile_path,
+        stream_name=stream_name,  # type: ignore[arg-type]
     )
     write_target_replay_trajectory(output_path, replay)
     return {
         "command": "materialize-replay",
         "status": replay.status,
+        "stream_name": replay.stream_name,
         "replay_id": replay.replay_id,
         "robot_id": replay.robot_id,
         "frame_count": replay.frame_count,
@@ -653,12 +679,44 @@ def _verify_target_replay_payload(artifact_path: Path) -> dict[str, Any]:
     }
 
 
+def _build_replay_bundle_payload(
+    *,
+    observation_state_path: Path,
+    action_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    bundle = build_target_replay_bundle(
+        observation_state_path=observation_state_path,
+        action_path=action_path,
+    )
+    write_target_replay_bundle(output_path, bundle)
+    return {
+        "command": "build-replay-bundle",
+        "status": bundle.status,
+        "replay_id": bundle.replay_id,
+        "robot_id": bundle.robot_id,
+        "frame_count": bundle.frame_count,
+        "shape": list(bundle.layout.shape),
+        "joint_names": list(bundle.layout.names),
+        "export_profile_sha256": bundle.export_profile_sha256,
+        "output": str(output_path),
+    }
+
+
+def _verify_replay_bundle_payload(bundle_path: Path) -> dict[str, Any]:
+    verification = verify_target_replay_bundle(bundle_path)
+    return {
+        "command": "verify-replay-bundle",
+        **verification.model_dump(mode="json"),
+    }
+
+
 def _verify_export_inputs_payload(
     *,
     data_profile_path: Path,
     decision_path: Path,
     coverage_path: Path,
-    target_replay_path: Path,
+    target_replay_bundle_path: Path,
     export_profile_path: Path,
     episode_indices: list[int],
     output_path: Path,
@@ -667,7 +725,7 @@ def _verify_export_inputs_payload(
         data_profile_path=data_profile_path,
         decision_path=decision_path,
         coverage_path=coverage_path,
-        target_replay_path=target_replay_path,
+        target_replay_bundle_path=target_replay_bundle_path,
         export_profile_path=export_profile_path,
         training_episode_allowlist=episode_indices,
     )
@@ -1493,6 +1551,7 @@ def app(argv: list[str] | None = None) -> int:
             payload = _materialize_replay_payload(
                 manifest_path=args.manifest,
                 export_profile_path=args.export_profile,
+                stream_name=args.stream,
                 output_path=args.output,
             )
         except RuntimeError as exc:
@@ -1534,13 +1593,59 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "build-replay-bundle":
+        try:
+            payload = _build_replay_bundle_payload(
+                observation_state_path=args.observation_state,
+                action_path=args.action,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-replay-bundle",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-replay-bundle",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-replay-bundle":
+        try:
+            payload = _verify_replay_bundle_payload(args.bundle)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-replay-bundle",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-replay-bundle",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
     if args.command == "verify-export-inputs":
         try:
             payload = _verify_export_inputs_payload(
                 data_profile_path=args.data_profile,
                 decision_path=args.decision,
                 coverage_path=args.coverage,
-                target_replay_path=args.target_replay,
+                target_replay_bundle_path=args.target_replay_bundle,
                 export_profile_path=args.export_profile,
                 episode_indices=args.episode_indices,
                 output_path=args.output,

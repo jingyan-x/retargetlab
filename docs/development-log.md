@@ -1680,3 +1680,29 @@ Remote verification:
 The next implementation boundary is the dataset writer itself, beginning with
 synthetic/public parquet metadata only and requiring this gate before any
 private source materialization is considered.
+
+### M1b.1d: require distinct state/action replay inputs at the export gate
+
+Before touching a dataset writer, the target replay contract now makes the
+stream role explicit (`observation.state` or `action`) and adds a value-free
+`TargetReplayBundle` that binds one verified artifact for each role. The
+bundle checks shared replay identity, target layout, profile hash, frame count,
+and timestamps, while preserving the two value artifacts as separate files.
+The export input gate now consumes and hashes this bundle, so a single action
+trajectory can no longer be presented as both observation state and action.
+The gate schema is `0.2` to make this stronger requirement visible to old
+consumers.
+
+Remote verification:
+
+- state/action bundle construction, verification, same-stream rejection, and
+  export-gate migration tests passed;
+- full regression with real OpenArm profile smoke enabled: 97 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- the current real data profile remains blocked at `REVIEW_REQUIRED`; no
+  private rows, video, or dataset rewrite was performed.
+
+The next implementation boundary remains a synthetic/public-only dataset
+writer prototype, but it must consume the verified state/action bundle and
+must not collapse the two streams or infer missing source semantics.

@@ -17,7 +17,7 @@ from retargetlab.contracts import (
     ProfileChannel,
     ReviewDecisionArtifact,
     StreamMapping,
-    TargetReplayArtifactVerification,
+    TargetReplayBundleVerification,
     TargetVectorLayout,
     TimingEvidence,
 )
@@ -209,13 +209,13 @@ def _write_inputs(
     )
     export_profile_path = tmp_path / "export-profile.json"
     export_profile_path.write_text(export_profile.model_dump_json(), encoding="utf-8")
-    target_replay_path = tmp_path / "target-replay.json"
-    target_replay_path.write_text("{}", encoding="utf-8")
+    target_replay_bundle_path = tmp_path / "target-replay-bundle.json"
+    target_replay_bundle_path.write_text("{}", encoding="utf-8")
     return {
         "profile": profile_path,
         "decision": decision_path,
         "coverage": coverage_path,
-        "target_replay": target_replay_path,
+        "target_replay_bundle": target_replay_bundle_path,
         "export_profile": export_profile_path,
     }
 
@@ -229,13 +229,12 @@ def test_export_input_gate_binds_certified_source_and_target_artifacts(
     )
     export_profile_hash = sha256_bytes(canonical_json_bytes(export_profile))
     monkeypatch.setattr(
-        "retargetlab.run.export_gate.verify_target_replay_trajectory",
-        lambda path: TargetReplayArtifactVerification(
+        "retargetlab.run.export_gate.verify_target_replay_bundle",
+        lambda path: TargetReplayBundleVerification(
             replay_id="fixture-replay",
             robot_id="fixture-robot",
             frame_count=2,
-            artifact_sha256="5" * 64,
-            replay_manifest_sha256="6" * 64,
+            bundle_sha256="5" * 64,
             export_profile_sha256=export_profile_hash,
         ),
     )
@@ -244,7 +243,7 @@ def test_export_input_gate_binds_certified_source_and_target_artifacts(
         data_profile_path=paths["profile"],
         decision_path=paths["decision"],
         coverage_path=paths["coverage"],
-        target_replay_path=paths["target_replay"],
+        target_replay_bundle_path=paths["target_replay_bundle"],
         export_profile_path=paths["export_profile"],
         training_episode_allowlist=(0,),
     )
@@ -255,6 +254,7 @@ def test_export_input_gate_binds_certified_source_and_target_artifacts(
     assert gate.dataset_alias == "fixture"
     assert gate.training_episode_allowlist == (0,)
     assert gate.normalization_exclude == ("valid.retarget",)
+    assert gate.target_replay_bundle_sha256 == "5" * 64
     assert json.loads(output.read_text(encoding="utf-8"))["artifact_type"] == ("export_input_gate")
     assert ExportInputGate.model_validate_json(output.read_text(encoding="utf-8")) == gate
 
@@ -267,7 +267,7 @@ def test_export_input_gate_blocks_pending_profile_before_source_use(tmp_path: Pa
             data_profile_path=paths["profile"],
             decision_path=paths["decision"],
             coverage_path=paths["coverage"],
-            target_replay_path=paths["target_replay"],
+            target_replay_bundle_path=paths["target_replay_bundle"],
             export_profile_path=paths["export_profile"],
             training_episode_allowlist=(0,),
         )
@@ -281,7 +281,7 @@ def test_export_input_gate_blocks_unverified_source_shape(tmp_path: Path) -> Non
             data_profile_path=paths["profile"],
             decision_path=paths["decision"],
             coverage_path=paths["coverage"],
-            target_replay_path=paths["target_replay"],
+            target_replay_bundle_path=paths["target_replay_bundle"],
             export_profile_path=paths["export_profile"],
             training_episode_allowlist=(0,),
         )
@@ -301,8 +301,8 @@ def test_verify_export_inputs_cli_reports_pending_profile(tmp_path: Path, capsys
                 str(paths["decision"]),
                 "--coverage",
                 str(paths["coverage"]),
-                "--target-replay",
-                str(paths["target_replay"]),
+                "--target-replay-bundle",
+                str(paths["target_replay_bundle"]),
                 "--export-profile",
                 str(paths["export_profile"]),
                 "--episode-indices",

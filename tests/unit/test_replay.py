@@ -17,14 +17,17 @@ from retargetlab.contracts import (
 )
 from retargetlab.export import build_export_profile
 from retargetlab.run import (
+    build_target_replay_bundle,
     build_target_replay_manifest,
     build_target_replay_trajectory,
     map_target_grippers,
+    verify_target_replay_bundle,
     verify_target_replay_manifest,
     verify_target_replay_trajectory,
     write_export_profile,
     write_robot_profile,
     write_target_gripper_trajectory,
+    write_target_replay_bundle,
     write_target_replay_manifest,
     write_target_replay_trajectory,
 )
@@ -457,7 +460,7 @@ def test_replay_manifest_requires_and_binds_every_bimanual_arm_solve(
         )
 
 
-def test_materialize_replay_binds_q_and_gripper_to_export_layout(tmp_path: Path) -> None:
+def test_materialize_replay_binds_q_and_gripper_to_export_layout(tmp_path: Path, capsys) -> None:
     paths = _write_inputs(tmp_path)
     manifest = build_target_replay_manifest(
         replay_id="fixture-replay",
@@ -483,6 +486,7 @@ def test_materialize_replay_binds_q_and_gripper_to_export_layout(tmp_path: Path)
     write_target_replay_trajectory(output, replay)
 
     assert replay.status == "READY"
+    assert replay.stream_name == "action"
     assert replay.layout.names == ("joint1", "finger_joint1")
     assert replay.frames[0].joint_positions == (0.0, 0.0)
     assert replay.frames[1].joint_positions == (0.1, 0.044)
@@ -491,6 +495,64 @@ def test_materialize_replay_binds_q_and_gripper_to_export_layout(tmp_path: Path)
     assert "results" not in json.dumps(payload)
     with pytest.raises(FileExistsError):
         write_target_replay_trajectory(output, replay)
+
+    state_replay = build_target_replay_trajectory(
+        manifest_path=manifest_path,
+        export_profile_path=export_profile_path,
+        stream_name="observation.state",
+    )
+    assert state_replay.stream_name == "observation.state"
+    state_output = tmp_path / "state-replay.json"
+    write_target_replay_trajectory(state_output, state_replay)
+    bundle = build_target_replay_bundle(
+        observation_state_path=state_output,
+        action_path=output,
+    )
+    bundle_output = tmp_path / "replay-bundle.json"
+    write_target_replay_bundle(bundle_output, bundle)
+    bundle_verification = verify_target_replay_bundle(bundle_output)
+
+    assert bundle.status == "READY"
+    assert bundle_verification.status == "VERIFIED"
+    bundle_text = bundle_output.read_text(encoding="utf-8")
+    assert "joint_positions" not in bundle_text
+    cli_bundle_output = tmp_path / "cli-replay-bundle.json"
+    assert (
+        app(
+            [
+                "build-replay-bundle",
+                "--observation-state",
+                str(state_output),
+                "--action",
+                str(output),
+                "--output",
+                str(cli_bundle_output),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    cli_payload = json.loads(capsys.readouterr().out)
+    assert cli_payload["status"] == "READY"
+    assert (
+        app(
+            [
+                "verify-replay-bundle",
+                "--bundle",
+                str(cli_bundle_output),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+    with pytest.raises(ValueError, match="state replay artifact"):
+        build_target_replay_bundle(
+            observation_state_path=output,
+            action_path=output,
+        )
+    with pytest.raises(FileExistsError):
+        write_target_replay_bundle(bundle_output, bundle)
 
 
 def test_materialize_replay_cli_rejects_nonconverged_arm_frame(tmp_path: Path, capsys) -> None:

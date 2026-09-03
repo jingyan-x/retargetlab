@@ -14,7 +14,7 @@ from retargetlab.contracts import (
 )
 from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
 from retargetlab.run.profile import verify_data_profile
-from retargetlab.run.replay import verify_target_replay_trajectory
+from retargetlab.run.replay import verify_target_replay_bundle
 
 
 def build_export_input_gate(
@@ -22,15 +22,13 @@ def build_export_input_gate(
     data_profile_path: Path,
     decision_path: Path,
     coverage_path: Path,
-    target_replay_path: Path,
+    target_replay_bundle_path: Path,
     export_profile_path: Path,
     training_episode_allowlist: Sequence[int],
 ) -> ExportInputGate:
     """Verify export prerequisites without opening source rows or videos."""
 
-    data_profile = DataProfile.model_validate_json(
-        data_profile_path.read_text(encoding="utf-8")
-    )
+    data_profile = DataProfile.model_validate_json(data_profile_path.read_text(encoding="utf-8"))
     if data_profile.status != "CERTIFIED":
         raise ValueError("export input gate requires a CERTIFIED data profile")
     profile_verification = verify_data_profile(
@@ -76,18 +74,18 @@ def build_export_input_gate(
         export_profile_path.read_text(encoding="utf-8")
     )
     export_profile_sha256 = sha256_bytes(canonical_json_bytes(export_profile))
-    replay_verification = verify_target_replay_trajectory(target_replay_path)
+    replay_verification = verify_target_replay_bundle(target_replay_bundle_path)
     if replay_verification.export_profile_sha256 != export_profile_sha256:
-        raise ValueError("target replay export profile hash does not match export profile")
+        raise ValueError("target replay bundle export profile hash does not match export profile")
     if replay_verification.robot_id != export_profile.robot_id:
-        raise ValueError("target replay robot id does not match export profile")
+        raise ValueError("target replay bundle robot id does not match export profile")
 
     return ExportInputGate(
         dataset_alias=data_profile.dataset_alias,
         source_revision=data_profile.source_revision,
         data_profile_sha256=profile_verification.profile_sha256,
         coverage_sha256=coverage_sha256,
-        target_replay_sha256=replay_verification.artifact_sha256,
+        target_replay_bundle_sha256=replay_verification.bundle_sha256,
         export_profile_sha256=export_profile_sha256,
         robot_id=export_profile.robot_id,
         source_frame_count=coverage.observed_frame_count,

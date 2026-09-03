@@ -142,6 +142,7 @@ class TargetReplayTrajectory(BaseModel):
 
     schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
     status: Literal["READY"] = "READY"
+    stream_name: Literal["observation.state", "action"] = "action"
     replay_id: str = Field(min_length=1)
     robot_id: str = Field(min_length=1)
     replay_manifest_path: str = Field(min_length=1)
@@ -178,4 +179,42 @@ class TargetReplayArtifactVerification(BaseModel):
     frame_count: int = Field(gt=0)
     artifact_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     replay_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+
+class TargetReplayBundle(BaseModel):
+    """Value-free pair of state and action target replay artifacts."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["READY"] = "READY"
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    layout: TargetVectorLayout
+    frame_count: int = Field(gt=0)
+    observation_state_path: str = Field(min_length=1)
+    observation_state_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    action_path: str = Field(min_length=1)
+    action_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+    @model_validator(mode="after")
+    def validate_paths(self) -> TargetReplayBundle:
+        if self.observation_state_path == self.action_path:
+            raise ValueError("state and action replay paths must be different")
+        return self
+
+
+class TargetReplayBundleVerification(BaseModel):
+    """Value-free result of rechecking a state/action target replay bundle."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    frame_count: int = Field(gt=0)
+    bundle_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")

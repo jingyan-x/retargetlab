@@ -14,14 +14,14 @@ class ExportInputGate(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    schema_version: str = Field(default="0.2", pattern=r"^0\.2$")
     artifact_type: Literal["export_input_gate"] = "export_input_gate"
     status: Literal["READY"] = "READY"
     dataset_alias: str = Field(min_length=1)
     source_revision: str = Field(min_length=1)
     data_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     coverage_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
-    target_replay_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    target_replay_bundle_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     robot_id: str = Field(min_length=1)
     source_frame_count: int = Field(gt=0)

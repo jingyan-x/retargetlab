@@ -6,7 +6,7 @@ import json
 import math
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from retargetlab.contracts import (
     CanonicalTrajectory,
@@ -16,6 +16,8 @@ from retargetlab.contracts import (
     RobotProfile,
     TargetGripperTrajectory,
     TargetReplayArtifactVerification,
+    TargetReplayBundle,
+    TargetReplayBundleVerification,
     TargetReplayFrame,
     TargetReplayManifest,
     TargetReplayTrajectory,
@@ -271,6 +273,7 @@ def build_target_replay_trajectory(
     *,
     manifest_path: Path,
     export_profile_path: Path,
+    stream_name: Literal["observation.state", "action"] = "action",
 ) -> TargetReplayTrajectory:
     """Materialize converged arm and gripper values in the verified layout."""
 
@@ -371,6 +374,7 @@ def build_target_replay_trajectory(
         )
 
     return TargetReplayTrajectory(
+        stream_name=stream_name,
         replay_id=manifest.replay_id,
         robot_id=manifest.robot_id,
         replay_manifest_path=str(manifest_path),
@@ -403,6 +407,7 @@ def verify_target_replay_trajectory(path: Path) -> TargetReplayArtifactVerificat
     expected = build_target_replay_trajectory(
         manifest_path=Path(artifact.replay_manifest_path),
         export_profile_path=Path(artifact.export_profile_path),
+        stream_name=artifact.stream_name,
     )
     if expected != artifact:
         raise ValueError("target replay artifact does not match its bound inputs")
@@ -413,4 +418,78 @@ def verify_target_replay_trajectory(path: Path) -> TargetReplayArtifactVerificat
         artifact_sha256=sha256_bytes(canonical_json_bytes(artifact)),
         replay_manifest_sha256=artifact.replay_manifest_sha256,
         export_profile_sha256=artifact.export_profile_sha256,
+    )
+
+
+def build_target_replay_bundle(
+    *,
+    observation_state_path: Path,
+    action_path: Path,
+) -> TargetReplayBundle:
+    """Bind distinct state and action replay artifacts without merging values."""
+
+    state_verification = verify_target_replay_trajectory(observation_state_path)
+    action_verification = verify_target_replay_trajectory(action_path)
+    state = TargetReplayTrajectory.model_validate_json(
+        observation_state_path.read_text(encoding="utf-8")
+    )
+    action = TargetReplayTrajectory.model_validate_json(action_path.read_text(encoding="utf-8"))
+    if state.stream_name != "observation.state":
+        raise ValueError("state replay artifact must be labeled observation.state")
+    if action.stream_name != "action":
+        raise ValueError("action replay artifact must be labeled action")
+    if state.replay_id != action.replay_id or state.robot_id != action.robot_id:
+        raise ValueError("state and action replay identities must match")
+    if state.export_profile_sha256 != action.export_profile_sha256:
+        raise ValueError("state and action replay export profiles must match")
+    if state.layout != action.layout or state.frame_count != action.frame_count:
+        raise ValueError("state and action replay layouts and frame counts must match")
+    for frame_index, (state_frame, action_frame) in enumerate(
+        zip(state.frames, action.frames, strict=True)
+    ):
+        if not math.isclose(
+            state_frame.timestamp_s,
+            action_frame.timestamp_s,
+            abs_tol=1e-12,
+        ):
+            raise ValueError(f"state and action replay timestamps differ: {frame_index}")
+    return TargetReplayBundle(
+        replay_id=state.replay_id,
+        robot_id=state.robot_id,
+        export_profile_sha256=state.export_profile_sha256,
+        layout=state.layout,
+        frame_count=state.frame_count,
+        observation_state_path=str(observation_state_path),
+        observation_state_sha256=state_verification.artifact_sha256,
+        action_path=str(action_path),
+        action_sha256=action_verification.artifact_sha256,
+    )
+
+
+def write_target_replay_bundle(path: Path, bundle: TargetReplayBundle) -> TargetReplayBundle:
+    """Write one value-free state/action replay bundle exclusively."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(bundle.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return bundle
+
+
+def verify_target_replay_bundle(path: Path) -> TargetReplayBundleVerification:
+    """Rebuild and compare a state/action replay bundle."""
+
+    bundle = TargetReplayBundle.model_validate_json(path.read_text(encoding="utf-8"))
+    expected = build_target_replay_bundle(
+        observation_state_path=Path(bundle.observation_state_path),
+        action_path=Path(bundle.action_path),
+    )
+    if expected != bundle:
+        raise ValueError("target replay bundle does not match its input artifacts")
+    return TargetReplayBundleVerification(
+        replay_id=bundle.replay_id,
+        robot_id=bundle.robot_id,
+        frame_count=bundle.frame_count,
+        bundle_sha256=sha256_bytes(canonical_json_bytes(bundle)),
+        export_profile_sha256=bundle.export_profile_sha256,
     )
