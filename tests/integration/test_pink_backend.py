@@ -4,8 +4,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from retargetlab.contracts import KinematicGroup, Pose, RobotProfile, SolveOptions
+from retargetlab.contracts import (
+    CanonicalFrame,
+    CanonicalTrajectory,
+    KinematicGroup,
+    Pose,
+    RobotProfile,
+    SolveOptions,
+)
 from retargetlab.kinematics.pink_backend import PinkBackend
+from retargetlab.solve import SolveCoupling, solve_coupled
 
 FIXTURE_URDF = """<?xml version="1.0"?>
 <robot name="fixture">
@@ -73,3 +81,51 @@ def test_pink_solves_one_pose_and_warm_starts_sequence(tmp_path: Path) -> None:
     assert len(sequence) == 2
     assert all(item.status.value == "CONVERGED" for item in sequence)
     assert sequence[1].iterations <= sequence[0].iterations
+
+
+def test_coupling_keeps_modes_explicit(tmp_path: Path) -> None:
+    pytest.importorskip("pinocchio")
+    pytest.importorskip("pink")
+    backend = PinkBackend(make_profile(tmp_path))
+    target = Pose(
+        position_m=(0.0, 1.0, 0.0),
+        quaternion_wxyz=(math.cos(math.pi / 4.0), 0.0, 0.0, math.sin(math.pi / 4.0)),
+        frame="base",
+    )
+    trajectory = CanonicalTrajectory(
+        coordinate_frame="base",
+        frames=[
+            CanonicalFrame(timestamp_s=0.0, poses={"tool": target}),
+            CanonicalFrame(timestamp_s=0.02, poses={"tool": target}),
+        ],
+    )
+    solutions = solve_coupled(
+        trajectory,
+        {"tool": "arm"},
+        backend,
+        make_profile(tmp_path),
+        SolveOptions(max_iterations=100),
+        SolveCoupling.INDEPENDENT,
+        {"tool": [0.0, 0.0]},
+    )
+    assert solutions["tool"].converged_rate == 1.0
+    with pytest.raises(ValueError, match="interleaved_sequence is rejected"):
+        solve_coupled(
+            trajectory,
+            {"tool": "arm"},
+            backend,
+            make_profile(tmp_path),
+            SolveOptions(),
+            SolveCoupling.INTERLEAVED_SEQUENCE,
+            {"tool": [0.0, 0.0]},
+        )
+    with pytest.raises(RuntimeError, match="multi_group_joint_solve"):
+        solve_coupled(
+            trajectory,
+            {"tool": "arm"},
+            backend,
+            make_profile(tmp_path),
+            SolveOptions(),
+            SolveCoupling.JOINT_SOLVE,
+            {"tool": [0.0, 0.0]},
+        )

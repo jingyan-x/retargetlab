@@ -171,3 +171,14 @@ two-frame warm-started sequence. After adding this slice, remote verification
 was `pytest: 11 passed`, `ruff: passed`, and `mypy: passed`. The only test
 warnings are upstream qpsolvers/OSQP sparse-conversion and deprecation
 warnings. No private dataset or held-out value was read.
+
+### M0 continuation: sequence and coupling boundary
+
+`solve/sequence.py` now owns fixed-seed retry selection and delegates warm
+starts to the backend; it does not branch on a concrete backend name.
+`solve/coupling.py` declares the four registered modes. Independent and
+warm-started streams use the generic sequence path, `joint_solve` is rejected
+unless the backend declares `multi_group_joint_solve`, and the previously
+invalid `interleaved_sequence` timing assumption is rejected explicitly.
+Synthetic tests cover the accepted path and both capability/semantic guards.
+The remote suite remains green at 12 passed, with ruff and mypy passing.
