@@ -1,0 +1,128 @@
+"""Small, structured CLI surface for the M0 contracts."""
+
+from __future__ import annotations
+
+import argparse
+import importlib.metadata
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from typing import Any, TextIO
+
+from pydantic import ValidationError
+
+from retargetlab import __version__
+from retargetlab.contracts import CanonicalTrajectory
+
+EXIT_OK = 0
+EXIT_USAGE = 2
+EXIT_SEMANTIC = 3
+EXIT_QUALITY = 4
+EXIT_ENVIRONMENT = 5
+EXIT_ERROR = 1
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="retargetlab")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    doctor = subparsers.add_parser("doctor", help="check the local runtime")
+    doctor.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    inspect = subparsers.add_parser("inspect", help="inspect a canonical JSON trajectory")
+    inspect.add_argument("path", type=Path)
+    inspect.add_argument("--json", action="store_true", help="emit JSON to stdout")
+    return parser
+
+
+def _dependency(name: str, distribution: str) -> dict[str, str]:
+    present = importlib.util.find_spec(name) is not None
+    result = {"status": "available" if present else "missing"}
+    if present:
+        try:
+            result["version"] = importlib.metadata.version(distribution)
+        except importlib.metadata.PackageNotFoundError:
+            result["version"] = "unknown"
+    return result
+
+
+def _doctor_payload() -> tuple[dict[str, Any], int]:
+    dependencies = {
+        name: _dependency(name, distribution)
+        for name, distribution in (
+            ("numpy", "numpy"),
+            ("pydantic", "pydantic"),
+            ("pinocchio", "pin"),
+            ("pink", "pin-pink"),
+            ("qpsolvers", "qpsolvers"),
+            ("osqp", "osqp"),
+        )
+    }
+    required = ("numpy", "pydantic", "pinocchio", "pink", "qpsolvers", "osqp")
+    missing = [name for name in required if dependencies[name]["status"] == "missing"]
+    payload = {
+        "command": "doctor",
+        "retargetlab_version": __version__,
+        "python_version": ".".join(str(part) for part in sys.version_info[:3]),
+        "dependencies": dependencies,
+        "status": "READY" if not missing else "MISSING_DEPENDENCIES",
+        "missing": missing,
+    }
+    return payload, EXIT_OK if not missing else EXIT_ENVIRONMENT
+
+
+def _inspect_payload(path: Path) -> dict[str, Any]:
+    trajectory = CanonicalTrajectory.model_validate_json(path.read_text(encoding="utf-8"))
+    return {
+        "command": "inspect",
+        "schema_version": trajectory.schema_version,
+        "coordinate_frame": trajectory.coordinate_frame,
+        "frame_count": trajectory.frame_count,
+        "stream_names": list(trajectory.stream_names),
+        "metadata_keys": sorted(trajectory.metadata),
+    }
+
+
+def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
+    if as_json:
+        json.dump(payload, stdout, ensure_ascii=False, sort_keys=True)
+        stdout.write("\n")
+        return
+    if payload.get("status") == "INVALID_INPUT":
+        print(f"inspect: invalid input: {payload['error']}", file=sys.stderr)
+        return
+    if payload.get("command") == "doctor":
+        print(f"retargetlab doctor: {payload['status']}", file=stdout)
+        for name, details in payload["dependencies"].items():
+            print(f"{name}: {details['status']}", file=sys.stderr)
+        return
+    print(
+        f"canonical trajectory: {payload['frame_count']} frames, "
+        f"streams={','.join(payload['stream_names'])}",
+        file=stdout,
+    )
+
+
+def app(argv: list[str] | None = None) -> int:
+    """Run the CLI and return a documented process exit code."""
+
+    args = _parser().parse_args(argv)
+    if args.command == "doctor":
+        payload, exit_code = _doctor_payload()
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "inspect":
+        try:
+            payload = _inspect_payload(args.path)
+        except (OSError, ValidationError, ValueError) as exc:
+            error = {"command": "inspect", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    return EXIT_ERROR
+
+
+if __name__ == "__main__":
+    raise SystemExit(app())

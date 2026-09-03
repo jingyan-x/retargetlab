@@ -12,6 +12,9 @@ dependencies = [
   "pydantic>=2.8",
 ]
 
+[project.scripts]
+retargetlab = "retargetlab.cli.main:app"
+
 [project.optional-dependencies]
 solver = [
   "pin>=3.7",
