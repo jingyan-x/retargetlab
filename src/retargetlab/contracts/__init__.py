@@ -25,6 +25,8 @@ from .lerobot_export import (
     LeRobotEpisodeMetadata,
     LeRobotMetadataPlan,
     LeRobotMetadataPlanVerification,
+    LeRobotMetadataSkeletonVerification,
+    LeRobotMetadataSkeletonWrite,
     LeRobotTaskMetadata,
 )
 from .mapping import (
@@ -134,6 +136,8 @@ __all__ = [
     "LeRobotEpisodeMetadata",
     "LeRobotMetadataPlan",
     "LeRobotMetadataPlanVerification",
+    "LeRobotMetadataSkeletonVerification",
+    "LeRobotMetadataSkeletonWrite",
     "LeRobotTaskMetadata",
     "TargetVectorLayout",
     "TargetReplayManifest",

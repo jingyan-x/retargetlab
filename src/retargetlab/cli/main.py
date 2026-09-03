@@ -64,6 +64,7 @@ from retargetlab.run import (
     verify_calibration_run,
     verify_data_profile,
     verify_lerobot_metadata_plan,
+    verify_lerobot_metadata_skeleton,
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_synthetic_table_write_preflight,
@@ -76,6 +77,8 @@ from retargetlab.run import (
     write_export_input_gate,
     write_export_profile,
     write_lerobot_metadata_plan,
+    write_lerobot_metadata_skeleton,
+    write_lerobot_metadata_skeleton_report,
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
@@ -294,6 +297,31 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_lerobot_plan.add_argument("--plan", required=True, type=Path)
     verify_lerobot_plan.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    write_lerobot_skeleton = subparsers.add_parser(
+        "write-lerobot-metadata-skeleton",
+        help="write a verified, metadata-only LeRobot v3 skeleton",
+    )
+    write_lerobot_skeleton.add_argument("--plan", required=True, type=Path)
+    write_lerobot_skeleton.add_argument("--output-root", required=True, type=Path)
+    write_lerobot_skeleton.add_argument(
+        "--report",
+        type=Path,
+        help="optional write manifest; keep it outside --output-root",
+    )
+    write_lerobot_skeleton.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_skeleton = subparsers.add_parser(
+        "verify-lerobot-metadata-skeleton",
+        help="verify a metadata-only LeRobot v3 skeleton",
+    )
+    verify_lerobot_skeleton.add_argument("--plan", required=True, type=Path)
+    verify_lerobot_skeleton.add_argument("--output-root", required=True, type=Path)
+    verify_lerobot_skeleton.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -989,6 +1017,49 @@ def _verify_lerobot_plan_payload(plan_path: Path) -> dict[str, Any]:
     verification = verify_lerobot_metadata_plan(plan_path)
     return {
         "command": "verify-lerobot-metadata-plan",
+        **verification.model_dump(mode="json"),
+    }
+
+
+def _write_lerobot_skeleton_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    report_path: Path | None,
+) -> dict[str, Any]:
+    if report_path is not None:
+        try:
+            report_path.resolve().relative_to(output_root.resolve())
+        except ValueError:
+            pass
+        else:
+            raise ValueError("skeleton report must be outside the output root")
+    manifest = write_lerobot_metadata_skeleton(
+        plan_path=plan_path,
+        output_root=output_root,
+    )
+    if report_path is not None:
+        write_lerobot_metadata_skeleton_report(report_path, manifest)
+    payload = {
+        "command": "write-lerobot-metadata-skeleton",
+        **manifest.model_dump(mode="json"),
+    }
+    if report_path is not None:
+        payload["report"] = str(report_path)
+    return payload
+
+
+def _verify_lerobot_skeleton_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+) -> dict[str, Any]:
+    verification = verify_lerobot_metadata_skeleton(
+        plan_path=plan_path,
+        output_root=output_root,
+    )
+    return {
+        "command": "verify-lerobot-metadata-skeleton",
         **verification.model_dump(mode="json"),
     }
 
@@ -2069,6 +2140,55 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-metadata-plan",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "write-lerobot-metadata-skeleton":
+        try:
+            payload = _write_lerobot_skeleton_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+                report_path=args.report,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "write-lerobot-metadata-skeleton",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "write-lerobot-metadata-skeleton",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-metadata-skeleton":
+        try:
+            payload = _verify_lerobot_skeleton_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-metadata-skeleton",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-metadata-skeleton",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

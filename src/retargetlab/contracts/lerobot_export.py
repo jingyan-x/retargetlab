@@ -58,6 +58,7 @@ class LeRobotMetadataPlan(BaseModel):
     artifact_type: Literal["lerobot_metadata_plan"] = "lerobot_metadata_plan"
     status: Literal["READY"] = "READY"
     codebase_version: Literal["v3.0"] = "v3.0"
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
     dataset_alias: str = Field(min_length=1)
     source_revision: str = Field(min_length=1)
     export_input_gate_path: str = Field(min_length=1)
@@ -180,6 +181,69 @@ class LeRobotMetadataPlanVerification(BaseModel):
     plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     export_input_gate_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+
+class LeRobotMetadataSkeletonWrite(BaseModel):
+    """Manifest for a deliberately incomplete, metadata-only dataset skeleton."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_metadata_skeleton_write"] = (
+        "lerobot_metadata_skeleton_write"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["PARTIAL"] = "PARTIAL"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    output_root: str = Field(min_length=1)
+    written_files: tuple[str, ...] = Field(min_length=1)
+    omitted_components: tuple[str, ...] = Field(min_length=1)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> LeRobotMetadataSkeletonWrite:
+        if len(set(self.written_files)) != len(self.written_files):
+            raise ValueError("skeleton written files must be unique")
+        if any(not path.strip() or path.startswith("/") for path in self.written_files):
+            raise ValueError("skeleton written files must be non-empty relative paths")
+        if len(set(self.omitted_components)) != len(self.omitted_components):
+            raise ValueError("skeleton omitted components must be unique")
+        if any(not component.strip() for component in self.omitted_components):
+            raise ValueError("skeleton omitted components must be non-empty")
+        required_omissions = {"data_shards", "video_shards", "meta/stats.json"}
+        if not required_omissions.issubset(self.omitted_components):
+            raise ValueError("skeleton manifest must record data, video, and stats omissions")
+        return self
+
+
+class LeRobotMetadataSkeletonVerification(BaseModel):
+    """Verification result for a partial metadata skeleton, not a training dataset."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_metadata_skeleton_verification"] = (
+        "lerobot_metadata_skeleton_verification"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    output_root: str = Field(min_length=1)
+    written_files: tuple[str, ...] = Field(min_length=1)
+    omitted_components: tuple[str, ...] = Field(min_length=1)
     total_episodes: int = Field(gt=0)
     total_frames: int = Field(gt=0)
     total_tasks: int = Field(gt=0)

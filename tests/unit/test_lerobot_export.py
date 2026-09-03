@@ -14,8 +14,10 @@ from retargetlab.contracts import (
 from retargetlab.run import (
     build_lerobot_metadata_plan,
     verify_lerobot_metadata_plan,
+    verify_lerobot_metadata_skeleton,
     verify_target_replay_bundle,
     write_lerobot_metadata_plan,
+    write_lerobot_metadata_skeleton,
 )
 
 
@@ -277,6 +279,156 @@ def test_lerobot_metadata_plan_cli_round_trip(tmp_path: Path, capsys) -> None:
                 "verify-lerobot-metadata-plan",
                 "--plan",
                 str(plan_path),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "INVALID_INPUT"
+
+
+def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path) -> None:
+    pytest.importorskip("pyarrow")
+    import pyarrow.parquet as parquet
+
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_tasks(),
+        episodes=_episodes(),
+    )
+    plan_path = tmp_path / "metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    output_root = tmp_path / "skeleton"
+
+    manifest = write_lerobot_metadata_skeleton(
+        plan_path=plan_path,
+        output_root=output_root,
+    )
+
+    assert manifest.status == "PARTIAL"
+    assert manifest.source_scope == "synthetic_public_only"
+    assert manifest.written_files == (
+        "meta/episodes/chunk-000/file-000.parquet",
+        "meta/info.json",
+        "meta/tasks.parquet",
+    )
+    assert manifest.omitted_components == (
+        "data_shards",
+        "video_shards",
+        "meta/stats.json",
+    )
+    info = json.loads((output_root / "meta" / "info.json").read_text(encoding="utf-8"))
+    assert info["dataset_name"] == "fixture"
+    assert info["total_episodes"] == 1
+    assert info["total_frames"] == 2
+    assert info["total_videos"] == 0
+    assert info["splits"] == {"train": "3:4"}
+    assert info["retargetlab"]["status"] == "PARTIAL"
+    assert info["retargetlab"]["training_episode_allowlist"] == [3]
+    assert not (output_root / "data").exists()
+    assert not (output_root / "videos").exists()
+    assert not (output_root / "meta" / "stats.json").exists()
+
+    task_table = parquet.read_table(output_root / "meta" / "tasks.parquet")
+    assert task_table.column_names == ["task", "task_index"]
+    assert task_table.to_pylist() == [{"task": "fixture task", "task_index": 0}]
+    episode_table = parquet.read_table(
+        output_root / "meta" / "episodes" / "chunk-000" / "file-000.parquet"
+    )
+    assert episode_table.to_pylist() == [
+        {
+            "episode_index": 3,
+            "tasks": ["fixture task"],
+            "length": 2,
+            "dataset_from_index": 0,
+            "dataset_to_index": 2,
+            "data/chunk_index": 0,
+            "data/file_index": 0,
+        }
+    ]
+
+    verification = verify_lerobot_metadata_skeleton(
+        plan_path=plan_path,
+        output_root=output_root,
+    )
+    assert verification.status == "VERIFIED"
+    assert verification.written_files == manifest.written_files
+    assert verification.omitted_components == manifest.omitted_components
+
+
+def test_lerobot_metadata_skeleton_cli_round_trip_and_tamper_detection(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    pytest.importorskip("pyarrow")
+
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_tasks(),
+        episodes=_episodes(),
+    )
+    plan_path = tmp_path / "metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    output_root = tmp_path / "skeleton"
+    report_path = tmp_path / "skeleton-report.json"
+
+    assert (
+        app(
+            [
+                "write-lerobot-metadata-skeleton",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(output_root),
+                "--report",
+                str(report_path),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["artifact_type"] == "lerobot_metadata_skeleton_write"
+    assert payload["status"] == "PARTIAL"
+    assert json.loads(report_path.read_text(encoding="utf-8"))["status"] == "PARTIAL"
+
+    assert (
+        app(
+            [
+                "verify-lerobot-metadata-skeleton",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(output_root),
+                "--json",
+            ]
+        )
+        == 0
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+    info_path = output_root / "meta" / "info.json"
+    info = json.loads(info_path.read_text(encoding="utf-8"))
+    info["total_frames"] = 999
+    info_path.write_text(json.dumps(info), encoding="utf-8")
+    assert (
+        app(
+            [
+                "verify-lerobot-metadata-skeleton",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(output_root),
                 "--json",
             ]
         )

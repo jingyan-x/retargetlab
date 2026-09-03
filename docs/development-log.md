@@ -1925,3 +1925,30 @@ The next implementation boundary is a synthetic-only metadata skeleton writer
 that materializes the plan's `info`, tasks, and episode metadata files only
 after re-verifying the plan; it will leave data/video/statistics values
 explicitly incomplete.
+
+### M1b.3c: materialize and verify a partial LeRobot metadata skeleton
+
+The project now has a synthetic/public-only metadata skeleton writer. It
+re-verifies the bound metadata plan before creating an output root, writes
+plan-derived `meta/info.json`, `meta/tasks.parquet`, and grouped episode
+metadata parquet files, and uses exclusive file creation. The generated info
+records the source-preserving episode-index policy and the exact training
+allowlist. The result is explicitly `PARTIAL`; data shards, video shards, and
+`meta/stats.json` are omitted and listed in the write manifest. A verifier
+rejects missing, extra, or tampered files and rechecks the task/episode table
+values against the verified plan. The CLI exposes separate write and verify
+commands, with an optional write manifest kept outside the dataset root.
+
+Remote verification:
+
+- metadata skeleton writer, grouped episode metadata, CLI round-trip, and
+  info tamper detection: 9 passed;
+- full regression with the real OpenArm asset smoke enabled: 114 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, data shard, or statistics value was read or
+  written.
+
+The next implementation boundary is to bind the skeleton's metadata contract
+to actual synthetic target-table shards, while retaining an explicit
+incomplete status until statistics and all declared data paths are verified.
