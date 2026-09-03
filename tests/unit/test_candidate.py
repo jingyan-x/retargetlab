@@ -6,10 +6,13 @@ from retargetlab.contracts import (
     DatasetInfoManifest,
     FeatureDeclaration,
     MappingReview,
+    ReviewDecisionArtifact,
     ReviewEvidenceChecklist,
     StructureComparison,
 )
 from retargetlab.io import apply_mapping_review, build_pose_mapping_candidate
+from retargetlab.run import canonical_json_bytes, write_review_decision_artifact
+from retargetlab.run.fingerprint import sha256_bytes
 
 
 def _info() -> DatasetInfoManifest:
@@ -136,6 +139,34 @@ def test_review_must_be_explicit_before_candidate_promotion() -> None:
     assert approved.metadata["target_group.slot_0"] == "panda_2"
 
 
+def test_review_decision_artifact_binds_approved_mapping_without_values(tmp_path) -> None:
+    candidate = build_pose_mapping_candidate(_info())
+    review = _review(approved=True, accept_unverified_shape=True)
+    comparison = _comparison()
+    path = tmp_path / "review-decision.json"
+
+    artifact = write_review_decision_artifact(
+        path,
+        candidate=candidate,
+        review=review,
+        comparison=comparison,
+    )
+
+    assert isinstance(artifact, ReviewDecisionArtifact)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["approved_mapping_sha256"] == artifact.approved_mapping_sha256
+    assert payload["checklist_sha256"] == sha256_bytes(canonical_json_bytes(review.checklist))
+    assert "position_m" not in path.read_text(encoding="utf-8")
+    assert "poses" not in path.read_text(encoding="utf-8")
+    with pytest.raises(FileExistsError):
+        write_review_decision_artifact(
+            path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison,
+        )
+
+
 def test_candidate_cli_emits_review_only_mapping(tmp_path, capsys) -> None:
     from retargetlab.cli.main import EXIT_OK, app
 
@@ -229,3 +260,43 @@ def test_review_cli_keeps_unapproved_candidate_blocked(tmp_path, capsys) -> None
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "INVALID_INPUT"
     assert "not approved" in payload["error"]
+
+
+def test_review_cli_can_archive_an_approved_decision(tmp_path, capsys) -> None:
+    from retargetlab.cli.main import EXIT_OK, app
+
+    candidate = build_pose_mapping_candidate(_info())
+    candidate_path = tmp_path / "candidate.json"
+    candidate_path.write_text(
+        json.dumps({"mapping": candidate.model_dump(mode="json")}),
+        encoding="utf-8",
+    )
+    review_path = tmp_path / "review.json"
+    review_path.write_text(
+        _review(approved=True, accept_unverified_shape=True).model_dump_json(),
+        encoding="utf-8",
+    )
+    comparison_path = tmp_path / "comparison.json"
+    comparison_path.write_text(_comparison().model_dump_json(), encoding="utf-8")
+    output_path = tmp_path / "review-decision.json"
+
+    assert (
+        app(
+            [
+                "review-mapping",
+                str(candidate_path),
+                "--review",
+                str(review_path),
+                "--comparison",
+                str(comparison_path),
+                "--output",
+                str(output_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "APPROVED"
+    assert payload["decision_output"] == str(output_path)
+    assert output_path.is_file()

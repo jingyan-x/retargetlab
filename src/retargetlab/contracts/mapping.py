@@ -289,6 +289,35 @@ class ReviewPackagePreflightVerification(BaseModel):
     can_apply_review: bool
 
 
+class ReviewDecisionArtifact(BaseModel):
+    """Value-free record binding an approved review to its promoted mapping."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["semantic_review_decision"] = "semantic_review_decision"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    candidate_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    review_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    checklist_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    comparison_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    approved_mapping_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    reviewer: str = Field(min_length=1)
+    review_evidence: tuple[str, ...] = Field(min_length=1)
+    coordinate_frame: str = Field(min_length=1)
+    shape_acceptance: Literal["NOT_REQUIRED", "ACCEPTED"]
+    target_group_by_slot: dict[str, str] = Field(min_length=2, max_length=2)
+
+    @model_validator(mode="after")
+    def validate_target_groups(self) -> ReviewDecisionArtifact:
+        if set(self.target_group_by_slot) != {"slot_0", "slot_1"}:
+            raise ValueError("target_group_by_slot must define exactly slot_0 and slot_1")
+        if len(set(self.target_group_by_slot.values())) != 2:
+            raise ValueError("target groups must be unique")
+        return self
+
+
 class MappingValidation(BaseModel):
     """Machine-readable result of mapping a spec onto a structure manifest."""
 

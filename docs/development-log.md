@@ -1004,3 +1004,31 @@ Remote verification:
 The next boundary is to add a stable, value-free review decision record that
 binds the checklist and approved mapping hashes before any real calibration
 run is created.
+
+### M1a.17: explicit semantic review decision artifact
+
+The run layer now writes an exclusive `semantic_review_decision` artifact for
+an approved mapping review. It applies the review through the existing gate,
+then records canonical hashes for the review-only candidate, review,
+checklist, structure comparison, and promoted mapping, together with reviewer,
+evidence, coordinate frame, shape acceptance, and target-group metadata. The
+`review-mapping` CLI accepts an optional `--output` to archive this record;
+without it, the command remains an in-memory promotion report.
+
+The writer cannot run for a pending review, and approved reviews without a
+complete checklist are rejected by the contract. Synthetic approved fixtures
+covered the writer and CLI path; the real private-sample review remains
+pending and did not create a decision artifact.
+
+Remote verification:
+
+- decision-artifact, checklist, promotion-gate, and CLI tests: 60 passed;
+- full `pytest -q tests`: 60 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by the decision-record path.
+
+The next boundary is to make an approved decision artifact consumable by the
+bounded calibration command, while rechecking its hashes and preserving the
+existing explicit review inputs as the source of truth.

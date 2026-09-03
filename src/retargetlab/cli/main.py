@@ -44,6 +44,7 @@ from retargetlab.run import (
     verify_calibration_run,
     verify_review_package_preflight,
     write_calibration_run,
+    write_review_decision_artifact,
     write_review_package_preflight,
 )
 from retargetlab.run.fingerprint import sha256_bytes
@@ -86,6 +87,7 @@ def _parser() -> argparse.ArgumentParser:
     review_mapping.add_argument("candidate", type=Path)
     review_mapping.add_argument("--review", required=True, type=Path)
     review_mapping.add_argument("--comparison", required=True, type=Path)
+    review_mapping.add_argument("--output", type=Path)
     review_mapping.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect_review = subparsers.add_parser(
@@ -340,14 +342,34 @@ def _review_mapping_payload(
     candidate_path: Path,
     review_path: Path,
     comparison_path: Path,
+    output_path: Path | None = None,
 ) -> dict[str, Any]:
-    approved, comparison = _load_reviewed_mapping(candidate_path, review_path, comparison_path)
-    return {
+    candidate, review, comparison = _load_review_package(
+        candidate_path,
+        review_path,
+        comparison_path,
+    )
+    approved = apply_mapping_review(candidate, review, comparison)
+    payload: dict[str, Any] = {
         "command": "review-mapping",
         "status": "APPROVED",
         "comparison": comparison.model_dump(mode="json"),
         "mapping": approved.model_dump(mode="json"),
     }
+    if output_path is not None:
+        decision = write_review_decision_artifact(
+            output_path,
+            candidate=candidate,
+            review=review,
+            comparison=comparison,
+        )
+        payload.update(
+            {
+                "decision_output": str(output_path),
+                "decision_artifact_sha256": sha256_bytes(canonical_json_bytes(decision)),
+            }
+        )
+    return payload
 
 
 def _inspect_review_package_payload(
@@ -770,7 +792,12 @@ def app(argv: list[str] | None = None) -> int:
         return EXIT_OK
     if args.command == "review-mapping":
         try:
-            payload = _review_mapping_payload(args.candidate, args.review, args.comparison)
+            payload = _review_mapping_payload(
+                args.candidate,
+                args.review,
+                args.comparison,
+                args.output,
+            )
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {"command": "review-mapping", "status": "INVALID_INPUT", "error": str(exc)}
             _emit(error, args.json, sys.stdout)
