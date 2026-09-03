@@ -13,6 +13,7 @@ from retargetlab.contracts import (
     RobotProfile,
     TargetGripperTrajectory,
     TargetReplayManifest,
+    TargetReplayVerification,
 )
 from retargetlab.contracts.replay import ReplayArtifactRole
 from retargetlab.robot.assets import sha256_file
@@ -149,3 +150,32 @@ def write_target_replay_manifest(
         json.dump(manifest.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
         handle.write("\n")
     return manifest
+
+
+def verify_target_replay_manifest(path: Path) -> TargetReplayVerification:
+    """Recompute all replay bindings and return a value-free verification."""
+
+    manifest = TargetReplayManifest.model_validate_json(path.read_text(encoding="utf-8"))
+    artifacts = {item.role: Path(item.path) for item in manifest.artifacts}
+    if any(not artifact.is_file() for artifact in artifacts.values()):
+        missing = [str(item) for item in artifacts.values() if not item.is_file()]
+        raise FileNotFoundError(f"replay manifest input is missing: {missing}")
+    expected = build_target_replay_manifest(
+        replay_id=manifest.replay_id,
+        trajectory_path=artifacts["canonical_trajectory"],
+        profile_path=artifacts["robot_profile"],
+        recipe_path=artifacts["recipe"],
+        arm_solve_path=artifacts["arm_solve"],
+        target_grippers_path=artifacts["target_grippers"],
+        coupling=manifest.coupling,
+    )
+    if expected != manifest:
+        raise ValueError("replay manifest does not match its five input artifacts")
+    return TargetReplayVerification(
+        replay_id=manifest.replay_id,
+        robot_id=manifest.robot_id,
+        frame_count=manifest.frame_count,
+        manifest_sha256=sha256_bytes(canonical_json_bytes(manifest)),
+        robot_profile_sha256=manifest.robot_profile_sha256,
+        artifact_roles=tuple(item.role for item in manifest.artifacts),
+    )

@@ -1471,3 +1471,31 @@ Remote verification:
 The next implementation boundary is a read-only replay-manifest verifier that
 recomputes all five hashes and rechecks their cross-artifact lineage before
 any future export or execution step.
+
+### M1a.32: verify replay manifest lineage before downstream use
+
+The replay layer now includes a read-only verifier and
+`verify-replay-manifest` CLI. It re-parses the canonical trajectory, target
+robot profile, recipe, target gripper replay, and arm solve metadata, then
+rebuilds the expected manifest and compares all five artifact hashes, robot
+identity, backend identity, coupling, group, profile binding, and frame counts.
+The returned `TargetReplayVerification` is value-free and reports only the
+verified replay id, profile hash, frame count, manifest hash, and artifact
+roles.
+
+The verifier rejects a modified arm-solve frame count even when the manifest
+file itself is unchanged. This establishes the downstream gate needed before
+any future export or execution step; it does not run IK, touch private data,
+or infer missing semantics.
+
+Remote verification:
+
+- replay builder/verifier and CLI tests: 2 passed;
+- tamper case: modified solve metadata was rejected with a semantic error;
+- full regression with real OpenArm profile smoke enabled: 84 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed.
+
+The next implementation boundary is an explicit multi-group arm-solve binding
+for the replay manifest, so a bimanual target cannot be represented by one
+arm result while still being called complete.

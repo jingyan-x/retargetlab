@@ -51,6 +51,7 @@ from retargetlab.run import (
     verify_data_profile,
     verify_review_decision_artifact,
     verify_review_package_preflight,
+    verify_target_replay_manifest,
     write_calibration_run,
     write_dataset_coverage,
     write_review_decision_artifact,
@@ -111,6 +112,12 @@ def _parser() -> argparse.ArgumentParser:
     build_replay.add_argument("--coupling", required=True)
     build_replay.add_argument("--output", required=True, type=Path)
     build_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_replay = subparsers.add_parser(
+        "verify-replay-manifest", help="verify replay input hashes and lineage"
+    )
+    verify_replay.add_argument("--manifest", required=True, type=Path)
+    verify_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -533,6 +540,14 @@ def _replay_manifest_payload(
         "profile_sha256": manifest.robot_profile_sha256,
         "artifact_roles": [artifact.role for artifact in manifest.artifacts],
         "output": str(output_path),
+    }
+
+
+def _verify_replay_payload(manifest_path: Path) -> dict[str, Any]:
+    verification = verify_target_replay_manifest(manifest_path)
+    return {
+        "command": "verify-replay-manifest",
+        **verification.model_dump(mode="json"),
     }
 
 
@@ -1074,6 +1089,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "verify-replay-manifest":
+        print(
+            f"replay manifest: {payload['replay_id']} VERIFIED ({payload['frame_count']} frames)",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "candidate":
         print(
             f"mapping candidate: {payload['status']} "
@@ -1287,6 +1308,27 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "build-replay-manifest",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-replay-manifest":
+        try:
+            payload = _verify_replay_payload(args.manifest)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-replay-manifest",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-replay-manifest",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

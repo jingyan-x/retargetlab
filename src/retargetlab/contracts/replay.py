@@ -73,3 +73,18 @@ class TargetReplayManifest(BaseModel):
         if len(set(self.target_group_names)) != len(self.target_group_names):
             raise ValueError("replay target group names must be unique")
         return self
+
+
+class TargetReplayVerification(BaseModel):
+    """Value-free result of rechecking a target replay manifest."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    frame_count: int = Field(gt=0)
+    manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    robot_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    artifact_roles: tuple[ReplayArtifactRole, ...] = Field(min_length=5, max_length=5)

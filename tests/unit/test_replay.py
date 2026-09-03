@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from retargetlab.cli.main import EXIT_OK, app
+from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
     CanonicalFrame,
     CanonicalTrajectory,
@@ -18,6 +18,7 @@ from retargetlab.contracts import (
 from retargetlab.run import (
     build_target_replay_manifest,
     map_target_grippers,
+    verify_target_replay_manifest,
     write_robot_profile,
     write_target_gripper_trajectory,
     write_target_replay_manifest,
@@ -142,6 +143,9 @@ def test_replay_manifest_cross_checks_all_inputs_and_is_value_free(tmp_path: Pat
     assert len(manifest.artifacts) == 5  # the manifest carries paths and hashes only
     assert "poses" not in text
     assert "results" not in text
+    verification = verify_target_replay_manifest(output)
+    assert verification.status == "VERIFIED"
+    assert verification.frame_count == 2
     with pytest.raises(FileExistsError):
         write_target_replay_manifest(output, manifest)
 
@@ -185,3 +189,35 @@ def test_replay_manifest_cli_writes_bound_artifact(tmp_path: Path, capsys) -> No
         "arm_solve",
         "target_grippers",
     ]
+
+    assert (
+        app(
+            [
+                "verify-replay-manifest",
+                "--manifest",
+                str(output),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    verification_payload = json.loads(capsys.readouterr().out)
+    assert verification_payload["status"] == "VERIFIED"
+
+    paths[3].write_text(
+        paths[3].read_text(encoding="utf-8").replace('"frame_count": 2', '"frame_count": 1'),
+        encoding="utf-8",
+    )
+    assert (
+        app(
+            [
+                "verify-replay-manifest",
+                "--manifest",
+                str(output),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    tamper_payload = json.loads(capsys.readouterr().out)
+    assert tamper_payload["status"] == "INVALID_INPUT"
