@@ -70,6 +70,39 @@ class SyntheticTargetTableExport(BaseModel):
         return self
 
 
+class SyntheticTargetTableVerification(BaseModel):
+    """Value-free result of verifying a synthetic target table."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    source_table_path: str = Field(min_length=1)
+    output_table_path: str = Field(min_length=1)
+    target_replay_bundle_path: str = Field(min_length=1)
+    target_replay_bundle_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    preflight_path: str | None = Field(default=None, min_length=1)
+    preflight_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    frame_count: int = Field(gt=0)
+    selected_episode_indices: tuple[int, ...] = Field(min_length=1)
+    output_columns: tuple[str, ...] = Field(min_length=1)
+    source_table_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    output_table_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+    @model_validator(mode="after")
+    def validate_binding(self) -> SyntheticTargetTableVerification:
+        if (self.preflight_path is None) != (self.preflight_sha256 is None):
+            raise ValueError("preflight path and hash must be supplied together")
+        if len(set(self.selected_episode_indices)) != len(self.selected_episode_indices):
+            raise ValueError("selected episode indices must be unique")
+        if any(index < 0 for index in self.selected_episode_indices):
+            raise ValueError("selected episode indices must be non-negative")
+        return self
+
+
 class SyntheticTableWritePreflight(BaseModel):
     """Value-free binding for the synthetic table writer's approved inputs."""
 

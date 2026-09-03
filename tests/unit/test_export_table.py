@@ -8,7 +8,11 @@ from test_replay import _write_inputs
 
 from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
 from retargetlab.contracts import ExportInputGate, RobotProfile
-from retargetlab.export import build_export_profile, write_synthetic_target_table
+from retargetlab.export import (
+    build_export_profile,
+    verify_synthetic_target_table,
+    write_synthetic_target_table,
+)
 from retargetlab.run import (
     build_synthetic_table_write_preflight,
     build_target_replay_bundle,
@@ -160,6 +164,13 @@ def test_synthetic_table_writer_replaces_only_target_streams(tmp_path: Path) -> 
     assert pa.types.is_fixed_size_list(output.schema.field("action").type)
     metadata = output.schema.metadata or {}
     assert metadata[b"retargetlab.source_scope"] == b"synthetic_public_only"
+    verification = verify_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+    )
+    assert verification.status == "VERIFIED"
+    assert verification.output_table_sha256 == result.output_table_sha256
 
 
 def test_synthetic_table_writer_rejects_timestamp_mismatch_without_output(
@@ -177,6 +188,33 @@ def test_synthetic_table_writer_rejects_timestamp_mismatch_without_output(
             output_path=output_path,
         )
     assert not output_path.exists()
+
+
+def test_synthetic_table_verifier_rejects_tampered_target_vector(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    source_path = tmp_path / "synthetic-source.parquet"
+    output_path = tmp_path / "synthetic-target.parquet"
+    _write_source_table(source_path)
+    write_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+    )
+
+    output = parquet.read_table(output_path)
+    tampered = output.set_column(
+        output.column_names.index("action"),
+        "action",
+        pa.array([[1.0, 1.0], [1.0, 1.0]], type=pa.list_(pa.float32(), 2)),
+    )
+    parquet.write_table(tampered, output_path)
+
+    with pytest.raises(ValueError, match="vector does not match replay"):
+        verify_synthetic_target_table(
+            source_path=source_path,
+            target_replay_bundle_path=bundle_path,
+            output_path=output_path,
+        )
 
 
 def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys) -> None:
@@ -203,6 +241,23 @@ def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys)
     payload = json.loads(capsys.readouterr().out)
     assert payload["artifact_type"] == "synthetic_target_table"
     assert payload["source_scope"] == "synthetic_public_only"
+
+    assert (
+        app(
+            [
+                "verify-synthetic-table",
+                "--source",
+                str(source_path),
+                "--target-replay-bundle",
+                str(bundle_path),
+                "--output",
+                str(output_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
 
     assert (
         app(
@@ -265,6 +320,13 @@ def test_synthetic_table_preflight_binds_gate_source_and_bundle(tmp_path: Path) 
     )
     assert result.preflight_path == str(preflight_path.resolve())
     assert result.preflight_sha256 == verification.preflight_sha256
+    output_verification = verify_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+        preflight_path=preflight_path,
+    )
+    assert output_verification.preflight_sha256 == verification.preflight_sha256
     with pytest.raises(FileExistsError):
         write_synthetic_table_write_preflight(preflight_path, preflight)
 

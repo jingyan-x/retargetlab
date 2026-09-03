@@ -1794,3 +1794,29 @@ Remote verification:
 The next implementation boundary is a value-aware synthetic-output verifier
 that rechecks the written Parquet vectors and preserved row alignment against
 the verified replay and preflight, before any real dataset materialization.
+
+### M1b.2d: verify the synthetic target table after writing
+
+The synthetic writer now has a value-aware `verify-synthetic-table` path. It
+rebuilds the selected source view from the verified bundle/preflight, confirms
+the output column order and row count, compares every preserved source column,
+checks both fixed-size `float32` target vectors against their corresponding
+state/action replay artifacts, requires all `valid.retarget` values to be
+true, and validates the output metadata plus bundle/replay identity. It
+returns only hashes and structural metadata; it does not persist target vector
+values in the verification summary. Tampering with a target vector is now a
+deterministic verification failure.
+
+Remote verification:
+
+- synthetic write/verify, CLI, preflight linkage, multi-episode selection, and
+  tamper tests: 7 passed;
+- full regression with the real OpenArm asset smoke enabled: 104 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is to persist a value-free write/verify
+report and make the synthetic CLI round trip consume it, before designing a
+full multi-episode LeRobot metadata writer.
