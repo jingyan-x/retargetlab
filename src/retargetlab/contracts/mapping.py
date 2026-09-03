@@ -229,6 +229,23 @@ class ReviewPackagePreflightArtifact(BaseModel):
         return self
 
 
+class ReviewPackagePreflightVerification(BaseModel):
+    """Value-free result of verifying a saved review-package preflight."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    preflight_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    candidate_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    review_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    comparison_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    inspection_status: Literal["PENDING_REVIEW", "REVIEW_APPROVED", "BLOCKED"]
+    can_apply_review: bool
+
+
 class MappingValidation(BaseModel):
     """Machine-readable result of mapping a spec onto a structure manifest."""
 

@@ -42,6 +42,7 @@ from retargetlab.run import (
     execute_solve_run,
     recipe_sha256,
     verify_calibration_run,
+    verify_review_package_preflight,
     write_calibration_run,
     write_review_package_preflight,
 )
@@ -96,6 +97,16 @@ def _parser() -> argparse.ArgumentParser:
     inspect_review.add_argument("--comparison", required=True, type=Path)
     inspect_review.add_argument("--output", type=Path)
     inspect_review.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_review = subparsers.add_parser(
+        "verify-review-package",
+        help="verify a saved review-package preflight",
+    )
+    verify_review.add_argument("--preflight", required=True, type=Path)
+    verify_review.add_argument("--candidate", required=True, type=Path)
+    verify_review.add_argument("--review", required=True, type=Path)
+    verify_review.add_argument("--comparison", required=True, type=Path)
+    verify_review.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     calibrate = subparsers.add_parser(
         "calibrate", help="run a bounded approved calibration and write an audit artifact"
@@ -369,6 +380,24 @@ def _inspect_review_package_payload(
             }
         )
     return payload
+
+
+def _verify_review_package_payload(
+    preflight_path: Path,
+    candidate_path: Path,
+    review_path: Path,
+    comparison_path: Path,
+) -> dict[str, Any]:
+    verification = verify_review_package_preflight(
+        preflight_path,
+        candidate_path=candidate_path,
+        review_path=review_path,
+        comparison_path=comparison_path,
+    )
+    return {
+        "command": "verify-review-package",
+        **verification.model_dump(mode="json"),
+    }
 
 
 def _calibrate_payload(
@@ -648,6 +677,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "verify-review-package":
+        print(
+            f"review package preflight: {payload['status']} ({payload['inspection_status']})",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "calibrate":
         print(
             f"calibration: {payload['status']} "
@@ -760,6 +795,24 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_SEMANTIC if payload["status"] == "BLOCKED" else EXIT_OK
+    if args.command == "verify-review-package":
+        try:
+            payload = _verify_review_package_payload(
+                args.preflight,
+                args.candidate,
+                args.review,
+                args.comparison,
+            )
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-review-package",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
     if args.command == "calibrate":
         try:
             payload = _calibrate_payload(

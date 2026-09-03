@@ -947,3 +947,29 @@ Remote verification:
 The next boundary is to add a review-package preflight verifier that accepts
 only the saved package paths and checks the archived hash record before a
 future approval or calibration step.
+
+### M1a.15: read-only review-package preflight verifier
+
+The run layer and CLI now expose `verify-review-package`. Given the saved
+preflight artifact and the candidate, explicit review, and structure
+comparison paths, it recomputes all three canonical input hashes and compares
+the regenerated inspection result with the archived record. It returns only
+value-free verification metadata and never reads dataset or episode files.
+
+The real OpenArm package was used for the preceding preflight smoke; the
+verifier success path and a tampered-candidate negative path were exercised on
+synthetic package files. A changed candidate is rejected by hash mismatch, so
+the saved preflight cannot silently drift from its reviewed inputs.
+
+Remote verification:
+
+- review-package preflight writer/verifier and CLI tests: 3 passed;
+- full `pytest -q tests`: 58 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by the verifier.
+
+The next boundary is to add an explicit review-package evidence checklist,
+keeping structural readiness, semantic approval, and shape acceptance as
+separate fields before any real calibration is allowed.

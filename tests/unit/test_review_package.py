@@ -100,7 +100,7 @@ def test_review_package_inspection_keeps_pending_and_approved_states_explicit() 
 
 
 def test_review_package_cli_reports_pending_without_promoting_candidate(tmp_path, capsys) -> None:
-    from retargetlab.cli.main import EXIT_OK, app
+    from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
 
     candidate_path = tmp_path / "candidate.json"
     candidate_path.write_text(
@@ -137,6 +137,54 @@ def test_review_package_cli_reports_pending_without_promoting_candidate(tmp_path
     assert payload["output"] == str(output_path)
     assert "position_m" not in output_path.read_text(encoding="utf-8")
     assert "poses" not in output_path.read_text(encoding="utf-8")
+
+    assert (
+        app(
+            [
+                "verify-review-package",
+                "--preflight",
+                str(output_path),
+                "--candidate",
+                str(candidate_path),
+                "--review",
+                str(review_path),
+                "--comparison",
+                str(comparison_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    verification_payload = json.loads(capsys.readouterr().out)
+    assert verification_payload["status"] == "VERIFIED"
+    assert verification_payload["inspection_status"] == "PENDING_REVIEW"
+    assert verification_payload["can_apply_review"] is False
+
+    tampered = _candidate().model_copy(update={"metadata": {"candidate_status": "TAMPERED"}})
+    candidate_path.write_text(
+        json.dumps({"mapping": tampered.model_dump(mode="json")}),
+        encoding="utf-8",
+    )
+    assert (
+        app(
+            [
+                "verify-review-package",
+                "--preflight",
+                str(output_path),
+                "--candidate",
+                str(candidate_path),
+                "--review",
+                str(review_path),
+                "--comparison",
+                str(comparison_path),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    tamper_payload = json.loads(capsys.readouterr().out)
+    assert tamper_payload["status"] == "INVALID_INPUT"
+    assert "candidate hash" in tamper_payload["error"]
 
 
 def test_review_package_preflight_writer_is_exclusive_and_value_free(tmp_path) -> None:
