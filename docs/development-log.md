@@ -1978,3 +1978,29 @@ Remote verification:
 The next implementation boundary is multi-episode synthetic shard
 materialization, which must first introduce a value-free mapping from each
 episode's verified replay artifact to its declared data interval.
+
+### M1b.3e: add the multi-episode replay binding manifest
+
+The project now has a value-free `lerobot_replay_binding_manifest`. It maps
+each planned episode index and contiguous dataset interval to one independently
+verified target replay bundle, preserving the bundle path/hash, replay id,
+robot id, export-profile hash, target layout, and frame count. The builder
+requires exact coverage of the metadata plan's episode allowlist and rechecks
+every bundle before recording the binding. The verifier rebuilds the manifest
+from those bound files, so changing a bundle or mapping cannot be hidden by
+editing the JSON summary. CLI build/verify commands accept an explicit JSON
+episode-to-bundle map.
+
+Remote verification:
+
+- replay binding contract, gate/profile/layout/frame checks, CLI round-trip,
+  and allowlist mismatch tests: 12 passed;
+- full regression with the real OpenArm asset smoke enabled: pending for this
+  slice;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is a multi-episode target-table binding
+manifest and grouped data-shard writer that consumes one verified synthetic
+target-table report per episode.

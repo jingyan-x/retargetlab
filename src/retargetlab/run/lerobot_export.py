@@ -13,14 +13,18 @@ from retargetlab.contracts import (
     ExportProfile,
     FeatureDeclaration,
     LeRobotEpisodeMetadata,
+    LeRobotEpisodeReplayBinding,
     LeRobotMetadataPlan,
     LeRobotMetadataPlanVerification,
     LeRobotMetadataSkeletonVerification,
     LeRobotMetadataSkeletonWrite,
     LeRobotPartialDatasetVerification,
     LeRobotPartialDatasetWrite,
+    LeRobotReplayBindingManifest,
+    LeRobotReplayBindingVerification,
     LeRobotTaskMetadata,
     SyntheticTableWriteReport,
+    TargetReplayBundle,
 )
 from retargetlab.robot.assets import sha256_file
 from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
@@ -140,6 +144,115 @@ def _load_verified_plan(path: Path) -> tuple[LeRobotMetadataPlan, LeRobotMetadat
     if verification.plan_sha256 != sha256_bytes(canonical_json_bytes(plan)):
         raise ValueError("LeRobot metadata plan hash changed during verification")
     return plan, verification
+
+
+def build_lerobot_replay_binding_manifest(
+    *,
+    plan_path: Path,
+    target_replay_bundle_paths: Mapping[int, Path],
+) -> LeRobotReplayBindingManifest:
+    """Bind every planned episode to one independently verified replay bundle."""
+
+    plan_path = plan_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    expected_episode_indices = set(plan.training_episode_allowlist)
+    if set(target_replay_bundle_paths) != expected_episode_indices:
+        raise ValueError("replay bundle paths must match the plan episode allowlist")
+
+    from retargetlab.run.replay import verify_target_replay_bundle
+
+    bindings: list[LeRobotEpisodeReplayBinding] = []
+    for episode in plan.episodes:
+        bundle_path = target_replay_bundle_paths[episode.episode_index].resolve()
+        if not bundle_path.is_file():
+            raise FileNotFoundError(f"target replay bundle does not exist: {bundle_path}")
+        bundle_verification = verify_target_replay_bundle(bundle_path)
+        bundle = TargetReplayBundle.model_validate_json(
+            bundle_path.read_text(encoding="utf-8")
+        )
+        if bundle_verification.frame_count != episode.length:
+            raise ValueError(
+                f"replay bundle frame count does not match episode {episode.episode_index}"
+            )
+        if bundle.robot_id != plan.robot_id or bundle_verification.robot_id != plan.robot_id:
+            raise ValueError(
+                f"replay bundle robot does not match episode {episode.episode_index}"
+            )
+        if bundle.layout != plan.target_layout:
+            raise ValueError(
+                f"replay bundle layout does not match episode {episode.episode_index}"
+            )
+        if bundle.export_profile_sha256 != plan.export_profile_sha256:
+            raise ValueError(
+                f"replay bundle profile does not match episode {episode.episode_index}"
+            )
+        bindings.append(
+            LeRobotEpisodeReplayBinding(
+                episode_index=episode.episode_index,
+                dataset_from_index=episode.dataset_from_index,
+                dataset_to_index=episode.dataset_to_index,
+                target_replay_bundle_path=bundle_path.as_posix(),
+                target_replay_bundle_sha256=bundle_verification.bundle_sha256,
+                replay_id=bundle.replay_id,
+                robot_id=bundle.robot_id,
+                export_profile_sha256=bundle.export_profile_sha256,
+                layout=bundle.layout,
+                frame_count=bundle.frame_count,
+            )
+        )
+    return LeRobotReplayBindingManifest(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        target_layout=plan.target_layout,
+        total_frames=plan.total_frames,
+        bindings=tuple(bindings),
+    )
+
+
+def write_lerobot_replay_binding_manifest(
+    path: Path,
+    manifest: LeRobotReplayBindingManifest,
+) -> LeRobotReplayBindingManifest:
+    """Write one exclusive value-free multi-episode replay binding manifest."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(manifest.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return manifest
+
+
+def verify_lerobot_replay_binding_manifest(
+    path: Path,
+) -> LeRobotReplayBindingVerification:
+    """Rebuild all episode bindings from the verified plan and replay bundles."""
+
+    path = path.resolve()
+    manifest = LeRobotReplayBindingManifest.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+    expected = build_lerobot_replay_binding_manifest(
+        plan_path=Path(manifest.plan_path),
+        target_replay_bundle_paths={
+            binding.episode_index: Path(binding.target_replay_bundle_path)
+            for binding in manifest.bindings
+        },
+    )
+    if expected != manifest:
+        raise ValueError("replay binding manifest does not match its bound inputs")
+    return LeRobotReplayBindingVerification(
+        dataset_alias=manifest.dataset_alias,
+        source_revision=manifest.source_revision,
+        robot_id=manifest.robot_id,
+        plan_path=manifest.plan_path,
+        plan_sha256=manifest.plan_sha256,
+        binding_manifest_sha256=sha256_bytes(canonical_json_bytes(manifest)),
+        binding_count=len(manifest.bindings),
+        total_frames=manifest.total_frames,
+    )
 
 
 def _load_pyarrow() -> tuple[Any, Any]:

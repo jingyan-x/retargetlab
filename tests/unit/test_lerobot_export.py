@@ -17,15 +17,18 @@ from retargetlab.export import (
 )
 from retargetlab.run import (
     build_lerobot_metadata_plan,
+    build_lerobot_replay_binding_manifest,
     build_synthetic_table_write_report,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
     verify_lerobot_partial_dataset,
+    verify_lerobot_replay_binding_manifest,
     verify_target_replay_bundle,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
+    write_lerobot_replay_binding_manifest,
     write_synthetic_table_write_report,
 )
 
@@ -316,6 +319,77 @@ def test_lerobot_metadata_plan_cli_round_trip(tmp_path: Path, capsys) -> None:
         == EXIT_SEMANTIC
     )
     assert json.loads(capsys.readouterr().out)["status"] == "INVALID_INPUT"
+
+
+def test_lerobot_replay_binding_manifest_binds_each_plan_episode(tmp_path: Path, capsys) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    gate_path = _write_gate(tmp_path, bundle_path)
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_tasks(),
+        episodes=_episodes(),
+    )
+    plan_path = tmp_path / "metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+
+    manifest = build_lerobot_replay_binding_manifest(
+        plan_path=plan_path,
+        target_replay_bundle_paths={3: bundle_path},
+    )
+    manifest_path = tmp_path / "replay-bindings.json"
+    write_lerobot_replay_binding_manifest(manifest_path, manifest)
+    verification = verify_lerobot_replay_binding_manifest(manifest_path)
+
+    assert manifest.status == "READY"
+    assert manifest.total_frames == 2
+    assert manifest.bindings[0].episode_index == 3
+    assert manifest.bindings[0].dataset_from_index == 0
+    assert manifest.bindings[0].dataset_to_index == 2
+    assert manifest.bindings[0].target_replay_bundle_path == bundle_path.resolve().as_posix()
+    assert verification.status == "VERIFIED"
+    assert verification.binding_count == 1
+    with pytest.raises(ValueError, match="episode allowlist"):
+        build_lerobot_replay_binding_manifest(
+            plan_path=plan_path,
+            target_replay_bundle_paths={4: bundle_path},
+        )
+
+    bundles_path = tmp_path / "bundles.json"
+    cli_manifest_path = tmp_path / "cli-replay-bindings.json"
+    bundles_path.write_text(json.dumps({"3": str(bundle_path)}), encoding="utf-8")
+    assert (
+        app(
+            [
+                "build-lerobot-replay-bindings",
+                "--plan",
+                str(plan_path),
+                "--bundles",
+                str(bundles_path),
+                "--output",
+                str(cli_manifest_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["artifact_type"] == (
+        "lerobot_replay_binding_manifest"
+    )
+    assert (
+        app(
+            [
+                "verify-lerobot-replay-bindings",
+                "--manifest",
+                str(cli_manifest_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
 
 
 def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path) -> None:

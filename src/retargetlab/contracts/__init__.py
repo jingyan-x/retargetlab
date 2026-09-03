@@ -23,12 +23,15 @@ from .export_table import (
 from .gripper import TargetGripperFrame, TargetGripperTrajectory
 from .lerobot_export import (
     LeRobotEpisodeMetadata,
+    LeRobotEpisodeReplayBinding,
     LeRobotMetadataPlan,
     LeRobotMetadataPlanVerification,
     LeRobotMetadataSkeletonVerification,
     LeRobotMetadataSkeletonWrite,
     LeRobotPartialDatasetVerification,
     LeRobotPartialDatasetWrite,
+    LeRobotReplayBindingManifest,
+    LeRobotReplayBindingVerification,
     LeRobotTaskMetadata,
 )
 from .mapping import (
@@ -136,10 +139,13 @@ __all__ = [
     "TargetGripperFrame",
     "TargetGripperTrajectory",
     "LeRobotEpisodeMetadata",
+    "LeRobotEpisodeReplayBinding",
     "LeRobotMetadataPlan",
     "LeRobotMetadataPlanVerification",
     "LeRobotPartialDatasetVerification",
     "LeRobotPartialDatasetWrite",
+    "LeRobotReplayBindingManifest",
+    "LeRobotReplayBindingVerification",
     "LeRobotMetadataSkeletonVerification",
     "LeRobotMetadataSkeletonWrite",
     "LeRobotTaskMetadata",

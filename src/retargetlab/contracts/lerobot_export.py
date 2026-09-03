@@ -49,6 +49,91 @@ class LeRobotEpisodeMetadata(BaseModel):
         return self
 
 
+class LeRobotEpisodeReplayBinding(BaseModel):
+    """Value-free binding from one planned episode to one target replay bundle."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    episode_index: int = Field(ge=0)
+    dataset_from_index: int = Field(ge=0)
+    dataset_to_index: int = Field(gt=0)
+    target_replay_bundle_path: str = Field(min_length=1)
+    target_replay_bundle_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    replay_id: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    export_profile_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    layout: TargetVectorLayout
+    frame_count: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> LeRobotEpisodeReplayBinding:
+        if self.dataset_to_index - self.dataset_from_index != self.frame_count:
+            raise ValueError("episode replay binding range does not match frame_count")
+        return self
+
+
+class LeRobotReplayBindingManifest(BaseModel):
+    """Value-free mapping needed before multi-episode data shards can be written."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_replay_binding_manifest"] = (
+        "lerobot_replay_binding_manifest"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["READY"] = "READY"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    target_layout: TargetVectorLayout
+    total_frames: int = Field(gt=0)
+    bindings: tuple[LeRobotEpisodeReplayBinding, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_bindings(self) -> LeRobotReplayBindingManifest:
+        if self.total_frames != sum(binding.frame_count for binding in self.bindings):
+            raise ValueError("replay binding frame counts do not match total_frames")
+        episode_indices = tuple(binding.episode_index for binding in self.bindings)
+        if episode_indices != tuple(sorted(episode_indices)):
+            raise ValueError("replay bindings must be ordered by episode_index")
+        if len(set(episode_indices)) != len(episode_indices):
+            raise ValueError("replay binding episode indices must be unique")
+        expected_start = 0
+        for binding in self.bindings:
+            if binding.dataset_from_index != expected_start:
+                raise ValueError("replay binding ranges must be contiguous from zero")
+            if binding.robot_id != self.robot_id:
+                raise ValueError("replay binding robot ids must match")
+            if binding.layout != self.target_layout:
+                raise ValueError("replay binding layouts must match")
+            expected_start = binding.dataset_to_index
+        if expected_start != self.total_frames:
+            raise ValueError("replay binding ranges do not cover total_frames")
+        return self
+
+
+class LeRobotReplayBindingVerification(BaseModel):
+    """Value-free result of rechecking a multi-episode replay binding manifest."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_replay_binding_verification"] = (
+        "lerobot_replay_binding_verification"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    binding_count: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
 class LeRobotMetadataPlan(BaseModel):
     """Value-free plan for a complete, video-free LeRobot v3 metadata set."""
 
