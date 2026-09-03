@@ -200,3 +200,28 @@ seed) then converged in 63 Pink iterations with collision-free postcheck. The
 integration test covers this path, and the remote suite is `12 passed`; ruff
 and mypy remain green. The solver output contains only upstream qpsolvers/OSQP
 warnings. No private or held-out data was read.
+
+### M0 continuation: read-only frame and episode diagnostics
+
+The next slice adds a backend-independent diagnostic layer without changing
+solver outputs or repairing trajectories. `FrameDiagnostics` records solver
+status, residuals, collision verification, joint-limit violation, and a
+separate continuous-jump flag; it intentionally contains no joint values.
+`ThresholdSet` makes the M0 nominal position/orientation thresholds and the
+relaxed orientation threshold explicit, each with source and provenance.
+`diagnose_episode` aggregates frame predicates into `PASS`, `WARN`, or `FAIL`:
+all nominal frames pass, all relaxed-but-not-nominal frames warn, and any
+other condition fails. An unknown collision result is not treated as safe.
+
+Verification on the remote repository:
+
+- `pytest -q tests`: 13 passed and 1 Panda integration test skipped because
+  the ignored project asset directory was unavailable to this checkout;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- focused diagnostic tests: 2 passed.
+
+This layer remains read-only and does not claim frame-identity confirmation,
+real-robot safety, or held-out validation. The next slice can connect it to a
+trajectory runner once the input adapter supplies explicit per-frame collision,
+limit, and delta checks.

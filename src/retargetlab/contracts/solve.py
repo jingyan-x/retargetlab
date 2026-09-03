@@ -66,3 +66,4 @@ class IKResult(BaseModel):
     termination_reason: str = Field(min_length=1)
     solver: str = Field(min_length=1)
     collision_free: bool | None = None
+    joint_limit_violation: bool = False
