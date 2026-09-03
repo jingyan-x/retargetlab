@@ -1440,3 +1440,34 @@ Remote verification:
 The next implementation boundary is to bind the target gripper replay into a
 full canonical-to-target replay manifest, including explicit arm-solve
 provenance, without making the gripper path part of the arm IK objective.
+
+### M1a.31: bind canonical-to-target replay provenance
+
+The replay layer now has a value-free `TargetReplayManifest` containing exactly
+five immutable references: canonical trajectory, target robot profile, recipe,
+arm solve artifact, and target gripper replay. It records each file/hash,
+robot/backend/coupling identity, arm group, target groups, and frame count.
+The builder revalidates the canonical/profile/recipe contracts, requires the
+target gripper artifact to carry the same profile hash and robot id, checks the
+arm solve recipe/backend/group/frame metadata, and refuses any count or
+coupling mismatch. The manifest contains no pose arrays, joint solutions, or
+gripper values.
+
+The `build-replay-manifest` CLI writes the manifest exclusively, so changing
+any upstream input requires a new replay id/output instead of replacement.
+Synthetic CLI and cross-check tests passed, including the invariant that the
+target gripper path remains separate from arm IK provenance rather than being
+silently folded into the solver input.
+
+Remote verification:
+
+- replay manifest contract and CLI tests: 2 passed;
+- full regression with real OpenArm profile smoke enabled: 84 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, arm solve, or export bundle were read or
+  changed while building the synthetic manifest.
+
+The next implementation boundary is a read-only replay-manifest verifier that
+recomputes all five hashes and rechecks their cross-artifact lineage before
+any future export or execution step.

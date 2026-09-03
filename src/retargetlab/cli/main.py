@@ -41,6 +41,7 @@ from retargetlab.io import (
 from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
+    build_target_replay_manifest,
     canonical_json_bytes,
     execute_solve_run,
     load_executable_data_profile,
@@ -56,6 +57,7 @@ from retargetlab.run import (
     write_review_package_preflight,
     write_robot_profile,
     write_target_gripper_trajectory,
+    write_target_replay_manifest,
 )
 from retargetlab.run.fingerprint import sha256_bytes
 
@@ -96,6 +98,19 @@ def _parser() -> argparse.ArgumentParser:
     )
     map_grippers.add_argument("--output", required=True, type=Path)
     map_grippers.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    build_replay = subparsers.add_parser(
+        "build-replay-manifest", help="bind canonical-to-target replay provenance"
+    )
+    build_replay.add_argument("--replay-id", required=True)
+    build_replay.add_argument("--trajectory", required=True, type=Path)
+    build_replay.add_argument("--profile", required=True, type=Path)
+    build_replay.add_argument("--recipe", required=True, type=Path)
+    build_replay.add_argument("--arm-solve", required=True, type=Path)
+    build_replay.add_argument("--target-grippers", required=True, type=Path)
+    build_replay.add_argument("--coupling", required=True)
+    build_replay.add_argument("--output", required=True, type=Path)
+    build_replay.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -483,6 +498,40 @@ def _map_grippers_payload(
         "group_names": list(mapped.group_names),
         "frame_count": len(mapped.frames),
         "joint_names": sorted(mapped.frames[0].joint_positions),
+        "output": str(output_path),
+    }
+
+
+def _replay_manifest_payload(
+    *,
+    replay_id: str,
+    trajectory_path: Path,
+    profile_path: Path,
+    recipe_path: Path,
+    arm_solve_path: Path,
+    target_grippers_path: Path,
+    coupling: str,
+    output_path: Path,
+) -> dict[str, Any]:
+    manifest = build_target_replay_manifest(
+        replay_id=replay_id,
+        trajectory_path=trajectory_path,
+        profile_path=profile_path,
+        recipe_path=recipe_path,
+        arm_solve_path=arm_solve_path,
+        target_grippers_path=target_grippers_path,
+        coupling=coupling,
+    )
+    write_target_replay_manifest(output_path, manifest)
+    return {
+        "command": "build-replay-manifest",
+        "status": manifest.status,
+        "replay_id": manifest.replay_id,
+        "robot_id": manifest.robot_id,
+        "frame_count": manifest.frame_count,
+        "arm_group": manifest.arm_group,
+        "profile_sha256": manifest.robot_profile_sha256,
+        "artifact_roles": [artifact.role for artifact in manifest.artifacts],
         "output": str(output_path),
     }
 
@@ -1018,6 +1067,13 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "build-replay-manifest":
+        print(
+            f"replay manifest: {payload['replay_id']} -> {payload['output']} "
+            f"({payload['frame_count']} frames)",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "candidate":
         print(
             f"mapping candidate: {payload['status']} "
@@ -1201,6 +1257,36 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "map-grippers",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "build-replay-manifest":
+        try:
+            payload = _replay_manifest_payload(
+                replay_id=args.replay_id,
+                trajectory_path=args.trajectory,
+                profile_path=args.profile,
+                recipe_path=args.recipe,
+                arm_solve_path=args.arm_solve,
+                target_grippers_path=args.target_grippers,
+                coupling=args.coupling,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-replay-manifest",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-replay-manifest",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

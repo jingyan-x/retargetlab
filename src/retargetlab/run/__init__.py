@@ -8,6 +8,7 @@ from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
 from .preflight import verify_review_package_preflight, write_review_package_preflight
 from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
+from .replay import build_target_replay_manifest, write_target_replay_manifest
 from .report import write_dataset_report
 from .review import write_calibration_run, write_review_run_artifact
 from .robot_profile import write_robot_profile
@@ -33,6 +34,8 @@ __all__ = [
     "write_robot_profile",
     "map_target_grippers",
     "write_target_gripper_trajectory",
+    "build_target_replay_manifest",
+    "write_target_replay_manifest",
     "write_dataset_coverage",
     "verify_data_profile",
     "load_executable_data_profile",
