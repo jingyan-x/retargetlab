@@ -15,6 +15,7 @@ from retargetlab.contracts import (
 )
 from retargetlab.run import (
     canonical_json_bytes,
+    verify_calibration_run,
     write_calibration_run,
     write_review_run_artifact,
 )
@@ -172,6 +173,10 @@ def test_calibration_run_writes_recipe_and_manifest_without_source_rows(tmp_path
     for path in (output_path, recipe_path, manifest_path):
         assert "position_m" not in path.read_text(encoding="utf-8")
         assert "poses" not in path.read_text(encoding="utf-8")
+    verification = verify_calibration_run(output_path.parent)
+    assert verification.status == "VERIFIED"
+    assert verification.run_id == output_path.stem
+    assert verification.selected_frame_count == 2
     with pytest.raises(FileExistsError):
         write_calibration_run(
             output_path,
@@ -182,3 +187,6 @@ def test_calibration_run_writes_recipe_and_manifest_without_source_rows(tmp_path
             selection=selection,
             calibration=report,
         )
+    digest_path.write_text("0" * 64 + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="sidecar"):
+        verify_calibration_run(output_path.parent)

@@ -4,6 +4,7 @@ from .calibration import (
     CalibrationRecipe,
     CalibrationReport,
     CalibrationRunManifest,
+    CalibrationRunVerification,
     ReviewRunArtifact,
 )
 from .canonical import CanonicalFrame, CanonicalTrajectory, Pose
@@ -33,6 +34,7 @@ __all__ = [
     "CalibrationReport",
     "CalibrationRecipe",
     "CalibrationRunManifest",
+    "CalibrationRunVerification",
     "CalibrationSelection",
     "ColumnRef",
     "CollisionProfile",

@@ -837,3 +837,31 @@ Remote verification:
 The next boundary is a read-only verifier for the recipe, sidecar, manifest,
 and audit lineage, so a future approved real run can be checked without
 opening or rewriting its source rows.
+
+### M1a.11: read-only calibration run verifier
+
+The run layer now provides a read-only verifier and the CLI command
+`verify-calibration`. It requires the manifest to name exactly one audit file
+plus the recipe, recipe hash sidecar, and manifest; rejects unsafe or missing
+artifact names; recomputes canonical recipe and audit hashes; and checks the
+dataset, revision, mapping, structure, review, episode, frame-budget, and
+selection lineage. Verification returns only value-free status and counts and
+never opens the source Parquet files or rewrites the artifact set.
+
+The success path and a tampered recipe-sidecar negative path were covered on
+synthetic approved artifacts. The real private-sample review is still
+unapproved and remains outside the calibration read path.
+
+Remote verification:
+
+- verifier and CLI success/negative assertions passed within the artifact and
+  selector test suites;
+- full `pytest -q tests`: 55 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no real source rows, held-out content, videos, or production assets were
+  read or modified by the verifier.
+
+The next boundary is to add an explicit source-independent report renderer for
+the verified calibration run, keeping review and provenance readable without
+exposing source pose values.

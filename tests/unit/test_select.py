@@ -276,3 +276,17 @@ def test_calibrate_cli_writes_audit_only_for_approved_slice(tmp_path, capsys) ->
     artifact_text = output_path.read_text(encoding="utf-8")
     assert "poses" not in artifact_text
     assert "position_m" not in artifact_text
+    assert (
+        app(
+            [
+                "verify-calibration",
+                "--run",
+                str(output_path.parent),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    verification_payload = json.loads(capsys.readouterr().out)
+    assert verification_payload["status"] == "VERIFIED"
+    assert verification_payload["selected_frame_count"] == 2

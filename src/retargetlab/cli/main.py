@@ -40,6 +40,7 @@ from retargetlab.run import (
     canonical_json_bytes,
     execute_solve_run,
     recipe_sha256,
+    verify_calibration_run,
     write_calibration_run,
 )
 from retargetlab.run.fingerprint import sha256_bytes
@@ -97,6 +98,12 @@ def _parser() -> argparse.ArgumentParser:
     calibrate.add_argument("--max-frames", default=60, type=int)
     calibrate.add_argument("--output", required=True, type=Path)
     calibrate.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    verify_calibration = subparsers.add_parser(
+        "verify-calibration", help="verify a bounded calibration artifact set"
+    )
+    verify_calibration.add_argument("--run", required=True, type=Path)
+    verify_calibration.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     diagnose = subparsers.add_parser("diagnose", help="inspect a completed run report")
     diagnose.add_argument("--run", required=True, type=Path)
@@ -369,6 +376,14 @@ def _calibrate_payload(
     }
 
 
+def _verify_calibration_payload(run_path: Path) -> dict[str, Any]:
+    verification = verify_calibration_run(run_path)
+    return {
+        "command": "verify-calibration",
+        **verification.model_dump(mode="json"),
+    }
+
+
 def _diagnose_payload(run_path: Path) -> tuple[dict[str, Any], int]:
     report_path = run_path / "result" / "report.json"
     report = DatasetReport.model_validate_json(report_path.read_text(encoding="utf-8"))
@@ -577,6 +592,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
             file=stdout,
         )
         return
+    if payload.get("command") == "verify-calibration":
+        print(
+            f"calibration run: {payload['status']} ({payload['selected_frame_count']} frames)",
+            file=stdout,
+        )
+        return
     if payload.get("command") == "validate-input":
         print(
             f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
@@ -677,6 +698,19 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_ENVIRONMENT
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {"command": "calibrate", "status": "INVALID_INPUT", "error": str(exc)}
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-calibration":
+        try:
+            payload = _verify_calibration_payload(args.run)
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-calibration",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
             _emit(error, args.json, sys.stdout)
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)

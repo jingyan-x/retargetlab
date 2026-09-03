@@ -67,6 +67,22 @@ class CalibrationRunManifest(BaseModel):
     completed_at_utc: str = Field(min_length=1)
 
 
+class CalibrationRunVerification(BaseModel):
+    """Value-free result of verifying one bounded calibration artifact set."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    status: Literal["VERIFIED"] = "VERIFIED"
+    run_id: str = Field(min_length=1)
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    selected_frame_count: int = Field(gt=0)
+    recipe_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    audit_sha256: str = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    artifacts: tuple[str, ...] = Field(min_length=1)
+
+
 class ReviewRunArtifact(BaseModel):
     """Audit record for one bounded calibration without source rows."""
 
