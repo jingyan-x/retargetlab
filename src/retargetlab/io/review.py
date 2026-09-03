@@ -22,6 +22,10 @@ def apply_mapping_review(
         raise ValueError("structure comparison is incompatible with candidate")
     if not comparison.fully_verified and not review.accept_unverified_shape:
         raise ValueError("review must explicitly accept unverified source shapes")
+    if not comparison.fully_verified and (
+        review.checklist is None or review.checklist.shape_acceptance != "ACCEPTED"
+    ):
+        raise ValueError("approved review must explicitly accept unverified source shapes")
 
     streams: list[StreamMapping] = []
     for stream in candidate.streams:

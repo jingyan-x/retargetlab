@@ -33,6 +33,14 @@ def inspect_review_package(
         reasons.append("structure comparison revision check failed")
     if not comparison.compatible:
         reasons.append("structure comparison is incompatible")
+    checklist = review.checklist
+    checklist_present = checklist is not None
+    checklist_semantics_complete = checklist is not None and checklist.semantics_complete()
+    shape_acceptance = checklist.shape_acceptance if checklist is not None else "NOT_REQUIRED"
+    if review.approved and not checklist_present:
+        reasons.append("approved review is missing an evidence checklist")
+    if review.approved and not checklist_semantics_complete:
+        reasons.append("approved review has incomplete evidence checklist")
     shape_decision_required = bool(comparison.shape_unverified) and not (
         review.accept_unverified_shape
     )
@@ -67,6 +75,9 @@ def inspect_review_package(
         structure_compatible=comparison.compatible,
         structure_fully_verified=comparison.fully_verified,
         shape_unverified=comparison.shape_unverified,
+        checklist_present=checklist_present,
+        checklist_semantics_complete=checklist_semantics_complete,
+        shape_acceptance=shape_acceptance,
         shape_decision_required=shape_decision_required,
         ready_for_semantic_review=ready_for_semantic_review,
         can_apply_review=can_apply_review,

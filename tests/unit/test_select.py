@@ -6,6 +6,7 @@ from retargetlab.contracts import (
     ColumnRef,
     MappingReview,
     MappingSpec,
+    ReviewEvidenceChecklist,
     StreamMapping,
     StructureComparison,
 )
@@ -226,6 +227,16 @@ def test_calibrate_cli_writes_audit_only_for_approved_slice(tmp_path, capsys) ->
             reviewer="test",
             accept_unverified_shape=True,
             approved=True,
+            checklist=ReviewEvidenceChecklist(
+                structure_evidence_reviewed=True,
+                coordinate_frame_confirmed=True,
+                position_unit_confirmed=True,
+                timestamp_unit_confirmed=True,
+                orientation_order_confirmed=True,
+                slot_labels_confirmed=True,
+                target_groups_confirmed=True,
+                shape_acceptance="ACCEPTED",
+            ),
         ).model_dump_json(),
         encoding="utf-8",
     )

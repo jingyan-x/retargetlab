@@ -150,6 +150,36 @@ class StructureComparison(BaseModel):
     extra_fields: tuple[str, ...] = ()
 
 
+class ReviewEvidenceChecklist(BaseModel):
+    """Explicit evidence checklist attached to an approved semantic review."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    structure_evidence_reviewed: bool = False
+    coordinate_frame_confirmed: bool = False
+    position_unit_confirmed: bool = False
+    timestamp_unit_confirmed: bool = False
+    orientation_order_confirmed: bool = False
+    slot_labels_confirmed: bool = False
+    target_groups_confirmed: bool = False
+    shape_acceptance: Literal["NOT_REQUIRED", "ACCEPTED", "REJECTED"] = "NOT_REQUIRED"
+
+    def semantics_complete(self) -> bool:
+        """Return whether all non-shape semantic evidence is explicitly confirmed."""
+
+        return all(
+            (
+                self.structure_evidence_reviewed,
+                self.coordinate_frame_confirmed,
+                self.position_unit_confirmed,
+                self.timestamp_unit_confirmed,
+                self.orientation_order_confirmed,
+                self.slot_labels_confirmed,
+                self.target_groups_confirmed,
+            )
+        )
+
+
 class MappingReview(BaseModel):
     """Explicit human review required before a candidate becomes executable."""
 
@@ -168,6 +198,7 @@ class MappingReview(BaseModel):
     reviewer: str = Field(min_length=1)
     accept_unverified_shape: bool = False
     approved: bool = False
+    checklist: ReviewEvidenceChecklist | None = None
 
     @model_validator(mode="after")
     def validate_slots(self) -> MappingReview:
@@ -181,6 +212,15 @@ class MappingReview(BaseModel):
             raise ValueError("slot labels and target groups must not be blank")
         if len(set(self.slot_labels.values())) != 2:
             raise ValueError("slot labels must be unique")
+        if self.approved:
+            if self.checklist is None:
+                raise ValueError("approved review requires an evidence checklist")
+            if not self.checklist.semantics_complete():
+                raise ValueError("approved review has incomplete evidence checklist")
+            if self.checklist.shape_acceptance == "REJECTED":
+                raise ValueError("approved review rejects source shapes")
+            if self.accept_unverified_shape and self.checklist.shape_acceptance != "ACCEPTED":
+                raise ValueError("shape acceptance must be ACCEPTED when enabled")
         return self
 
 
@@ -199,6 +239,9 @@ class ReviewPackageInspection(BaseModel):
     structure_compatible: bool
     structure_fully_verified: bool
     shape_unverified: tuple[str, ...] = ()
+    checklist_present: bool
+    checklist_semantics_complete: bool
+    shape_acceptance: Literal["NOT_REQUIRED", "ACCEPTED", "REJECTED"]
     shape_decision_required: bool
     ready_for_semantic_review: bool
     can_apply_review: bool

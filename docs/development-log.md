@@ -973,3 +973,34 @@ Remote verification:
 The next boundary is to add an explicit review-package evidence checklist,
 keeping structural readiness, semantic approval, and shape acceptance as
 separate fields before any real calibration is allowed.
+
+### M1a.16: explicit review evidence checklist
+
+`MappingReview` now accepts an optional `ReviewEvidenceChecklist`. Pending
+reviews remain parseable without a checklist, but an `approved=true` review
+must explicitly confirm structure evidence, coordinate frame, position and
+timestamp units, quaternion order, slot labels, and target groups. Shape
+acceptance is a separate `NOT_REQUIRED`/`ACCEPTED`/`REJECTED` field; an
+unverified structure can enter the executable path only when the review both
+enables unverified-shape acceptance and marks the checklist shape as
+`ACCEPTED`. The package inspector exposes checklist presence/completeness and
+shape state without promoting the candidate.
+
+The real private-sample OpenArm pending review was re-inspected after the
+contract extension. It remains `PENDING_REVIEW`, with no checklist and an
+explicit unresolved shape decision; no source rows were opened. Synthetic
+approved fixtures were updated with complete checklists and continue to pass
+the calibration gate.
+
+Remote verification:
+
+- checklist, review promotion, preflight, and calibration tests: 58 passed;
+- full `pytest -q tests`: 58 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- no source rows, held-out content, videos, or production assets were read or
+  modified by the checklist path.
+
+The next boundary is to add a stable, value-free review decision record that
+binds the checklist and approved mapping hashes before any real calibration
+run is created.

@@ -6,6 +6,7 @@ from retargetlab.contracts import (
     DatasetInfoManifest,
     FeatureDeclaration,
     MappingReview,
+    ReviewEvidenceChecklist,
     StructureComparison,
 )
 from retargetlab.io import apply_mapping_review, build_pose_mapping_candidate
@@ -81,6 +82,16 @@ def _review(*, approved: bool, accept_unverified_shape: bool = False) -> Mapping
         reviewer="test",
         accept_unverified_shape=accept_unverified_shape,
         approved=approved,
+        checklist=ReviewEvidenceChecklist(
+            structure_evidence_reviewed=True,
+            coordinate_frame_confirmed=True,
+            position_unit_confirmed=True,
+            timestamp_unit_confirmed=True,
+            orientation_order_confirmed=True,
+            slot_labels_confirmed=True,
+            target_groups_confirmed=True,
+            shape_acceptance="ACCEPTED" if accept_unverified_shape else "NOT_REQUIRED",
+        ),
     )
 
 
