@@ -43,6 +43,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_export_input_gate,
+    build_synthetic_table_write_preflight,
     build_target_replay_bundle,
     build_target_replay_manifest,
     build_target_replay_trajectory,
@@ -55,6 +56,7 @@ from retargetlab.run import (
     verify_data_profile,
     verify_review_decision_artifact,
     verify_review_package_preflight,
+    verify_synthetic_table_write_preflight,
     verify_target_replay_bundle,
     verify_target_replay_manifest,
     verify_target_replay_trajectory,
@@ -65,6 +67,7 @@ from retargetlab.run import (
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
+    write_synthetic_table_write_preflight,
     write_target_gripper_trajectory,
     write_target_replay_bundle,
     write_target_replay_manifest,
@@ -195,7 +198,34 @@ def _parser() -> argparse.ArgumentParser:
     write_synthetic_table.add_argument("--source", required=True, type=Path)
     write_synthetic_table.add_argument("--target-replay-bundle", required=True, type=Path)
     write_synthetic_table.add_argument("--output", required=True, type=Path)
+    write_synthetic_table.add_argument(
+        "--preflight",
+        type=Path,
+        help="optional verified synthetic table preflight bound to an export input gate",
+    )
     write_synthetic_table.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    build_synthetic_preflight = subparsers.add_parser(
+        "build-synthetic-table-preflight",
+        help="bind a synthetic table rewrite to a verified export input gate",
+    )
+    build_synthetic_preflight.add_argument("--export-input-gate", required=True, type=Path)
+    build_synthetic_preflight.add_argument("--source", required=True, type=Path)
+    build_synthetic_preflight.add_argument("--target-replay-bundle", required=True, type=Path)
+    build_synthetic_preflight.add_argument("--output-table", required=True, type=Path)
+    build_synthetic_preflight.add_argument("--output", required=True, type=Path)
+    build_synthetic_preflight.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_synthetic_preflight = subparsers.add_parser(
+        "verify-synthetic-table-preflight",
+        help="verify a synthetic table rewrite preflight",
+    )
+    verify_synthetic_preflight.add_argument("--preflight", required=True, type=Path)
+    verify_synthetic_preflight.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
 
     inspect = subparsers.add_parser(
         "inspect", help="inspect a canonical JSON trajectory or source structure"
@@ -751,15 +781,47 @@ def _write_synthetic_table_payload(
     source_path: Path,
     target_replay_bundle_path: Path,
     output_path: Path,
+    preflight_path: Path | None,
 ) -> dict[str, Any]:
     artifact = write_synthetic_target_table(
         source_path=source_path,
         target_replay_bundle_path=target_replay_bundle_path,
         output_path=output_path,
+        preflight_path=preflight_path,
     )
     return {
         "command": "write-synthetic-table",
         **artifact.model_dump(mode="json"),
+    }
+
+
+def _build_synthetic_preflight_payload(
+    *,
+    export_input_gate_path: Path,
+    source_path: Path,
+    target_replay_bundle_path: Path,
+    output_table_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    preflight = build_synthetic_table_write_preflight(
+        export_input_gate_path=export_input_gate_path,
+        source_table_path=source_path,
+        target_replay_bundle_path=target_replay_bundle_path,
+        output_table_path=output_table_path,
+    )
+    write_synthetic_table_write_preflight(output_path, preflight)
+    return {
+        "command": "build-synthetic-table-preflight",
+        **preflight.model_dump(mode="json"),
+        "output": str(output_path),
+    }
+
+
+def _verify_synthetic_preflight_payload(preflight_path: Path) -> dict[str, Any]:
+    verification = verify_synthetic_table_write_preflight(preflight_path)
+    return {
+        "command": "verify-synthetic-table-preflight",
+        **verification.model_dump(mode="json"),
     }
 
 
@@ -1700,6 +1762,7 @@ def app(argv: list[str] | None = None) -> int:
                 source_path=args.source,
                 target_replay_bundle_path=args.target_replay_bundle,
                 output_path=args.output,
+                preflight_path=args.preflight,
             )
         except RuntimeError as exc:
             error = {
@@ -1712,6 +1775,54 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "write-synthetic-table",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "build-synthetic-table-preflight":
+        try:
+            payload = _build_synthetic_preflight_payload(
+                export_input_gate_path=args.export_input_gate,
+                source_path=args.source,
+                target_replay_bundle_path=args.target_replay_bundle,
+                output_table_path=args.output_table,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-synthetic-table-preflight",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-synthetic-table-preflight",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-synthetic-table-preflight":
+        try:
+            payload = _verify_synthetic_preflight_payload(args.preflight)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-synthetic-table-preflight",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-synthetic-table-preflight",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

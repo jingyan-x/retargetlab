@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from retargetlab.contracts import (
+    SyntheticTableWritePreflight,
     SyntheticTargetTableExport,
     TargetReplayBundle,
     TargetReplayTrajectory,
@@ -130,6 +131,7 @@ def write_synthetic_target_table(
     source_path: Path,
     target_replay_bundle_path: Path,
     output_path: Path,
+    preflight_path: Path | None = None,
 ) -> SyntheticTargetTableExport:
     """Rewrite one synthetic/public trajectory table with verified target vectors.
 
@@ -138,9 +140,28 @@ def write_synthetic_target_table(
     """
 
     source_path = source_path.resolve()
+    target_replay_bundle_path = target_replay_bundle_path.resolve()
     output_path = output_path.resolve()
     if source_path == output_path:
         raise ValueError("synthetic table source and output paths must be different")
+    preflight_sha256: str | None = None
+    preflight_path_string: str | None = None
+    if preflight_path is not None:
+        preflight_path = preflight_path.resolve()
+        from retargetlab.run.export_table import verify_synthetic_table_write_preflight
+
+        preflight_verification = verify_synthetic_table_write_preflight(preflight_path)
+        preflight = SyntheticTableWritePreflight.model_validate_json(
+            preflight_path.read_text(encoding="utf-8")
+        )
+        if Path(preflight.source_table_path).resolve() != source_path:
+            raise ValueError("synthetic table preflight source path does not match writer input")
+        if Path(preflight.target_replay_bundle_path).resolve() != target_replay_bundle_path:
+            raise ValueError("synthetic table preflight bundle path does not match writer input")
+        if Path(preflight.output_table_path).resolve() != output_path:
+            raise ValueError("synthetic table preflight output path does not match writer input")
+        preflight_sha256 = preflight_verification.preflight_sha256
+        preflight_path_string = str(preflight_path)
     bundle, bundle_verification, state, action = _read_verified_bundle(
         target_replay_bundle_path
     )
@@ -189,6 +210,8 @@ def write_synthetic_target_table(
         output_table_path=str(output_path),
         target_replay_bundle_path=str(target_replay_bundle_path),
         target_replay_bundle_sha256=bundle_verification.bundle_sha256,
+        preflight_path=preflight_path_string,
+        preflight_sha256=preflight_sha256,
         replay_id=bundle.replay_id,
         robot_id=bundle.robot_id,
         frame_count=bundle.frame_count,

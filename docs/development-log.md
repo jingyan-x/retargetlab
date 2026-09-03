@@ -1737,3 +1737,36 @@ Remote verification:
 The next implementation boundary is a value-free writer preflight that can
 bind this table rewrite to the certified source/export gate without claiming
 that this prototype is already a complete LeRobot dataset export.
+
+### M1b.2b: bind the synthetic writer to a value-free preflight
+
+The synthetic table prototype now has an explicit
+`synthetic_table_write_preflight` artifact. It binds the source table path and
+hash, output path, existing `ExportInputGate` path and hash, verified replay
+bundle path and hash, dataset revision, robot/replay identity, gated source
+frame count, target frame count, and training episode allowlist. Building and
+verifying this record does not parse source rows; it rechecks only the gate,
+file hashes, and replay-bundle lineage. The preflight also requires the gate's
+robot, target frame count, target bundle hash, and export-profile hash to agree
+with the verified bundle.
+
+The table writer accepts the preflight as an optional explicit input. When it
+is supplied, the writer verifies the preflight before reading the source table
+and checks that its source, bundle, and output paths match the write request.
+The resulting value-free write summary records the preflight path and hash.
+The preflight and writer remain visibly synthetic/public-only and do not
+authorize private-data materialization or imply a complete LeRobot export.
+
+Remote verification:
+
+- preflight build/verify, tamper detection, writer linkage, and CLI tests: 5
+  passed;
+- full regression with the real OpenArm asset smoke enabled: 102 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is to make the preflight's episode/frame
+selection executable for a deliberately small synthetic multi-row fixture,
+before considering any real dataset materialization.

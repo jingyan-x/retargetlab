@@ -7,13 +7,17 @@ import pytest
 from test_replay import _write_inputs
 
 from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
-from retargetlab.contracts import RobotProfile
+from retargetlab.contracts import ExportInputGate, RobotProfile
 from retargetlab.export import build_export_profile, write_synthetic_target_table
 from retargetlab.run import (
+    build_synthetic_table_write_preflight,
     build_target_replay_bundle,
     build_target_replay_manifest,
     build_target_replay_trajectory,
+    verify_synthetic_table_write_preflight,
+    verify_target_replay_bundle,
     write_export_profile,
+    write_synthetic_table_write_preflight,
     write_target_replay_bundle,
     write_target_replay_manifest,
     write_target_replay_trajectory,
@@ -193,3 +197,112 @@ def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys)
         == EXIT_SEMANTIC
     )
     assert json.loads(capsys.readouterr().out)["status"] == "INVALID_INPUT"
+
+
+def test_synthetic_table_preflight_binds_gate_source_and_bundle(tmp_path: Path) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    source_path = tmp_path / "synthetic-source.parquet"
+    output_path = tmp_path / "synthetic-target.parquet"
+    preflight_path = tmp_path / "synthetic-preflight.json"
+    _write_source_table(source_path)
+    bundle_verification = verify_target_replay_bundle(bundle_path)
+    gate_path = tmp_path / "export-input-gate.json"
+    gate = ExportInputGate(
+        dataset_alias="fixture",
+        source_revision="v1",
+        data_profile_sha256="a" * 64,
+        coverage_sha256="b" * 64,
+        target_replay_bundle_sha256=bundle_verification.bundle_sha256,
+        export_profile_sha256=bundle_verification.export_profile_sha256,
+        robot_id="fixture",
+        source_frame_count=2,
+        target_replay_frame_count=2,
+        training_episode_allowlist=(3,),
+    )
+    gate_path.write_text(gate.model_dump_json(), encoding="utf-8")
+
+    preflight = build_synthetic_table_write_preflight(
+        export_input_gate_path=gate_path,
+        source_table_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_table_path=output_path,
+    )
+    write_synthetic_table_write_preflight(preflight_path, preflight)
+    verification = verify_synthetic_table_write_preflight(preflight_path)
+
+    assert preflight.source_scope == "synthetic_public_only"
+    assert preflight.training_episode_allowlist == (3,)
+    assert verification.status == "VERIFIED"
+    assert verification.target_replay_frame_count == 2
+    result = write_synthetic_target_table(
+        source_path=source_path,
+        target_replay_bundle_path=bundle_path,
+        output_path=output_path,
+        preflight_path=preflight_path,
+    )
+    assert result.preflight_path == str(preflight_path.resolve())
+    assert result.preflight_sha256 == verification.preflight_sha256
+    with pytest.raises(FileExistsError):
+        write_synthetic_table_write_preflight(preflight_path, preflight)
+
+    source_path.write_bytes(source_path.read_bytes() + b"tamper")
+    with pytest.raises(ValueError, match="does not match its bound inputs"):
+        verify_synthetic_table_write_preflight(preflight_path)
+
+
+def test_synthetic_table_preflight_cli_round_trip(tmp_path: Path, capsys) -> None:
+    bundle_path = _write_bundle(tmp_path)
+    source_path = tmp_path / "synthetic-source.parquet"
+    output_path = tmp_path / "synthetic-target.parquet"
+    gate_path = tmp_path / "export-input-gate.json"
+    preflight_path = tmp_path / "synthetic-preflight.json"
+    _write_source_table(source_path)
+    bundle_verification = verify_target_replay_bundle(bundle_path)
+    gate = ExportInputGate(
+        dataset_alias="fixture",
+        source_revision="v1",
+        data_profile_sha256="a" * 64,
+        coverage_sha256="b" * 64,
+        target_replay_bundle_sha256=bundle_verification.bundle_sha256,
+        export_profile_sha256=bundle_verification.export_profile_sha256,
+        robot_id="fixture",
+        source_frame_count=2,
+        target_replay_frame_count=2,
+        training_episode_allowlist=(3,),
+    )
+    gate_path.write_text(gate.model_dump_json(), encoding="utf-8")
+
+    assert (
+        app(
+            [
+                "build-synthetic-table-preflight",
+                "--export-input-gate",
+                str(gate_path),
+                "--source",
+                str(source_path),
+                "--target-replay-bundle",
+                str(bundle_path),
+                "--output-table",
+                str(output_path),
+                "--output",
+                str(preflight_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "READY"
+
+    assert (
+        app(
+            [
+                "verify-synthetic-table-preflight",
+                "--preflight",
+                str(preflight_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    verification_payload = json.loads(capsys.readouterr().out)
+    assert verification_payload["status"] == "VERIFIED"

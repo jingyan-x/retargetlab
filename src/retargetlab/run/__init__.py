@@ -6,6 +6,11 @@ from .decision import verify_review_decision_artifact, write_review_decision_art
 from .execute import SolveRunResult, execute_solve_run, solve_canonical_stream
 from .export_gate import build_export_input_gate, write_export_input_gate
 from .export_profile import write_export_profile
+from .export_table import (
+    build_synthetic_table_write_preflight,
+    verify_synthetic_table_write_preflight,
+    write_synthetic_table_write_preflight,
+)
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
 from .preflight import verify_review_package_preflight, write_review_package_preflight
@@ -47,6 +52,9 @@ __all__ = [
     "write_export_profile",
     "build_export_input_gate",
     "write_export_input_gate",
+    "build_synthetic_table_write_preflight",
+    "write_synthetic_table_write_preflight",
+    "verify_synthetic_table_write_preflight",
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_target_replay_manifest",
