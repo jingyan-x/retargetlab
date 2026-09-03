@@ -1059,3 +1059,23 @@ The next boundary is to expose the optional decision hash from the read-only
 calibration-run verifier, so downstream review tooling can distinguish legacy
 runs from runs carrying an archived semantic decision without reopening source
 data.
+
+### M1a.19: expose decision lineage from calibration verification
+
+The read-only `verify-calibration` result now includes the optional
+`decision_sha256` carried by the calibration recipe. The deterministic Markdown
+summary also records this field, using `none` for legacy runs that predate the
+decision artifact. This keeps the verifier and summary aligned with the recipe
+without requiring source data or the original decision JSON to be reopened.
+
+Remote verification:
+
+- decision-aware CLI calibration and verification test: passed;
+- legacy calibration-artifact verification still reports a null decision hash;
+- full `pytest -q`: 61 passed and 1 Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed.
+
+The next boundary is to add an explicit read-only lineage check for the
+decision artifact itself, so a completed run can optionally prove that its
+recorded decision hash still resolves to the supplied decision file without
+making calibration depend on source-row access.

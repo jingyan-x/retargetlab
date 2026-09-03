@@ -326,3 +326,4 @@ def test_calibrate_cli_writes_audit_only_for_approved_slice(tmp_path, capsys) ->
     verification_payload = json.loads(capsys.readouterr().out)
     assert verification_payload["status"] == "VERIFIED"
     assert verification_payload["selected_frame_count"] == 2
+    assert verification_payload["decision_sha256"] == recipe_payload["decision_sha256"]

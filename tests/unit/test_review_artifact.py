@@ -180,6 +180,7 @@ def test_calibration_run_writes_recipe_and_manifest_without_source_rows(tmp_path
     assert verification.status == "VERIFIED"
     assert verification.run_id == output_path.stem
     assert verification.selected_frame_count == 2
+    assert verification.decision_sha256 is None
     assert verification.summary_sha256 == manifest.summary_sha256
     with pytest.raises(FileExistsError):
         write_calibration_run(

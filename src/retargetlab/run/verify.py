@@ -109,6 +109,7 @@ def verify_calibration_run(run_path: Path) -> CalibrationRunVerification:
         source_revision=recipe.source_revision,
         selected_frame_count=audit.selection.selected_frame_count,
         recipe_sha256=recipe_digest,
+        decision_sha256=recipe.decision_sha256,
         audit_sha256=audit_digest,
         summary_sha256=summary_digest,
         artifacts=manifest.artifacts,
