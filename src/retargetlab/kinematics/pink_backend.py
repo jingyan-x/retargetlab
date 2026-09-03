@@ -164,11 +164,16 @@ class PinkBackend:
         if not np.all(np.isfinite(q)):
             raise ValueError("seed must contain only finite values")
         q = np.clip(q, model.lowerPositionLimit, model.upperPositionLimit)
+        barrier_geometry = (
+            self.collision_model.barrier_geometry(opts.collision_barrier_pair_budget)
+            if self.collision_model is not None
+            else None
+        )
         configuration = Configuration(
             model,
             model.createData(),
             q,
-            collision_model=self.collision_model.geometry if self.collision_model else None,
+            collision_model=barrier_geometry if opts.enable_self_collision_barrier else None,
         )
         task = FrameTask(
             frame_profile.end_effector_frame,
@@ -180,11 +185,11 @@ class PinkBackend:
         barriers = (
             [
                 SelfCollisionBarrier(
-                    len(self.collision_model.geometry.collisionPairs),
-                    d_min=1e-3,
+                    len(barrier_geometry.collisionPairs),
+                    d_min=opts.self_collision_min_distance_m,
                 )
             ]
-            if self.collision_model is not None and self.collision_model.geometry.collisionPairs
+            if barrier_geometry is not None and barrier_geometry.collisionPairs
             else []
         )
         best_score = float("inf")

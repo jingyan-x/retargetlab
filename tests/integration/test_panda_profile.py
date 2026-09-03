@@ -4,6 +4,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from retargetlab.contracts import Pose, SolveOptions
+from retargetlab.kinematics.pink_backend import PinkBackend
 from retargetlab.kinematics.pinocchio_backend import PinocchioBackend
 from retargetlab.robot.collision import PinocchioCollisionModel
 from retargetlab.robot.panda import load_panda_bimanual_profile
@@ -35,3 +37,36 @@ def test_panda_profile_fk_and_collision_smoke() -> None:
     assert left_quaternion.shape == (4,)
     assert right_quaternion.shape == (4,)
     assert collision.report(q).collision_free
+    barrier = collision.barrier_geometry(16)
+    assert len(barrier.collisionPairs) == 16
+    assert any(
+        {
+            barrier.geometryObjects[pair.first].name,
+            barrier.geometryObjects[pair.second].name,
+        }
+        == {"panda_1_link0_sc_0", "panda_2_link0_sc_0"}
+        for pair in barrier.collisionPairs
+    )
+
+    pytest.importorskip("pink")
+    q_goal = q.copy()
+    joint_id = collision.model.getJointId("panda_1_joint1")
+    q_goal[int(collision.model.idx_qs[joint_id])] += 0.1
+    target_position, target_quaternion = backend.fk("panda_1", q_goal)
+    result = PinkBackend(profile).solve_frame(
+        "panda_1",
+        Pose(
+            position_m=tuple(target_position),
+            quaternion_wxyz=tuple(target_quaternion),
+            frame="base",
+        ),
+        q,
+        SolveOptions(
+            max_iterations=120,
+            position_tolerance_m=1e-4,
+            orientation_tolerance_rad=1e-4,
+            collision_barrier_pair_budget=16,
+        ),
+    )
+    assert result.status.value == "CONVERGED"
+    assert result.collision_free is True

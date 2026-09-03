@@ -182,3 +182,21 @@ unless the backend declares `multi_group_joint_solve`, and the previously
 invalid `interleaved_sequence` timing assumption is rejected explicitly.
 Synthetic tests cover the accepted path and both capability/semantic guards.
 The remote suite remains green at 12 passed, with ruff and mypy passing.
+
+### M0 continuation: collision-barrier budget
+
+A real Panda perturbation smoke initially failed at the first Pink step because
+all 2,680 post-SRDF collision pairs were passed to one OSQP barrier. A direct
+barrier-off comparison converged, confirming a QP-size bottleneck rather than
+an FK or target-frame error. The fix keeps the full geometry for the final
+collision postcheck but exposes `self_collision_min_distance_m` and
+`collision_barrier_pair_budget` in `SolveOptions`. The collision model now
+constructs a deterministic barrier subset while retaining profile-declared
+required pairs; Panda's nine cross-arm link0 geometry pairs are retained in the
+16-pair budget.
+
+The real Panda perturbation (panda_1 joint1 +0.1 rad from the registered ready
+seed) then converged in 63 Pink iterations with collision-free postcheck. The
+integration test covers this path, and the remote suite is `12 passed`; ruff
+and mypy remain green. The solver output contains only upstream qpsolvers/OSQP
+warnings. No private or held-out data was read.

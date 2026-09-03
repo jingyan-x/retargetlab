@@ -42,6 +42,7 @@ def load_panda_bimanual_profile(asset_dir: Path) -> RobotProfile:
             ("panda_1_leftfinger", "panda_1_rightfinger"),
             ("panda_2_leftfinger", "panda_2_rightfinger"),
         ),
+        required_barrier_pairs=(("panda_1_link0_sc", "panda_2_link0_sc"),),
         strategy=str(manifest.get("collision_geometry_strategy", "srdf")),
     )
     return RobotProfile(

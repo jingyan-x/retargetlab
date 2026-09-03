@@ -31,6 +31,8 @@ class SolveOptions(BaseModel):
     random_seed: int = 20260902
     enforce_configuration_limits: bool = True
     enable_self_collision_barrier: bool = True
+    self_collision_min_distance_m: float = Field(default=0.001, gt=0.0)
+    collision_barrier_pair_budget: int = Field(default=16, gt=0)
 
     @field_validator("qp_solver")
     @classmethod

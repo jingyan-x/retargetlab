@@ -32,18 +32,21 @@ class CollisionProfile(BaseModel):
 
     srdf_path: str | None = None
     allowed_contact_pairs: tuple[tuple[str, str], ...] = ()
+    required_barrier_pairs: tuple[tuple[str, str], ...] = ()
     strategy: str = Field(default="srdf", min_length=1)
 
     @model_validator(mode="after")
     def validate_pairs(self) -> CollisionProfile:
         normalized: list[tuple[str, str]] = []
-        for first, second in self.allowed_contact_pairs:
+        for first, second in self.allowed_contact_pairs + self.required_barrier_pairs:
             if not first.strip() or not second.strip() or first == second:
                 raise ValueError("collision contact pairs must contain two distinct names")
             normalized.append((first, second) if first <= second else (second, first))
         if len(set(normalized)) != len(normalized):
             raise ValueError("collision contact pairs must be unique")
-        self.allowed_contact_pairs = tuple(normalized)
+        allowed_count = len(self.allowed_contact_pairs)
+        self.allowed_contact_pairs = tuple(normalized[:allowed_count])
+        self.required_barrier_pairs = tuple(normalized[allowed_count:])
         return self
 
 

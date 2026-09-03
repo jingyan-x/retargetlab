@@ -213,6 +213,38 @@ class PinocchioCollisionModel:
                 active.append(names)
         return CollisionReport(tuple(raw), tuple(active), tuple(allowed))
 
+    def barrier_geometry(self, pair_budget: int) -> Any:
+        """Return a deterministic barrier subset with required pairs retained."""
+
+        if pair_budget <= 0:
+            raise ValueError("collision barrier pair budget must be positive")
+        all_pairs = list(self.geometry.collisionPairs)
+        if pair_budget >= len(all_pairs):
+            return self.geometry.copy()
+        required_bases = {
+            canonical_pair(first, second)
+            for first, second in (
+                self.profile.collision.required_barrier_pairs
+                if self.profile.collision is not None
+                else ()
+            )
+        }
+        required: list[Any] = []
+        other: list[Any] = []
+        for pair in all_pairs:
+            if _base_geometry_pair_names(self.geometry, pair) in required_bases:
+                required.append(pair)
+            else:
+                other.append(pair)
+        if len(required) > pair_budget:
+            raise ValueError("collision barrier pair budget omits required barrier pairs")
+        selected = required + other[: pair_budget - len(required)]
+        barrier = self.geometry.copy()
+        barrier.removeAllCollisionPairs()
+        for pair in selected:
+            barrier.addCollisionPair(pin.CollisionPair(int(pair.first), int(pair.second)))
+        return barrier
+
     def summary(self) -> dict[str, int]:
         """Return stable counts for reports and diagnostics."""
 
