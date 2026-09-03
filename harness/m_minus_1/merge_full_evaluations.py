@@ -38,6 +38,7 @@ def merge_reports(paths: list[Path]) -> dict[str, Any]:
     dataset = first.get("dataset")
     prescreen_source = first.get("prescreen_source")
     candidates: dict[str, dict[str, Any]] = {}
+    candidate_gates: dict[str, dict[str, Any]] = {}
     input_hashes: list[str] = []
     for path in paths:
         report = read_report(path)
@@ -67,6 +68,10 @@ def merge_reports(paths: list[Path]) -> dict[str, Any]:
         if "full_single_frames" not in summary or "full_continuous_segments" not in summary:
             raise ValueError("full input candidate is missing aggregate metrics")
         candidates[candidate_id] = summary
+        candidate_gate = summary.get("gate", report.get("gate"))
+        if not isinstance(candidate_gate, dict) or "status" not in candidate_gate:
+            raise ValueError("full input candidate is missing its gate result")
+        candidate_gates[candidate_id] = copy.deepcopy(candidate_gate)
 
     merged = copy.deepcopy(first)
     merged["run_mode"] = "full_budget"
@@ -89,7 +94,7 @@ def merge_reports(paths: list[Path]) -> dict[str, Any]:
     }
     best = merged["full_candidates"][0]
     merged["best_candidate_id"] = best["candidate_id"]
-    merged["gate"] = best.get("gate", merged.get("gate"))
+    merged["gate"] = candidate_gates[best["candidate_id"]]
     return merged
 
 

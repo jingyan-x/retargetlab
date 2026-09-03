@@ -33,9 +33,68 @@ and not the M-1 exit result. The next gate is the registered 60-frame prescreen;
 only its ranking may select the top 9 for the full evaluation over the 600
 calibration single frames and 20 continuous segments.
 
+## Registered OpenArm result
+
+The registered `20260903-m1-005` 60-frame calibration prescreen was completed
+without reading held-out values. Its best nominal rate was 30.0%, its best
+relaxed rate was 35.0%, and no candidate was collision-free across all 60
+frames. This is a formal red result. The one-frame diagnostic above is retained
+as context only; it did not select or override the formal result.
+
+Following the pre-registered red-light procedure, the next step was a separate
+target-reselection spike. OpenArm remains blocked for M-1 and its results were
+not reused as Panda candidate scores.
+
+## Target-reselection spike: Panda
+
+Recipe `20260904-m1-panda-002` evaluates an independent dual-Panda target. The
+asset is explicitly `target_reselection_spike_only`, not a replacement for the
+future Panda product profile. It was generated from the pinned official
+`franka_ros` dual-arm example at revision
+`ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98`; the adapted MoveIt SRDF source is
+pinned at `c55b102711fc0aebe80c6952d2ce97c38110abba`. The official dual-arm
+example's side comments establish the mapping used here: dataset left maps to
+`panda_2` and dataset right maps to `panda_1`. The earlier opposite-mapping
+Panda run was discarded and is not part of this evidence.
+
+The Panda asset and collision checks both passed: model `nq=nv=18`, 19
+portable mesh files, 68 adapted SRDF entries, 88 selected coarse collision
+objects, and the nine required cross-arm base pairs preserved after SRDF
+filtering. The 81-candidate one-frame diagnostic was consistent with the
+corrected mapping. The registered 60-frame prescreen had 81/81 candidates with
+nominal rate above zero and 16/81 candidates with zero penetration over all
+prescreen frames.
+
+The top 9 from that frozen prescreen were evaluated on the full calibration
+budget. Best candidate `t2-080` uses translation offset `[0.10, 0.10, 0.10] m`
+and yaw offset `10 deg`. It achieved:
+
+- full single-frame nominal rate `99.17%` (594/600), relaxed rate `100%`, and
+  penetration fraction `0.83%`;
+- 20/20 continuous segments nominal, with continuous penetration fraction `0`;
+- no joint-limit or delta violations.
+
+Under the pre-registered gate this is `YELLOW`, because the full single-frame
+result contains a small penetration fraction and uses the relaxed orientation
+tolerance on some frames. It is not `GREEN` and does not establish frame
+identity. Per the build checklist, the yellow condition is recorded for M0 and
+must be rechecked before M1; held-out episodes remain unopened.
+
+The key remote evidence files are under
+`projects/target-reselection-panda/runs/20260904-m1-panda-002/`: the recipe,
+asset assertions, collision probe, 60-frame prescreen, merged full top-9
+report, and the OpenArm harness regression smoke report. The merged report's
+SHA-256 is
+`124cacb1bf2e34c4de27c3b5ce5ceed9176fb4917a8f3dda02fd4bbf94d1fe82`.
+
 ## Next gate
 
-Do not promote the identity mapping, the local Viser rotation, or the `link7` hypothesis into the formal recipe. Following the pre-registered red-light procedure, the next formal recipe expands T2 outward from the observed boundary candidate. If that remains red, the route moves to the target-reselection spike. A source URDF or explicit mapping remains useful for later cross-checking, but is not silently assumed as a prerequisite:
+Do not promote the identity mapping, the local Viser rotation, the `link7`
+hypothesis, or the Panda side mapping into a physical frame claim. The current
+Panda result is a conditional target-reselection checkpoint only. M0 may record
+the yellow condition, but M1 must recheck it before any data export or held-out
+evaluation. A source URDF or explicit mapping remains useful for later
+cross-checking, but is not silently assumed as a prerequisite:
 
 - the source URDF and source TCP/frame convention; or
 - an authorized source-to-target pose mapping with its evidence and validation set.

@@ -1302,7 +1302,10 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "deterministic_openarm_midpoint_configuration",
         )
     )
-    if target_initialization == "deterministic_openarm_seed_set_neutral_midpoint_random":
+    if target_initialization in {
+        "deterministic_openarm_seed_set_neutral_midpoint_random",
+        "deterministic_target_seed_set_neutral_midpoint_random",
+    }:
         target_configurations = target_initialization_configurations(
             model,
             int(solve_options.get("random_seed", 20260902)),
