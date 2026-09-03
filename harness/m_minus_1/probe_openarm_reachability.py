@@ -1260,6 +1260,8 @@ def load_frozen_prescreen(
 
 
 def build_report(args: argparse.Namespace) -> dict[str, Any]:
+    if args.prescreen_only and args.full_candidate_id is not None:
+        raise ValueError("full-candidate-id cannot be used with prescreen-only")
     repo_root = Path(__file__).resolve().parents[2]
     recipe_path = args.recipe.resolve()
     recipe = load_recipe(recipe_path)
@@ -1446,6 +1448,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             )
             summaries.append(candidate_summary(candidate, prescreen))
 
+    if args.full_candidate_id is not None and (
+        args.prescreen_only or len(candidates_to_run) != len(candidates)
+    ):
+        raise ValueError(
+            "full-candidate-id requires a complete non-prescreen-only candidate budget"
+        )
+
     summaries.sort(
         key=lambda item: (
             -item["prescreen"]["nominal_rate"],
@@ -1457,6 +1466,16 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     if not args.prescreen_only and len(candidates_to_run) == len(candidates):
         retain = int(t2["budget"]["retain_top_candidates"])
         full_candidates = summaries[:retain]
+        if args.full_candidate_id is not None:
+            full_candidates = [
+                item
+                for item in full_candidates
+                if item["candidate_id"] == args.full_candidate_id
+            ]
+            if len(full_candidates) != 1:
+                raise ValueError(
+                    "full-candidate-id must identify one of the prescreen top candidates"
+                )
         single_frames = [
             (int(episode), int(frame))
             for episode, item in sorted(sampling["sampling"]["single_frames"].items(), key=lambda pair: int(pair[0]))
@@ -1519,6 +1538,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "status": "PASS",
         "run_mode": "prescreen_only"
         if args.prescreen_only
+        else "full_candidate"
+        if args.full_candidate_id is not None
         else "full_budget"
         if len(candidates_to_run) == len(candidates)
         else "partial_smoke",
@@ -1610,6 +1631,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         },
         "candidates": summaries,
         "full_candidates": full_candidates,
+        "full_evaluation": {
+            "mode": "single_candidate"
+            if args.full_candidate_id is not None
+            else "top_candidates"
+            if full_candidates
+            else "not_run",
+            **(
+                {"candidate_id": args.full_candidate_id}
+                if args.full_candidate_id is not None
+                else {}
+            ),
+        },
         "ranking": list(t2["ranking"]),
     }
     if full_candidates:
@@ -1644,6 +1677,10 @@ def main() -> int:
         "--prescreen-report",
         type=Path,
         help="reuse a matching complete prescreen_only report for the full budget",
+    )
+    parser.add_argument(
+        "--full-candidate-id",
+        help="evaluate exactly one candidate from the prescreen top-k set",
     )
     args = parser.parse_args()
     try:
