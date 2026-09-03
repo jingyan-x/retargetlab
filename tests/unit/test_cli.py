@@ -115,3 +115,79 @@ def test_validate_input_json_uses_explicit_mapping(tmp_path, capsys) -> None:
     )
     payload = json.loads(capsys.readouterr().out)
     assert payload["valid"] is True
+
+
+def test_normalize_json_writes_canonical_output_once(tmp_path, capsys) -> None:
+    spec = MappingSpec(
+        dataset_alias="fixture",
+        source_revision="v1",
+        coordinate_frame="dataset_native",
+        timestamp=ColumnRef(source="time", expected_shape=()),
+        streams=(
+            StreamMapping(
+                name="state",
+                role="robot_state",
+                fields={
+                    "position": ColumnRef(
+                        source="position",
+                        expected_shape=(3,),
+                        unit="m",
+                        frame="dataset_native",
+                    ),
+                    "orientation": ColumnRef(
+                        source="orientation",
+                        expected_shape=(4,),
+                        frame="dataset_native",
+                        quaternion_order="wxyz",
+                    ),
+                },
+            ),
+        ),
+    )
+    rows = [
+        {
+            "time": 0.0,
+            "position": [0.0, 0.0, 0.1],
+            "orientation": [1.0, 0.0, 0.0, 0.0],
+        }
+    ]
+    spec_path = tmp_path / "spec.json"
+    rows_path = tmp_path / "rows.json"
+    output_path = tmp_path / "canonical.json"
+    spec_path.write_text(spec.model_dump_json(), encoding="utf-8")
+    rows_path.write_text(json.dumps(rows), encoding="utf-8")
+
+    assert (
+        app(
+            [
+                "normalize",
+                str(rows_path),
+                "--spec",
+                str(spec_path),
+                "--output",
+                str(output_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "NORMALIZED"
+    assert "position" not in payload
+    normalized = CanonicalTrajectory.model_validate_json(output_path.read_text(encoding="utf-8"))
+    assert normalized.frame_count == 1
+
+    assert (
+        app(
+            [
+                "normalize",
+                str(rows_path),
+                "--spec",
+                str(spec_path),
+                "--output",
+                str(output_path),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )

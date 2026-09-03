@@ -19,7 +19,7 @@ from retargetlab.contracts import (
     MappingSpec,
     StructureManifest,
 )
-from retargetlab.io import validate_mapping
+from retargetlab.io import normalize_rows, validate_mapping
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -50,6 +50,14 @@ def _parser() -> argparse.ArgumentParser:
     validate_input.add_argument("manifest", type=Path)
     validate_input.add_argument("--spec", required=True, type=Path)
     validate_input.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    normalize = subparsers.add_parser(
+        "normalize", help="normalize explicitly mapped pose rows into canonical JSON"
+    )
+    normalize.add_argument("rows", type=Path)
+    normalize.add_argument("--spec", required=True, type=Path)
+    normalize.add_argument("--output", required=True, type=Path)
+    normalize.add_argument("--json", action="store_true", help="emit JSON to stdout")
     return parser
 
 
@@ -130,6 +138,30 @@ def _validate_input_payload(manifest_path: Path, spec_path: Path) -> tuple[dict[
     return payload, EXIT_OK if result.valid else EXIT_SEMANTIC
 
 
+def _normalize_payload(
+    rows_path: Path,
+    spec_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    raw_rows = json.loads(rows_path.read_text(encoding="utf-8"))
+    if not isinstance(raw_rows, list) or not all(isinstance(row, dict) for row in raw_rows):
+        raise ValueError("rows JSON must be a list of objects")
+    spec = MappingSpec.model_validate_json(spec_path.read_text(encoding="utf-8"))
+    trajectory = normalize_rows(raw_rows, spec)
+    with output_path.open("x", encoding="utf-8", newline="\n") as handle:
+        handle.write(trajectory.model_dump_json(indent=2))
+        handle.write("\n")
+    return {
+        "command": "normalize",
+        "status": "NORMALIZED",
+        "output": output_path.name,
+        "schema_version": trajectory.schema_version,
+        "coordinate_frame": trajectory.coordinate_frame,
+        "frame_count": trajectory.frame_count,
+        "stream_names": list(trajectory.stream_names),
+    }
+
+
 def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if as_json:
         json.dump(payload, stdout, ensure_ascii=False, sort_keys=True)
@@ -152,6 +184,12 @@ def _emit(payload: dict[str, Any], as_json: bool, stdout: TextIO) -> None:
     if payload.get("command") == "validate-input":
         print(
             f"input mapping: {'VALID' if payload['valid'] else 'INVALID'}",
+            file=stdout,
+        )
+        return
+    if payload.get("command") == "normalize":
+        print(
+            f"normalized trajectory: {payload['frame_count']} frames -> {payload['output']}",
             file=stdout,
         )
         return
@@ -201,6 +239,19 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return exit_code
+    if args.command == "normalize":
+        try:
+            payload = _normalize_payload(args.rows, args.spec, args.output)
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "normalize",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
     return EXIT_ERROR
 
 

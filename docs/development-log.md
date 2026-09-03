@@ -371,3 +371,34 @@ Remote verification:
 The next implementation step can add a narrow synthetic normalize adapter over
 these mappings, followed by a real-container prober only when its dependency
 and private-data boundary are explicitly registered.
+
+### M0 continuation: narrow explicit normalize adapter
+
+The first normalize path is intentionally limited to in-memory/JSON rows with
+one position and one quaternion pose per declared stream. It requires position
+unit `m`, the declared coordinate frame, and an explicit `wxyz` quaternion
+order; unsupported fields are rejected rather than silently dropped. Numeric
+values are checked for finiteness, quaternions are normalized, and only the
+mathematically equivalent sign is continuity-corrected across frames. The
+result is the existing CanonicalTrajectory v0.1 contract, with no source
+column-order assumptions and no robot-specific transform.
+
+`normalize <rows.json> --spec <mapping.json> --output <canonical.json>` now
+writes the canonical artifact once. The structured stdout response contains
+only status and shape metadata; an existing output path is rejected. This is a
+synthetic pose-only adapter and deliberately does not support gripper channels,
+Parquet/HDF5, or private/held-out data yet.
+
+Remote verification:
+
+- normalize and mapping tests: 10 passed, including quaternion sign
+  continuity, missing fields, frame declarations, non-monotonic timestamps,
+  and non-overwriting CLI output;
+- `ruff check src tests`, `ruff format --check src tests`, and `mypy src`:
+  passed;
+- the accidental duplicate test copy under `src/retargetlab/cli/` was removed
+  before verification; no such file remains in the source package.
+
+The next boundary is a synthetic solve command that consumes a canonical file
+and an explicit RobotProfile/asset reference, or a separately reviewed real
+container prober. Neither path should bypass the recipe hash and report layer.

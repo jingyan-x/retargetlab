@@ -17,6 +17,7 @@ class ColumnRef(BaseModel):
     indices: tuple[int, ...] = ()
     unit: str | None = None
     frame: str | None = None
+    quaternion_order: Literal["wxyz", "xyzw"] | None = None
 
     @model_validator(mode="after")
     def validate_shape_and_indices(self) -> ColumnRef:
