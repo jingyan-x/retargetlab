@@ -2,7 +2,78 @@
 
 from __future__ import annotations
 
+import math
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class MimicJoint(BaseModel):
+    """One target joint driven by an explicit affine mimic relation."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    joint_name: str = Field(min_length=1)
+    multiplier: float = 1.0
+    offset_m: float = 0.0
+
+    @model_validator(mode="after")
+    def validate_coefficients(self) -> MimicJoint:
+        if not self.joint_name.strip():
+            raise ValueError("mimic joint name must not be blank")
+        if not math.isfinite(self.multiplier) or not math.isfinite(self.offset_m):
+            raise ValueError("mimic coefficients must be finite")
+        return self
+
+
+class TargetGripperProfile(BaseModel):
+    """Target-side aperture semantics independent of arm IK."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    driver_joint_name: str = Field(min_length=1)
+    mimic_joints: tuple[MimicJoint, ...] = ()
+    joint_unit: Literal["m"] = "m"
+    driver_lower_m: float
+    driver_upper_m: float
+    aperture_semantics: Literal["aperture_fraction"] = "aperture_fraction"
+
+    @model_validator(mode="after")
+    def validate_mapping(self) -> TargetGripperProfile:
+        if not self.driver_joint_name.strip():
+            raise ValueError("gripper driver joint name must not be blank")
+        if not math.isfinite(self.driver_lower_m) or not math.isfinite(self.driver_upper_m):
+            raise ValueError("gripper driver limits must be finite")
+        if self.driver_upper_m <= self.driver_lower_m:
+            raise ValueError("gripper driver upper limit must exceed lower limit")
+        names = (self.driver_joint_name,) + tuple(item.joint_name for item in self.mimic_joints)
+        if len(set(names)) != len(names):
+            raise ValueError("gripper driver and mimic joint names must be unique")
+        return self
+
+    @property
+    def joint_names(self) -> tuple[str, ...]:
+        """Return joints in the declared target-side command order."""
+
+        return (self.driver_joint_name,) + tuple(item.joint_name for item in self.mimic_joints)
+
+    def aperture_to_joint_positions(self, aperture_fraction: float) -> dict[str, float]:
+        """Map ``0=closed`` and ``1=open`` to target joint positions in metres."""
+
+        if not math.isfinite(aperture_fraction) or not 0.0 <= aperture_fraction <= 1.0:
+            raise ValueError("aperture_fraction must be finite and in [0, 1]")
+        driver = self.driver_lower_m + aperture_fraction * (
+            self.driver_upper_m - self.driver_lower_m
+        )
+        positions = {self.driver_joint_name: driver}
+        positions.update(
+            {
+                mimic.joint_name: mimic.multiplier * driver + mimic.offset_m
+                for mimic in self.mimic_joints
+            }
+        )
+        return positions
 
 
 class KinematicGroup(BaseModel):
@@ -14,6 +85,7 @@ class KinematicGroup(BaseModel):
     joint_names: tuple[str, ...] = Field(min_length=1)
     end_effector_frame: str = Field(min_length=1)
     gripper_joint_names: tuple[str, ...] = ()
+    gripper: TargetGripperProfile | None = None
 
     @model_validator(mode="after")
     def validate_joint_names(self) -> KinematicGroup:
@@ -22,6 +94,8 @@ class KinematicGroup(BaseModel):
             raise ValueError("joint names must be unique within a kinematic group")
         if any(not name.strip() for name in all_names):
             raise ValueError("joint names must not be blank")
+        if self.gripper is not None and self.gripper.joint_names != self.gripper_joint_names:
+            raise ValueError("gripper semantics must match gripper_joint_names order")
         return self
 
 

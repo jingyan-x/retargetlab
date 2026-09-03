@@ -1338,3 +1338,38 @@ Remote verification:
 The next implementation boundary is target-side OpenArm gripper semantics and
 an explicit target robot profile, while keeping arm IK independent of gripper
 channels and preserving the certified-profile gate.
+
+### M1a.28: formalize target-side OpenArm gripper semantics and profile loading
+
+The target robot contract now distinguishes source-side `GripperProfile` from
+target-side `TargetGripperProfile`. A target gripper declares one driver joint,
+its ordered mimic joints, metre units, driver limits, and the canonical
+`aperture_fraction` meaning. Its pure mapping is explicit:
+`0=closed` and `1=open` linearly map to the driver joint, then apply the URDF
+mimic multiplier and offset to dependent joints. Invalid or non-finite aperture
+values are rejected. `KinematicGroup` requires the declared target gripper
+joint order to match its gripper joint list, so a mimic joint cannot silently
+be treated as an independent command dimension.
+
+The formal OpenArm loader now consumes the versioned asset bundle and verifies
+the generated URDF hash, SRDF hash, required arm/TCP/finger links, prismatic
+finger limits `[0, 0.044] m`, and `finger_joint2 -> finger_joint1` mimic
+relation before constructing the profile. The two groups are
+`openarm_left` and `openarm_right`, both target `hand_tcp` in the `world` root.
+The profile preserves the 16 SRDF disabled pairs, allows only the expected
+closed-finger contacts, and retains body-to-arm-base barrier pairs for the
+collision backend. Gripper mapping remains a target-side post-processing
+contract and is not injected into arm IK.
+
+Remote verification against the real staged OpenArm asset:
+
+- formal profile, Pinocchio load, SRDF policy, and real-finger endpoint smoke:
+  passed;
+- full regression tests with `RETARGETLAB_OPENARM_ASSET_DIR` set: 77 passed
+  and 1 Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or export data were accessed or changed.
+
+The next implementation boundary is to make this formal target profile
+materializable as an exclusive, hash-bound JSON artifact for solve/export
+inputs, before adding any target-specific execution behavior.
