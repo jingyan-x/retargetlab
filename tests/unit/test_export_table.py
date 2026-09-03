@@ -221,6 +221,7 @@ def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys)
     bundle_path = _write_bundle(tmp_path)
     source_path = tmp_path / "synthetic-source.parquet"
     output_path = tmp_path / "synthetic-target.parquet"
+    report_path = tmp_path / "synthetic-write-report.json"
     _write_source_table(source_path)
 
     assert (
@@ -233,6 +234,8 @@ def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys)
                 str(bundle_path),
                 "--output",
                 str(output_path),
+                "--report",
+                str(report_path),
                 "--json",
             ]
         )
@@ -241,6 +244,7 @@ def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys)
     payload = json.loads(capsys.readouterr().out)
     assert payload["artifact_type"] == "synthetic_target_table"
     assert payload["source_scope"] == "synthetic_public_only"
+    assert payload["report_path"] == str(report_path)
 
     assert (
         app(
@@ -252,6 +256,8 @@ def test_synthetic_table_writer_cli_is_explicitly_scoped(tmp_path: Path, capsys)
                 str(bundle_path),
                 "--output",
                 str(output_path),
+                "--report",
+                str(report_path),
                 "--json",
             ]
         )

@@ -103,6 +103,49 @@ class SyntheticTargetTableVerification(BaseModel):
         return self
 
 
+class SyntheticTableWriteReport(BaseModel):
+    """Value-free archive of one completed synthetic write and verification."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["synthetic_table_write_report"] = "synthetic_table_write_report"
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    write: SyntheticTargetTableExport
+    verification: SyntheticTargetTableVerification
+
+    @model_validator(mode="after")
+    def validate_write_and_verification(self) -> SyntheticTableWriteReport:
+        write = self.write
+        verification = self.verification
+        if write.source_scope != verification.source_scope:
+            raise ValueError("write report source scopes do not match")
+        if write.source_table_path != verification.source_table_path:
+            raise ValueError("write report source paths do not match")
+        if write.output_table_path != verification.output_table_path:
+            raise ValueError("write report output paths do not match")
+        if write.target_replay_bundle_path != verification.target_replay_bundle_path:
+            raise ValueError("write report bundle paths do not match")
+        if write.target_replay_bundle_sha256 != verification.target_replay_bundle_sha256:
+            raise ValueError("write report bundle hashes do not match")
+        if write.preflight_path != verification.preflight_path:
+            raise ValueError("write report preflight paths do not match")
+        if write.preflight_sha256 != verification.preflight_sha256:
+            raise ValueError("write report preflight hashes do not match")
+        if write.replay_id != verification.replay_id or write.robot_id != verification.robot_id:
+            raise ValueError("write report replay identities do not match")
+        if write.frame_count != verification.frame_count:
+            raise ValueError("write report frame counts do not match")
+        if write.selected_episode_indices != verification.selected_episode_indices:
+            raise ValueError("write report episode selections do not match")
+        if write.output_columns != verification.output_columns:
+            raise ValueError("write report output columns do not match")
+        if write.output_table_sha256 != verification.output_table_sha256:
+            raise ValueError("write report output hashes do not match")
+        return self
+
+
 class SyntheticTableWritePreflight(BaseModel):
     """Value-free binding for the synthetic table writer's approved inputs."""
 

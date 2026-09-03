@@ -1820,3 +1820,29 @@ Remote verification:
 The next implementation boundary is to persist a value-free write/verify
 report and make the synthetic CLI round trip consume it, before designing a
 full multi-episode LeRobot metadata writer.
+
+### M1b.2e: persist and consume the synthetic write/verify report
+
+The synthetic CLI now supports an optional value-free
+`synthetic_table_write_report`. With `--report`, a successful table write is
+immediately verified and the report archives both the write summary and the
+verification summary, including paths, hashes, layout/column metadata, and
+selected episode ids but no trajectory vector values. The verification CLI
+can consume `--report`; it reruns the output verifier from the report's bound
+inputs and requires the result to match the report and the explicit CLI
+inputs. This makes a completed synthetic experiment reproducible from one
+small audit file.
+
+Remote verification:
+
+- synthetic write/verify/report CLI round-trip, preflight linkage,
+  multi-episode selection, and tamper tests: 7 passed;
+- full regression with the real OpenArm asset smoke enabled: 104 passed and 1
+  Panda asset smoke skipped;
+- `ruff check src tests harness/m1a` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or
+  changed.
+
+The next implementation boundary is to validate report persistence under
+report/output tampering and then decide the minimal metadata needed for a
+complete multi-episode LeRobot writer.

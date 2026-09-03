@@ -8,8 +8,11 @@ from .export_gate import build_export_input_gate, write_export_input_gate
 from .export_profile import write_export_profile
 from .export_table import (
     build_synthetic_table_write_preflight,
+    build_synthetic_table_write_report,
     verify_synthetic_table_write_preflight,
+    verify_synthetic_table_write_report,
     write_synthetic_table_write_preflight,
+    write_synthetic_table_write_report,
 )
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
@@ -53,8 +56,11 @@ __all__ = [
     "build_export_input_gate",
     "write_export_input_gate",
     "build_synthetic_table_write_preflight",
+    "build_synthetic_table_write_report",
     "write_synthetic_table_write_preflight",
+    "write_synthetic_table_write_report",
     "verify_synthetic_table_write_preflight",
+    "verify_synthetic_table_write_report",
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_target_replay_manifest",

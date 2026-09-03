@@ -48,6 +48,7 @@ from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_export_input_gate,
     build_synthetic_table_write_preflight,
+    build_synthetic_table_write_report,
     build_target_replay_bundle,
     build_target_replay_manifest,
     build_target_replay_trajectory,
@@ -61,6 +62,7 @@ from retargetlab.run import (
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_synthetic_table_write_preflight,
+    verify_synthetic_table_write_report,
     verify_target_replay_bundle,
     verify_target_replay_manifest,
     verify_target_replay_trajectory,
@@ -72,6 +74,7 @@ from retargetlab.run import (
     write_review_package_preflight,
     write_robot_profile,
     write_synthetic_table_write_preflight,
+    write_synthetic_table_write_report,
     write_target_gripper_trajectory,
     write_target_replay_bundle,
     write_target_replay_manifest,
@@ -207,6 +210,11 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional verified synthetic table preflight bound to an export input gate",
     )
+    write_synthetic_table.add_argument(
+        "--report",
+        type=Path,
+        help="optional value-free write/verify report path",
+    )
     write_synthetic_table.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_synthetic_table = subparsers.add_parser(
@@ -217,6 +225,7 @@ def _parser() -> argparse.ArgumentParser:
     verify_synthetic_table.add_argument("--target-replay-bundle", required=True, type=Path)
     verify_synthetic_table.add_argument("--output", required=True, type=Path)
     verify_synthetic_table.add_argument("--preflight", type=Path)
+    verify_synthetic_table.add_argument("--report", type=Path)
     verify_synthetic_table.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
@@ -798,6 +807,7 @@ def _write_synthetic_table_payload(
     target_replay_bundle_path: Path,
     output_path: Path,
     preflight_path: Path | None,
+    report_path: Path | None,
 ) -> dict[str, Any]:
     artifact = write_synthetic_target_table(
         source_path=source_path,
@@ -805,10 +815,24 @@ def _write_synthetic_table_payload(
         output_path=output_path,
         preflight_path=preflight_path,
     )
-    return {
+    payload = {
         "command": "write-synthetic-table",
         **artifact.model_dump(mode="json"),
     }
+    if report_path is not None:
+        verification = verify_synthetic_target_table(
+            source_path=source_path,
+            target_replay_bundle_path=target_replay_bundle_path,
+            output_path=output_path,
+            preflight_path=preflight_path,
+        )
+        report = build_synthetic_table_write_report(
+            write=artifact,
+            verification=verification,
+        )
+        write_synthetic_table_write_report(report_path, report)
+        payload["report_path"] = str(report_path)
+    return payload
 
 
 def _verify_synthetic_table_payload(
@@ -817,6 +841,7 @@ def _verify_synthetic_table_payload(
     target_replay_bundle_path: Path,
     output_path: Path,
     preflight_path: Path | None,
+    report_path: Path | None,
 ) -> dict[str, Any]:
     verification = verify_synthetic_target_table(
         source_path=source_path,
@@ -824,10 +849,17 @@ def _verify_synthetic_table_payload(
         output_path=output_path,
         preflight_path=preflight_path,
     )
-    return {
+    if report_path is not None:
+        report_verification = verify_synthetic_table_write_report(report_path)
+        if report_verification != verification:
+            raise ValueError("synthetic table write report does not match CLI inputs")
+    payload = {
         "command": "verify-synthetic-table",
         **verification.model_dump(mode="json"),
     }
+    if report_path is not None:
+        payload["report_path"] = str(report_path)
+    return payload
 
 
 def _build_synthetic_preflight_payload(
@@ -1798,6 +1830,7 @@ def app(argv: list[str] | None = None) -> int:
                 target_replay_bundle_path=args.target_replay_bundle,
                 output_path=args.output,
                 preflight_path=args.preflight,
+                report_path=args.report,
             )
         except RuntimeError as exc:
             error = {
@@ -1824,6 +1857,7 @@ def app(argv: list[str] | None = None) -> int:
                 target_replay_bundle_path=args.target_replay_bundle,
                 output_path=args.output,
                 preflight_path=args.preflight,
+                report_path=args.report,
             )
         except RuntimeError as exc:
             error = {

@@ -9,6 +9,9 @@ from retargetlab.contracts import (
     ExportInputGate,
     SyntheticTableWritePreflight,
     SyntheticTableWritePreflightVerification,
+    SyntheticTableWriteReport,
+    SyntheticTargetTableExport,
+    SyntheticTargetTableVerification,
 )
 from retargetlab.robot.assets import sha256_file
 from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
@@ -100,3 +103,49 @@ def verify_synthetic_table_write_preflight(
         target_replay_bundle_sha256=preflight.target_replay_bundle_sha256,
         target_replay_frame_count=preflight.target_replay_frame_count,
     )
+
+
+def build_synthetic_table_write_report(
+    *,
+    write: SyntheticTargetTableExport,
+    verification: SyntheticTargetTableVerification,
+) -> SyntheticTableWriteReport:
+    """Bind a completed synthetic write to its value-free verification."""
+
+    return SyntheticTableWriteReport(write=write, verification=verification)
+
+
+def write_synthetic_table_write_report(
+    path: Path,
+    report: SyntheticTableWriteReport,
+) -> SyntheticTableWriteReport:
+    """Write one exclusive value-free synthetic write report."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(report.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return report
+
+
+def verify_synthetic_table_write_report(
+    path: Path,
+) -> SyntheticTargetTableVerification:
+    """Re-run the table verifier and compare it with a saved write report."""
+
+    report = SyntheticTableWriteReport.model_validate_json(path.read_text(encoding="utf-8"))
+    from retargetlab.export import verify_synthetic_target_table
+
+    actual = verify_synthetic_target_table(
+        source_path=Path(report.verification.source_table_path),
+        target_replay_bundle_path=Path(report.verification.target_replay_bundle_path),
+        output_path=Path(report.verification.output_table_path),
+        preflight_path=(
+            Path(report.verification.preflight_path)
+            if report.verification.preflight_path is not None
+            else None
+        ),
+    )
+    if actual != report.verification:
+        raise ValueError("synthetic table write report does not match its output")
+    return actual
