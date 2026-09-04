@@ -722,7 +722,7 @@ def _info_payload(
         str(episode.episode_index): (
             retarget_mask.episodes[index].retarget_status
             if retarget_mask is not None
-            else episode.retarget_status
+            else "PASS"
         )
         for index, episode in enumerate(plan.episodes)
     }
@@ -870,7 +870,7 @@ def _episodes_table(
                     (
                         retarget_statuses[episode.episode_index]
                         if retarget_statuses is not None
-                        else episode.retarget_status
+                        else "PASS"
                     )
                     for episode in episodes
                 ],

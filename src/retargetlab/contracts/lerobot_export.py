@@ -38,7 +38,6 @@ class LeRobotEpisodeMetadata(BaseModel):
     task_indices: tuple[int, ...] = Field(min_length=1)
     data_chunk_index: int = Field(ge=0)
     data_file_index: int = Field(ge=0)
-    retarget_status: RetargetStatus = "PASS"
 
     @model_validator(mode="after")
     def validate_range(self) -> LeRobotEpisodeMetadata:
@@ -626,8 +625,6 @@ class LeRobotTrainingDatasetConfig(BaseModel):
             raise ValueError("training config status must match blocking reasons")
         if self.status == "READY" and not self.episodes:
             raise ValueError("ready training config must select at least one episode")
-        if self.status == "READY" and self.episodes != tuple(range(len(self.episodes))):
-            raise ValueError("ready training config episodes must be zero-based and contiguous")
         return self
 
 
