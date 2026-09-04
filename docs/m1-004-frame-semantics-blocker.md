@@ -100,3 +100,39 @@ cross-checking, but is not silently assumed as a prerequisite:
 - an authorized source-to-target pose mapping with its evidence and validation set.
 
 Held-out episodes remain unread before M-1c, and no raw private poses or source paths belong in reports.
+
+## 2026-09-04 follow-up: OpenArm-first semantic isolation
+
+The user subsequently reaffirmed that OpenArm is the first adaptation target.
+The Panda section above remains historical target-reselection evidence; it does
+not change the active OpenArm-first order and does not authorize promoting the
+Panda mapping into a source-frame claim.
+
+The diagnostic harness now supports aggregate calibration-only comparisons for
+the target frame (`hand_tcp` or `link7`), side mapping, orientation hypothesis,
+and bounded solver budgets. On the new recipe
+`20260904-m1-openarm-006`, candidate `t2-023` was held fixed and 60 calibration
+frames were evaluated under four semantic combinations. With the same
+120-iteration/1-seed diagnostic budget, identity/hand_tcp reached 1/60 nominal,
+identity/link7 2/60, and viser-left-inverse/hand_tcp 3/60. The combined
+viser-left-inverse/link7 hypothesis reached 25/60 nominal and 26/60 relaxed,
+with 0.117 penetration fraction. This is a useful directional signal, not a
+frame-identity proof.
+
+The combined hypothesis was then rerun with the full recipe budget (300 outer
+iterations and 4 target seeds). It reached 28/60 nominal, 29/60 relaxed, and
+0.117 penetration fraction. It remains below the 0.80 yellow gate and is not a
+candidate for formal recipe promotion. The evidence reports are retained under
+the gitignored `20260904-openarm-recovery-002` run directory; the full-budget
+report SHA-256 is
+`5edb15f1ab6be0c9a7bd47df717fbdfcaad101173e4ed1686537bbcbab90e643`.
+
+The source metadata provides an important constraint on interpretation: the
+dataset declares source end links `Larm08_link`/`Rarm08_link` and records a
+flange-to-TCP translation of `[0, 0, 0.22855]` with unchanged quaternion, but
+the source URDF and coordinate-frame declaration are absent. The OpenArm
+`link7`/`hand_tcp` relationship is therefore only a diagnostic hypothesis.
+The next OpenArm gate is to obtain or reconstruct an authorized source-to-
+target frame mapping and validate it on calibration data, then isolate
+per-arm versus shared bimanual constraints. Do not rewrite the formal recipe,
+open held-out episodes, or export data until that semantic evidence exists.

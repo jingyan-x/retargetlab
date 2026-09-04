@@ -2514,3 +2514,34 @@ Remote verification:
   policy flags as false;
 - no held-out values, private pose values, source paths, video, or target
   dataset output were read or changed.
+
+### 2026-09-04 · isolate OpenArm frame and orientation semantics
+
+The next OpenArm-first slice held candidate `t2-023` fixed and compared the
+unconfirmed target frame and orientation hypotheses on the same 60 calibration
+frames. Under an identical diagnostic budget (120 outer iterations, one target
+seed), the four combinations were:
+
+- identity + `hand_tcp`: 1/60 nominal, 0.017 penetration fraction;
+- identity + `link7`: 2/60 nominal, 0.450 penetration fraction;
+- `viser_left_inverse` + `hand_tcp`: 3/60 nominal, 0.750 penetration fraction;
+- `viser_left_inverse` + `link7`: 25/60 nominal, 26/60 relaxed, 0.117
+  penetration fraction.
+
+The combined hypothesis was rerun with the complete recipe solver budget (300
+outer iterations, four target seeds). It reached 28/60 nominal, 29/60 relaxed,
+and 0.117 penetration fraction. The full-budget report is
+`projects/private-sample-openarm/runs/20260904-openarm-recovery-002/viser-left-inverse-link7-t2-023-full-budget.json`
+with SHA-256
+`5edb15f1ab6be0c9a7bd47df717fbdfcaad101173e4ed1686537bbcbab90e643`.
+
+This is strong evidence that the identity pose hypothesis is a poor diagnostic
+fit, and that frame/orientation choices interact; it is not enough to promote
+`viser_left_inverse` or `link7` into the formal recipe. The best result remains
+below the 0.80 yellow gate and retains penetration. The source metadata says
+the original EEF values came from `Larm08_link`/`Rarm08_link` with a recorded
+flange-to-TCP translation of `[0, 0, 0.22855]` and unchanged quaternion, while
+the source URDF and coordinate-frame declaration are unavailable. The next
+OpenArm action is therefore to obtain or reconstruct an authorized source-
+to-target frame mapping and validate it, followed by per-arm versus shared
+bimanual constraint isolation. No formal recipe or held-out access was changed.
