@@ -66,8 +66,10 @@ from retargetlab.run import (
     load_executable_data_profile,
     map_target_grippers,
     recipe_sha256,
+    run_lerobot_acceptance,
     verify_calibration_run,
     verify_data_profile,
+    verify_lerobot_acceptance_report,
     verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
@@ -89,6 +91,7 @@ from retargetlab.run import (
     write_dataset_coverage,
     write_export_input_gate,
     write_export_profile,
+    write_lerobot_acceptance_report,
     write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
@@ -598,6 +601,25 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_lerobot_training_config.add_argument("--config", required=True, type=Path)
     verify_lerobot_training_config.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    run_lerobot_acceptance = subparsers.add_parser(
+        "run-lerobot-acceptance",
+        help="run the optional five-step LeRobot loader acceptance checks",
+    )
+    run_lerobot_acceptance.add_argument("--config", required=True, type=Path)
+    run_lerobot_acceptance.add_argument("--output", required=True, type=Path)
+    run_lerobot_acceptance.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_acceptance = subparsers.add_parser(
+        "verify-lerobot-acceptance",
+        help="verify an archived LeRobot acceptance report without rerunning the loader",
+    )
+    verify_lerobot_acceptance.add_argument("--report", required=True, type=Path)
+    verify_lerobot_acceptance.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1686,6 +1708,44 @@ def _verify_lerobot_training_config_payload(
             **config.model_dump(mode="json"),
         },
         EXIT_OK if config.status == "READY" else EXIT_QUALITY,
+    )
+
+
+def _lerobot_acceptance_exit_code(status: str) -> int:
+    if status == "PASSED":
+        return EXIT_OK
+    if status == "ENVIRONMENT_UNAVAILABLE":
+        return EXIT_ENVIRONMENT
+    return EXIT_QUALITY
+
+
+def _run_lerobot_acceptance_payload(
+    *,
+    config_path: Path,
+    output_path: Path,
+) -> tuple[dict[str, Any], int]:
+    report = run_lerobot_acceptance(config_path)
+    write_lerobot_acceptance_report(output_path, report)
+    return (
+        {
+            "command": "run-lerobot-acceptance",
+            **report.model_dump(mode="json"),
+            "output": str(output_path),
+        },
+        _lerobot_acceptance_exit_code(report.status),
+    )
+
+
+def _verify_lerobot_acceptance_payload(
+    report_path: Path,
+) -> tuple[dict[str, Any], int]:
+    verification = verify_lerobot_acceptance_report(report_path)
+    return (
+        {
+            "command": "verify-lerobot-acceptance",
+            **verification.model_dump(mode="json"),
+        },
+        _lerobot_acceptance_exit_code(verification.acceptance_status),
     )
 
 
@@ -3187,6 +3247,51 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-training-dataset-config",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "run-lerobot-acceptance":
+        try:
+            payload, exit_code = _run_lerobot_acceptance_payload(
+                config_path=args.config,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "run-lerobot-acceptance",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "run-lerobot-acceptance",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "verify-lerobot-acceptance":
+        try:
+            payload, exit_code = _verify_lerobot_acceptance_payload(args.report)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-acceptance",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-acceptance",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

@@ -21,6 +21,11 @@ from .export_table import (
     SyntheticTargetTableVerification,
 )
 from .gripper import TargetGripperFrame, TargetGripperTrajectory
+from .lerobot_acceptance import (
+    LeRobotAcceptanceCheck,
+    LeRobotAcceptanceReport,
+    LeRobotAcceptanceReportVerification,
+)
 from .lerobot_export import (
     LeRobotEpisodeMetadata,
     LeRobotEpisodeReplayBinding,
@@ -98,6 +103,9 @@ from .timing import CommandTimingReport, TimingShiftResult
 __all__ = [
     "CanonicalFrame",
     "CanonicalTrajectory",
+    "LeRobotAcceptanceCheck",
+    "LeRobotAcceptanceReport",
+    "LeRobotAcceptanceReportVerification",
     "CalibrationReport",
     "CalibrationRecipe",
     "CalibrationRunManifest",

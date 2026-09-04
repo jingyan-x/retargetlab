@@ -16,6 +16,11 @@ from .export_table import (
 )
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
+from .lerobot_acceptance import (
+    run_lerobot_acceptance,
+    verify_lerobot_acceptance_report,
+    write_lerobot_acceptance_report,
+)
 from .lerobot_export import (
     build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
@@ -96,6 +101,9 @@ __all__ = [
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_lerobot_loader_preflight",
+    "run_lerobot_acceptance",
+    "verify_lerobot_acceptance_report",
+    "write_lerobot_acceptance_report",
     "build_lerobot_retarget_mask",
     "build_lerobot_metadata_plan",
     "build_lerobot_replay_binding_manifest",
