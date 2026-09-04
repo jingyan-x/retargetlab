@@ -2263,3 +2263,19 @@ Remote verification:
 - focused CLI tests: 9 passed;
 - full regression with both OpenArm and Panda assets enabled: 121 passed;
 - `ruff check src tests` and `mypy src`: passed.
+
+### M1b.3q: remove an unverified pandas producer-version claim
+
+The tasks Parquet writer keeps the pandas-compatible named-index metadata
+required by the LeRobot task loader, but no longer inserts a hard-coded
+`pandas_version`. This project writes the table through PyArrow rather than
+pandas, so the previous value was not evidence-backed and could misdescribe
+the producer. The actual index field, index name, and `task_index` metadata
+remain schema-verified.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with both OpenArm and Panda assets enabled: 121 passed;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or changed.

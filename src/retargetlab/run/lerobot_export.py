@@ -613,7 +613,6 @@ def _tasks_table(pa: Any, plan: LeRobotMetadataPlan) -> Any:
             },
         ],
         "attributes": {},
-        "pandas_version": "2.2.3",
     }
     return table.replace_schema_metadata(
         {b"pandas": json.dumps(pandas_metadata, separators=(",", ":")).encode("utf-8")}
