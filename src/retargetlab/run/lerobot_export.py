@@ -549,9 +549,12 @@ def _info_payload(
         "total_videos": 0,
         "total_chunks": len({episode.data_chunk_index for episode in plan.episodes}),
         "chunks_size": _DEFAULT_CHUNKS_SIZE,
+        "data_files_size_in_mb": 100,
+        "video_files_size_in_mb": 200,
         "fps": plan.fps,
         "splits": {"train": f"{split_start}:{split_end}"},
         "data_path": plan.data_path_template,
+        "video_path": None,
         "features": {
             name: _feature_payload(feature) for name, feature in plan.features.items()
         },

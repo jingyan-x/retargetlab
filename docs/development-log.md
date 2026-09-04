@@ -2135,3 +2135,18 @@ The next implementation boundary is a local loader-contract preflight that
 checks the emitted info, tasks, episode metadata, data, and stats assumptions
 against the current public LeRobot file contract without silently claiming
 that the optional upstream training dependencies are installed.
+
+### M1b.3k: make video-free info fields explicit
+
+The emitted `meta/info.json` now records `video_path: null` for the
+video-free plan and includes the current LeRobot default data/video file-size
+fields instead of relying on loader-side defaults. This keeps the output
+self-describing while preserving the deliberate `PARTIAL` status and the
+absence of video shards.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with the real OpenArm asset smoke enabled: 120 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed.

@@ -858,6 +858,7 @@ def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path)
     assert info["total_episodes"] == 1
     assert info["total_frames"] == 2
     assert info["total_videos"] == 0
+    assert info["video_path"] is None
     assert info["splits"] == {"train": "3:4"}
     assert info["retargetlab"]["status"] == "PARTIAL"
     assert info["retargetlab"]["training_episode_allowlist"] == [3]
