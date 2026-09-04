@@ -742,10 +742,19 @@ def _doctor_payload() -> tuple[dict[str, Any], int]:
             ("qpsolvers", "qpsolvers"),
             ("osqp", "osqp"),
             ("pyarrow", "pyarrow"),
+            ("lerobot", "lerobot"),
+            ("torch", "torch"),
+            ("datasets", "datasets"),
+            ("huggingface_hub", "huggingface-hub"),
         )
     }
     required = ("numpy", "pydantic", "pinocchio", "pink", "qpsolvers", "osqp")
     missing = [name for name in required if dependencies[name]["status"] == "missing"]
+    optional_missing = [
+        name
+        for name in ("pyarrow", "lerobot", "torch", "datasets", "huggingface_hub")
+        if dependencies[name]["status"] == "missing"
+    ]
     payload = {
         "command": "doctor",
         "retargetlab_version": __version__,
@@ -753,6 +762,7 @@ def _doctor_payload() -> tuple[dict[str, Any], int]:
         "dependencies": dependencies,
         "status": "READY" if not missing else "MISSING_DEPENDENCIES",
         "missing": missing,
+        "optional_missing": optional_missing,
     }
     return payload, EXIT_OK if not missing else EXIT_ENVIRONMENT
 

@@ -26,6 +26,7 @@ def test_doctor_json_is_structured(capsys) -> None:
     assert exit_code in {EXIT_OK, 5}
     assert payload["command"] == "doctor"
     assert set(payload["dependencies"]) >= {"numpy", "pydantic"}
+    assert isinstance(payload["optional_missing"], list)
 
 
 def test_inspect_canonical_json_is_read_only(tmp_path, capsys) -> None:

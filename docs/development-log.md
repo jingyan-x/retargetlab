@@ -2241,3 +2241,25 @@ This verifies that the LeRobot metadata/export additions did not regress either
 target morphology's URDF/SRDF loading, collision policy, FK, or Pink solve
 smokes. It still does not authorize private source-row export or claim an
 upstream LeRobot training run.
+
+### M1b.3p: expose optional LeRobot runtime readiness
+
+The `doctor --json` report now distinguishes the core retargetlab runtime from
+the optional upstream LeRobot loader stack. It reports `lerobot`, `torch`,
+`datasets`, and `huggingface_hub` explicitly and exposes `optional_missing`
+without turning their absence into a failure of the core solver/export
+environment.
+
+On this remote host the core environment is `READY`, while those four loader
+dependencies are missing. `/root/lerobot` is present as a read-only source
+checkout at revision `64b23178d5348609c266250d3e1f511eba4c33ff`, whose package
+version is `0.6.2`; it is not silently substituted for the pinned
+`lerobot==0.6.1` runtime in the generated config. No environment installation
+or upstream training/loader claim was made.
+
+Remote verification:
+
+- `doctor --json` reports the optional runtime boundary explicitly;
+- focused CLI tests: 9 passed;
+- full regression with both OpenArm and Panda assets enabled: 121 passed;
+- `ruff check src tests` and `mypy src`: passed.
