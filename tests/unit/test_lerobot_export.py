@@ -621,7 +621,7 @@ def test_lerobot_multi_episode_dataset_groups_verified_shards(
     info = json.loads((output_root / "meta" / "info.json").read_text(encoding="utf-8"))
     assert info["total_episodes"] == 2
     assert info["total_frames"] == 4
-    assert info["splits"] == {"train": "3:5"}
+    assert info["splits"] == {"train": "0:2"}
     assert info["retargetlab"]["written_components"] == ["metadata", "data_shards"]
 
     verification = verify_lerobot_multi_episode_dataset(
@@ -953,7 +953,7 @@ def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path)
     assert info["total_frames"] == 2
     assert info["total_videos"] == 0
     assert info["video_path"] is None
-    assert info["splits"] == {"train": "3:4"}
+    assert info["splits"] == {"train": "0:1"}
     assert info["retargetlab"]["status"] == "PARTIAL"
     assert info["retargetlab"]["training_episode_allowlist"] == [3]
     assert not (output_root / "data").exists()

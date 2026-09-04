@@ -2207,3 +2207,24 @@ Remote verification:
   status for the current `(3, 4)` synthetic source-index fixture;
 - all coverage remains synthetic/public only; no private dataset rows, video,
   or target dataset output was read or changed.
+
+### M1b.3n: keep split metadata positional and source-index metadata separate
+
+The LeRobot `splits` field is now emitted as the physical dataset range
+`0:<total_episodes>`, matching the upstream writer convention. It no longer
+uses the minimum and maximum source episode identifiers, which could describe
+an interval containing episodes that are not materialized when a selected
+source subset has identifiers such as `(3, 4)`. The original source IDs remain
+explicitly recorded in `retargetlab.training_episode_allowlist`, and the
+loader preflight still blocks the non-zero-based partial fixture.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with the real OpenArm asset smoke enabled: 120 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- metadata, grouped data, statistics, loader preflight, and loader-config
+  verifiers continue to reject schema/value drift;
+- all coverage remains synthetic/public only; no private dataset rows, video,
+  or target dataset output was read or changed.

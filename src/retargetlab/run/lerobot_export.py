@@ -527,9 +527,6 @@ def _info_payload(
 ) -> dict[str, Any]:
     if stats_written and not data_shards_written:
         raise ValueError("statistics cannot be written before data shards")
-    episode_indices = plan.training_episode_allowlist
-    split_start = min(episode_indices)
-    split_end = max(episode_indices) + 1
     omissions: tuple[str, ...]
     written_components: tuple[str, ...]
     if stats_written:
@@ -554,7 +551,7 @@ def _info_payload(
         "data_files_size_in_mb": 100,
         "video_files_size_in_mb": 200,
         "fps": plan.fps,
-        "splits": {"train": f"{split_start}:{split_end}"},
+        "splits": {"train": f"0:{plan.total_episodes}"},
         "data_path": plan.data_path_template,
         "video_path": None,
         "features": {
