@@ -2180,3 +2180,30 @@ Remote verification:
   quality-status exit for the explicit blocked boundary;
 - all coverage remains synthetic/public only; no private dataset rows, video,
   or target dataset output was read or changed.
+
+### M1b.3m: materialize the direct dataset-loader configuration
+
+The verified loader preflight now feeds an exclusive training-dataset config
+artifact. It records the exact local `repo_id`, dataset `root`, and episode
+allowlist needed by the LeRobot loading path, pins the intended runtime
+dependency as `lerobot==0.6.1`, and binds the config to the preflight hash.
+The artifact explicitly remains `upstream_training_compatibility: NOT_CLAIMED`;
+it is a reproducible loader configuration, not evidence that a training run
+has succeeded.
+
+When the preflight is `BLOCKED`, the config preserves that status and the
+blocking reason and the CLI returns `EXIT_QUALITY`. A `READY` config is only
+valid when its episode selection is zero-based and contiguous, so the new
+artifact cannot silently turn a non-compatible source-index selection into a
+training-ready claim.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with the real OpenArm asset smoke enabled: 120 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- config build/verify CLI coverage preserves the expected BLOCKED quality
+  status for the current `(3, 4)` synthetic source-index fixture;
+- all coverage remains synthetic/public only; no private dataset rows, video,
+  or target dataset output was read or changed.

@@ -428,6 +428,54 @@ class LeRobotLoaderPreflight(BaseModel):
         return self
 
 
+class LeRobotTrainingDatasetConfig(BaseModel):
+    """Direct dataset-loader configuration, not a training-run result."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_training_dataset_config"] = (
+        "lerobot_training_dataset_config"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["READY", "BLOCKED"]
+    loader_contract: Literal["lerobot_v3_numeric_video_free_v0.1"] = (
+        "lerobot_v3_numeric_video_free_v0.1"
+    )
+    runtime_dependency: Literal["lerobot==0.6.1"] = "lerobot==0.6.1"
+    upstream_training_compatibility: Literal["NOT_CLAIMED"] = "NOT_CLAIMED"
+    dataset_alias: str = Field(min_length=1)
+    repo_id: str = Field(min_length=1)
+    root: str = Field(min_length=1)
+    episodes: tuple[int, ...] = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    preflight_path: str = Field(min_length=1)
+    preflight_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    blocking_reasons: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_config(self) -> LeRobotTrainingDatasetConfig:
+        if len(set(self.episodes)) != len(self.episodes):
+            raise ValueError("training config episode selection must be unique")
+        if any(index < 0 for index in self.episodes):
+            raise ValueError("training config episode selection must be non-negative")
+        if len(set(self.blocking_reasons)) != len(self.blocking_reasons):
+            raise ValueError("training config blocking reasons must be unique")
+        if any(not reason.strip() for reason in self.blocking_reasons):
+            raise ValueError("training config blocking reasons must be non-empty")
+        if len(set(self.warnings)) != len(self.warnings):
+            raise ValueError("training config warnings must be unique")
+        if any(not warning.strip() for warning in self.warnings):
+            raise ValueError("training config warnings must be non-empty")
+        if (self.status == "BLOCKED") != bool(self.blocking_reasons):
+            raise ValueError("training config status must match blocking reasons")
+        if self.status == "READY" and self.episodes != tuple(range(len(self.episodes))):
+            raise ValueError("ready training config episodes must be zero-based and contiguous")
+        return self
+
+
 class LeRobotMetadataPlan(BaseModel):
     """Value-free plan for a complete, video-free LeRobot v3 metadata set."""
 

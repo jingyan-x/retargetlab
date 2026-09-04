@@ -33,6 +33,7 @@ from retargetlab.contracts import (
     LeRobotTargetTableBindingManifest,
     LeRobotTargetTableBindingVerification,
     LeRobotTaskMetadata,
+    LeRobotTrainingDatasetConfig,
     SyntheticTableWriteReport,
     TargetReplayBundle,
 )
@@ -1946,3 +1947,56 @@ def verify_lerobot_loader_preflight(path: Path) -> LeRobotLoaderPreflight:
     if expected != preflight:
         raise ValueError("loader preflight does not match its bound dataset inputs")
     return preflight
+
+
+def build_lerobot_training_dataset_config(
+    *,
+    preflight_path: Path,
+) -> LeRobotTrainingDatasetConfig:
+    """Build a direct ``LeRobotDataset`` configuration from a verified preflight."""
+
+    preflight_path = preflight_path.resolve()
+    preflight = verify_lerobot_loader_preflight(preflight_path)
+    return LeRobotTrainingDatasetConfig(
+        status=preflight.status,
+        dataset_alias=preflight.dataset_alias,
+        repo_id=preflight.dataset_alias,
+        root=preflight.output_root,
+        episodes=preflight.episode_indices,
+        plan_path=preflight.plan_path,
+        plan_sha256=preflight.plan_sha256,
+        preflight_path=preflight_path.as_posix(),
+        preflight_sha256=sha256_file(preflight_path),
+        blocking_reasons=preflight.blocking_reasons,
+        warnings=(*preflight.warnings, "dataset_config_is_not_a_training_run"),
+    )
+
+
+def write_lerobot_training_dataset_config(
+    path: Path,
+    config: LeRobotTrainingDatasetConfig,
+) -> LeRobotTrainingDatasetConfig:
+    """Persist one exclusive dataset-loader configuration outside the dataset root."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(config.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return config
+
+
+def verify_lerobot_training_dataset_config(
+    path: Path,
+) -> LeRobotTrainingDatasetConfig:
+    """Rebuild a loader configuration from its verified preflight input."""
+
+    path = path.resolve()
+    config = LeRobotTrainingDatasetConfig.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+    expected = build_lerobot_training_dataset_config(
+        preflight_path=Path(config.preflight_path),
+    )
+    if expected != config:
+        raise ValueError("training dataset config does not match its bound preflight")
+    return config

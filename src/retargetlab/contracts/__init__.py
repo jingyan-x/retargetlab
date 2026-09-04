@@ -41,6 +41,7 @@ from .lerobot_export import (
     LeRobotTargetTableBindingManifest,
     LeRobotTargetTableBindingVerification,
     LeRobotTaskMetadata,
+    LeRobotTrainingDatasetConfig,
 )
 from .mapping import (
     ColumnRef,
@@ -164,6 +165,7 @@ __all__ = [
     "LeRobotLoaderPreflight",
     "LeRobotStatisticsVerification",
     "LeRobotStatisticsWrite",
+    "LeRobotTrainingDatasetConfig",
     "LeRobotTaskMetadata",
     "TargetVectorLayout",
     "TargetReplayManifest",

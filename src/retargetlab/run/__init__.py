@@ -21,6 +21,7 @@ from .lerobot_export import (
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
     build_lerobot_target_table_binding_manifest,
+    build_lerobot_training_dataset_config,
     verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
@@ -29,6 +30,7 @@ from .lerobot_export import (
     verify_lerobot_replay_binding_manifest,
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
+    verify_lerobot_training_dataset_config,
     write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
@@ -41,6 +43,7 @@ from .lerobot_export import (
     write_lerobot_statistics,
     write_lerobot_statistics_report,
     write_lerobot_target_table_binding_manifest,
+    write_lerobot_training_dataset_config,
 )
 from .preflight import verify_review_package_preflight, write_review_package_preflight
 from .profile import load_executable_data_profile, verify_data_profile, write_data_profile
@@ -93,6 +96,7 @@ __all__ = [
     "build_lerobot_metadata_plan",
     "build_lerobot_replay_binding_manifest",
     "build_lerobot_target_table_binding_manifest",
+    "build_lerobot_training_dataset_config",
     "write_lerobot_metadata_plan",
     "write_lerobot_partial_dataset",
     "write_lerobot_partial_dataset_report",
@@ -113,6 +117,8 @@ __all__ = [
     "write_lerobot_statistics_report",
     "verify_lerobot_statistics",
     "write_lerobot_loader_preflight",
+    "verify_lerobot_training_dataset_config",
+    "write_lerobot_training_dataset_config",
     "build_target_replay_manifest",
     "build_target_replay_bundle",
     "build_target_replay_trajectory",

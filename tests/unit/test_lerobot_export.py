@@ -20,6 +20,7 @@ from retargetlab.run import (
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
     build_lerobot_target_table_binding_manifest,
+    build_lerobot_training_dataset_config,
     build_synthetic_table_write_report,
     verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
@@ -29,6 +30,7 @@ from retargetlab.run import (
     verify_lerobot_replay_binding_manifest,
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
+    verify_lerobot_training_dataset_config,
     verify_target_replay_bundle,
     write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
@@ -39,6 +41,7 @@ from retargetlab.run import (
     write_lerobot_replay_binding_manifest,
     write_lerobot_statistics,
     write_lerobot_target_table_binding_manifest,
+    write_lerobot_training_dataset_config,
     write_synthetic_table_write_report,
 )
 
@@ -838,6 +841,48 @@ def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, ca
                 "verify-lerobot-loader-preflight",
                 "--preflight",
                 str(cli_loader_preflight_path),
+                "--json",
+            ]
+        )
+        == EXIT_QUALITY
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
+
+    training_config = build_lerobot_training_dataset_config(
+        preflight_path=cli_loader_preflight_path,
+    )
+    assert training_config.status == "BLOCKED"
+    assert training_config.repo_id == "fixture"
+    assert training_config.root == cli_root.resolve().as_posix()
+    assert training_config.episodes == (3, 4)
+    assert training_config.runtime_dependency == "lerobot==0.6.1"
+    training_config_path = tmp_path / "training-dataset-config.json"
+    write_lerobot_training_dataset_config(training_config_path, training_config)
+    assert (
+        verify_lerobot_training_dataset_config(training_config_path).status == "BLOCKED"
+    )
+
+    cli_training_config_path = tmp_path / "cli-training-dataset-config.json"
+    assert (
+        app(
+            [
+                "build-lerobot-training-dataset-config",
+                "--preflight",
+                str(cli_loader_preflight_path),
+                "--output",
+                str(cli_training_config_path),
+                "--json",
+            ]
+        )
+        == EXIT_QUALITY
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
+    assert (
+        app(
+            [
+                "verify-lerobot-training-dataset-config",
+                "--config",
+                str(cli_training_config_path),
                 "--json",
             ]
         )

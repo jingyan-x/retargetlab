@@ -54,6 +54,7 @@ from retargetlab.run import (
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
     build_lerobot_target_table_binding_manifest,
+    build_lerobot_training_dataset_config,
     build_synthetic_table_write_preflight,
     build_synthetic_table_write_report,
     build_target_replay_bundle,
@@ -74,6 +75,7 @@ from retargetlab.run import (
     verify_lerobot_replay_binding_manifest,
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
+    verify_lerobot_training_dataset_config,
     verify_review_decision_artifact,
     verify_review_package_preflight,
     verify_synthetic_table_write_preflight,
@@ -97,6 +99,7 @@ from retargetlab.run import (
     write_lerobot_statistics,
     write_lerobot_statistics_report,
     write_lerobot_target_table_binding_manifest,
+    write_lerobot_training_dataset_config,
     write_review_decision_artifact,
     write_review_package_preflight,
     write_robot_profile,
@@ -523,6 +526,25 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_lerobot_loader.add_argument("--preflight", required=True, type=Path)
     verify_lerobot_loader.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    build_lerobot_training_config = subparsers.add_parser(
+        "build-lerobot-training-dataset-config",
+        help="write a direct LeRobotDataset root/episodes configuration",
+    )
+    build_lerobot_training_config.add_argument("--preflight", required=True, type=Path)
+    build_lerobot_training_config.add_argument("--output", required=True, type=Path)
+    build_lerobot_training_config.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_training_config = subparsers.add_parser(
+        "verify-lerobot-training-dataset-config",
+        help="verify a saved LeRobotDataset root/episodes configuration",
+    )
+    verify_lerobot_training_config.add_argument("--config", required=True, type=Path)
+    verify_lerobot_training_config.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1523,6 +1545,36 @@ def _verify_lerobot_loader_preflight_payload(
             **preflight.model_dump(mode="json"),
         },
         EXIT_OK if preflight.status == "READY" else EXIT_QUALITY,
+    )
+
+
+def _build_lerobot_training_config_payload(
+    *,
+    preflight_path: Path,
+    output_path: Path,
+) -> tuple[dict[str, Any], int]:
+    config = build_lerobot_training_dataset_config(preflight_path=preflight_path)
+    write_lerobot_training_dataset_config(output_path, config)
+    return (
+        {
+            "command": "build-lerobot-training-dataset-config",
+            **config.model_dump(mode="json"),
+            "output": str(output_path),
+        },
+        EXIT_OK if config.status == "READY" else EXIT_QUALITY,
+    )
+
+
+def _verify_lerobot_training_config_payload(
+    config_path: Path,
+) -> tuple[dict[str, Any], int]:
+    config = verify_lerobot_training_dataset_config(config_path)
+    return (
+        {
+            "command": "verify-lerobot-training-dataset-config",
+            **config.model_dump(mode="json"),
+        },
+        EXIT_OK if config.status == "READY" else EXIT_QUALITY,
     )
 
 
@@ -2944,6 +2996,51 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-loader-preflight",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "build-lerobot-training-dataset-config":
+        try:
+            payload, exit_code = _build_lerobot_training_config_payload(
+                preflight_path=args.preflight,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-lerobot-training-dataset-config",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-lerobot-training-dataset-config",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "verify-lerobot-training-dataset-config":
+        try:
+            payload, exit_code = _verify_lerobot_training_config_payload(args.config)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-training-dataset-config",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-training-dataset-config",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }
