@@ -2426,7 +2426,7 @@ two-stream check are covered independently with the fixture artifacts.
 
 Remote verification:
 
-- focused LeRobot export/replay/acceptance tests: 25 passed;
+- focused LeRobot export/replay/acceptance tests: 26 passed;
 - `ruff check src tests` and `mypy src`: passed;
 - verified the complete fixture binding chain resolves one FK context for a
   selected episode;

@@ -134,3 +134,26 @@ def test_fk_semantic_recheck_runs_both_exported_streams(tmp_path: Path, monkeypa
 
     assert "observation.state and action" in detail
     assert "max_position_error_m=0" in detail
+
+
+def test_acceptance_keeps_missing_fk_binding_blocked_after_runtime_checks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_path = tmp_path / "config.json"
+    config = _ready_config(tmp_path / "dataset").model_copy(update={"episodes": (0,)})
+    config_path.write_text(config.model_dump_json(), encoding="utf-8")
+    monkeypatch.setattr(acceptance, "verify_lerobot_training_dataset_config", lambda _: config)
+    monkeypatch.setattr(acceptance.importlib.util, "find_spec", lambda _: object())
+    monkeypatch.setattr(acceptance, "_load_dataset", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(acceptance, "_episode_allowlist_check", lambda *_args: "allowlist")
+    monkeypatch.setattr(acceptance, "_time_window_check", lambda *_args: "time window")
+    monkeypatch.setattr(acceptance, "_normalization_batch_check", lambda *_args: "normalization")
+
+    report = acceptance.run_lerobot_acceptance(config_path)
+
+    assert report.status == "BLOCKED"
+    assert report.checks[-1].status == "BLOCKED"
+    assert report.blocking_reasons == (
+        "acceptance_check_blocked:fk_semantic_recheck",
+    )
