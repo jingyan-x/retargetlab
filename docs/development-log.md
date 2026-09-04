@@ -2466,3 +2466,51 @@ Remote verification:
 - compatibility receipt verification binds source/output hashes and mapped
   Parquet values; no private dataset rows, video, or target dataset output was
   read or changed.
+
+### 2026-09-04 · resume the OpenArm-first route after user confirmation
+
+The user explicitly reaffirmed that OpenArm is the first adaptation target.
+The earlier Panda target-reselection spike remains diagnostic evidence only;
+it does not change the active delivery order. Panda remains a future
+regression fixture after the OpenArm loop is resolved.
+
+The M-1 diagnostic harness was corrected and hardened before this run. T2
+candidates are now derived from the recipe grid rather than a hidden default
+grid; the report supports aggregate prescreen mode, direct/swapped side
+hypotheses, `hand_tcp`/`link7` frame hypotheses, failure-status counts, bounded
+retry/iteration budgets, and an exclusive output path. Reports explicitly
+assert that held-out values, private values, and source paths were not emitted.
+
+Recipe `20260904-m1-openarm-006` isolated an x/y directional expansion from
+the prior boundary candidate `t2-059`. It preserved z, yaw, the identity
+dataset-native pose hypothesis, the OpenArm solver, and the registered gate.
+The 81-candidate grid was x `[0.20, 0.30, 0.40]` m, y `[-0.40, -0.30,
+-0.20]` m, z `[-0.10, 0.00, 0.10]` m, and yaw `[-20, -10, 0]` degrees. The
+recipe sidecar hash is `0865eadfc8c8155c73f87d9f333c2b47039c7694a3f386cfc6f6d02a9b953573`.
+
+The complete calibration prescreen merged 27/27 disjoint reports (81/81
+candidates, 60 frames each) into
+`projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-calibration-60.json`.
+Its best candidate reached 0.30 nominal and 0.35 relaxed reachability, with
+0.15 penetration fraction; zero candidates reached the 0.80 yellow gate.
+The best result is the old boundary point in the new grid's overlap, so the
+isolated x/y expansion did not recover feasibility. The OpenArm M-1 result
+therefore remains RED, and the top-9 full evaluation is intentionally not
+authorized by the gate.
+
+The aggregate workspace check did not show an inherently impossible arm-span
+constraint: source inter-EEF distances remained inside the OpenArm random
+reachability cloud, with only a small tail outside its p01-p99 range. The next
+OpenArm action is therefore semantic/constraint diagnosis (T2 anchor and
+coordinate/frame mapping, then one-arm/bimanual constraint isolation), not a
+larger blind T2 grid. The long tail runtime of the two hardest shards is also
+recorded as follow-up work: add candidate-level checkpoints or timeouts before
+the next broad sweep. No held-out split was read.
+
+Remote verification:
+
+- 27/27 prescreen reports passed merge validation with unique candidate ids;
+- merged report contains 81 candidates and preserves the private-data output
+  policy flags as false;
+- no held-out values, private pose values, source paths, video, or target
+  dataset output were read or changed.
