@@ -2336,3 +2336,35 @@ Remote verification:
 - full dual-morphology regression: 121 passed, 1 skipped;
 - `ruff check src tests` and `mypy src`: passed;
 - no private dataset rows, video, or target dataset output was read or changed.
+
+### M1b.4: keep failed rows, bind the training whitelist, and filter stats
+
+The synthetic/public LeRobot path now has an explicit retarget-mask artifact.
+Each episode records a boolean frame mask, derived `PASS`/`WARN`/`FAIL`
+status, the first valid frame, and the valid-frame count. The materializer
+keeps every physical row and writes `retarget.status` into
+`meta/episodes/*`. For a partial episode, leading invalid frames take the
+first valid target value and later invalid frames take the most recent valid
+target value. An all-invalid episode is retained as `FAIL` with its candidate
+values unchanged because there is no valid value from which to fill it.
+
+The effective training episode allowlist is derived as the intersection of the
+plan allowlist and `PASS` episodes. `valid.retarget` is registered as a formal
+feature and is explicitly excluded from normalization. Numeric statistics now
+use only rows that are both in that training allowlist and marked valid; they
+fail clearly when that view contains no valid rows. The mask hash and policy
+are carried into `info.json`, dataset/statistics manifests, loader preflight,
+and the direct training config. CLI build/verify commands are available, and
+dataset/statistics/loader-preflight commands accept the same external mask.
+
+This slice remains synthetic/public-only. It does not delete or rewrite any
+private source rows or videos, and it does not claim that the custom mask is
+automatically consumed by an upstream training loop.
+
+Remote verification:
+
+- focused LeRobot export tests: 16 passed;
+- focused CLI/contracts tests: 12 passed;
+- full dual-morphology regression: 122 passed, 1 skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or changed.

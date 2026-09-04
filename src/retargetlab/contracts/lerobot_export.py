@@ -11,6 +11,7 @@ from .export_profile import TargetVectorLayout
 from .mapping import FeatureDeclaration
 
 Hash = str
+RetargetStatus = Literal["PASS", "WARN", "FAIL"]
 
 _REQUIRED_FRAME_FEATURES = ("timestamp", "frame_index", "episode_index", "index", "task_index")
 _REQUIRED_TARGET_FEATURES = ("observation.state", "action", "valid.retarget")
@@ -37,6 +38,7 @@ class LeRobotEpisodeMetadata(BaseModel):
     task_indices: tuple[int, ...] = Field(min_length=1)
     data_chunk_index: int = Field(ge=0)
     data_file_index: int = Field(ge=0)
+    retarget_status: RetargetStatus = "PASS"
 
     @model_validator(mode="after")
     def validate_range(self) -> LeRobotEpisodeMetadata:
@@ -47,6 +49,125 @@ class LeRobotEpisodeMetadata(BaseModel):
         if any(index < 0 for index in self.task_indices):
             raise ValueError("episode task indices must be non-negative")
         return self
+
+
+class LeRobotEpisodeRetargetMask(BaseModel):
+    """Per-episode frame validity and the resulting audit status."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    episode_index: int = Field(ge=0)
+    frame_count: int = Field(gt=0)
+    valid_frames: tuple[bool, ...] = Field(min_length=1)
+    retarget_status: RetargetStatus
+    valid_frame_count: int = Field(ge=0)
+    first_valid_frame_index: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_mask(self) -> LeRobotEpisodeRetargetMask:
+        if self.frame_count != len(self.valid_frames):
+            raise ValueError("retarget mask frame_count does not match valid_frames")
+        valid_indices = [index for index, valid in enumerate(self.valid_frames) if valid]
+        if self.valid_frame_count != len(valid_indices):
+            raise ValueError("retarget mask valid_frame_count does not match valid_frames")
+        expected_status: RetargetStatus
+        if not valid_indices:
+            expected_status = "FAIL"
+        elif len(valid_indices) == self.frame_count:
+            expected_status = "PASS"
+        else:
+            expected_status = "WARN"
+        if self.retarget_status != expected_status:
+            raise ValueError("retarget mask status does not match valid_frames")
+        expected_first = valid_indices[0] if valid_indices else None
+        if self.first_valid_frame_index != expected_first:
+            raise ValueError("retarget mask first valid frame does not match valid_frames")
+        return self
+
+
+class LeRobotRetargetMask(BaseModel):
+    """Value-bearing frame mask used to keep failed rows auditable."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_retarget_mask"] = "lerobot_retarget_mask"
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["READY"] = "READY"
+    mask_policy: Literal["carry_forward_previous_valid_then_first_valid"] = (
+        "carry_forward_previous_valid_then_first_valid"
+    )
+    all_invalid_policy: Literal["retain_candidate_values_and_mark_fail"] = (
+        "retain_candidate_values_and_mark_fail"
+    )
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    episodes: tuple[LeRobotEpisodeRetargetMask, ...] = Field(min_length=1)
+    training_episode_allowlist: tuple[int, ...] = ()
+    normalization_exclude: tuple[str, ...] = ("valid.retarget",)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_valid_frames: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_mask(self) -> LeRobotRetargetMask:
+        if self.total_episodes != len(self.episodes):
+            raise ValueError("retarget mask episode count does not match episodes")
+        episode_indices = tuple(episode.episode_index for episode in self.episodes)
+        if episode_indices != tuple(sorted(episode_indices)):
+            raise ValueError("retarget mask episodes must be ordered by episode_index")
+        if len(set(episode_indices)) != len(episode_indices):
+            raise ValueError("retarget mask episode indices must be unique")
+        if self.total_frames != sum(episode.frame_count for episode in self.episodes):
+            raise ValueError("retarget mask frame count does not match episodes")
+        if self.total_valid_frames != sum(
+            episode.valid_frame_count for episode in self.episodes
+        ):
+            raise ValueError("retarget mask valid frame count does not match episodes")
+        if len(set(self.training_episode_allowlist)) != len(self.training_episode_allowlist):
+            raise ValueError("retarget mask training episode allowlist must be unique")
+        if any(index < 0 for index in self.training_episode_allowlist):
+            raise ValueError("retarget mask training episode allowlist must be non-negative")
+        pass_indices = tuple(
+            episode.episode_index
+            for episode in self.episodes
+            if episode.retarget_status == "PASS"
+        )
+        if any(index not in pass_indices for index in self.training_episode_allowlist):
+            raise ValueError("retarget mask training allowlist must contain PASS episodes only")
+        if len(set(self.normalization_exclude)) != len(self.normalization_exclude):
+            raise ValueError("retarget mask normalization exclusions must be unique")
+        if any(not item.strip() for item in self.normalization_exclude):
+            raise ValueError("retarget mask normalization exclusions must be non-empty")
+        if "valid.retarget" not in self.normalization_exclude:
+            raise ValueError("retarget mask normalization exclusions must include valid.retarget")
+        return self
+
+
+class LeRobotRetargetMaskVerification(BaseModel):
+    """Value-free result of rechecking a retarget frame mask."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_retarget_mask_verification"] = (
+        "lerobot_retarget_mask_verification"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    mask_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_valid_frames: int = Field(ge=0)
+    training_episode_allowlist: tuple[int, ...] = ()
 
 
 class LeRobotEpisodeReplayBinding(BaseModel):
@@ -239,6 +360,8 @@ class LeRobotMultiEpisodeDatasetWrite(BaseModel):
     output_root: str = Field(min_length=1)
     target_table_binding_manifest_path: str = Field(min_length=1)
     target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    retarget_mask_path: str | None = Field(default=None, min_length=1)
+    retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     written_files: tuple[str, ...] = Field(min_length=1)
     omitted_components: tuple[str, ...] = Field(min_length=1)
     total_episodes: int = Field(gt=0)
@@ -259,6 +382,8 @@ class LeRobotMultiEpisodeDatasetWrite(BaseModel):
             raise ValueError("multi-episode dataset must record video and stats omissions")
         if "data_shards" in self.omitted_components:
             raise ValueError("multi-episode dataset must not omit its written data shards")
+        if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
+            raise ValueError("retarget mask path and hash must be supplied together")
         return self
 
 
@@ -281,11 +406,19 @@ class LeRobotMultiEpisodeDatasetVerification(BaseModel):
     output_root: str = Field(min_length=1)
     target_table_binding_manifest_path: str = Field(min_length=1)
     target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    retarget_mask_path: str | None = Field(default=None, min_length=1)
+    retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     written_files: tuple[str, ...] = Field(min_length=1)
     omitted_components: tuple[str, ...] = Field(min_length=1)
     total_episodes: int = Field(gt=0)
     total_frames: int = Field(gt=0)
     total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_mask_binding(self) -> LeRobotMultiEpisodeDatasetVerification:
+        if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
+            raise ValueError("retarget mask path and hash must be supplied together")
+        return self
 
 
 class LeRobotStatisticsWrite(BaseModel):
@@ -306,6 +439,8 @@ class LeRobotStatisticsWrite(BaseModel):
     output_root: str = Field(min_length=1)
     target_table_binding_manifest_path: str = Field(min_length=1)
     target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    retarget_mask_path: str | None = Field(default=None, min_length=1)
+    retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     stats_path: str = Field(min_length=1)
     stats_relative_path: str = Field(min_length=1)
     stats_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
@@ -334,6 +469,8 @@ class LeRobotStatisticsWrite(BaseModel):
             raise ValueError("statistics manifest must record video omission")
         if "meta/stats.json" in self.omitted_components:
             raise ValueError("statistics manifest must not omit its written stats file")
+        if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
+            raise ValueError("retarget mask path and hash must be supplied together")
         return self
 
 
@@ -357,6 +494,8 @@ class LeRobotStatisticsVerification(BaseModel):
     output_root: str = Field(min_length=1)
     target_table_binding_manifest_path: str = Field(min_length=1)
     target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    retarget_mask_path: str | None = Field(default=None, min_length=1)
+    retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     stats_path: str = Field(min_length=1)
     stats_relative_path: str = Field(min_length=1)
     stats_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
@@ -366,6 +505,12 @@ class LeRobotStatisticsVerification(BaseModel):
     total_episodes: int = Field(gt=0)
     total_frames: int = Field(gt=0)
     total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_mask_binding(self) -> LeRobotStatisticsVerification:
+        if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
+            raise ValueError("retarget mask path and hash must be supplied together")
+        return self
 
 
 class LeRobotLoaderPreflight(BaseModel):
@@ -389,7 +534,9 @@ class LeRobotLoaderPreflight(BaseModel):
     output_root: str = Field(min_length=1)
     target_table_binding_manifest_path: str = Field(min_length=1)
     target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
-    episode_indices: tuple[int, ...] = Field(min_length=1)
+    retarget_mask_path: str | None = Field(default=None, min_length=1)
+    retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    episode_indices: tuple[int, ...] = ()
     stats_features: tuple[str, ...] = Field(min_length=1)
     checked_files: tuple[str, ...] = Field(min_length=1)
     passed_checks: tuple[str, ...] = Field(min_length=1)
@@ -421,10 +568,12 @@ class LeRobotLoaderPreflight(BaseModel):
             raise ValueError("loader preflight blocking reasons must be unique")
         if len(set(self.warnings)) != len(self.warnings):
             raise ValueError("loader preflight warnings must be unique")
+        if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
+            raise ValueError("retarget mask path and hash must be supplied together")
         if (self.status == "BLOCKED") != bool(self.blocking_reasons):
             raise ValueError("loader preflight status must match blocking reasons")
-        if len(self.episode_indices) != self.total_episodes:
-            raise ValueError("loader preflight episode count does not match episode indices")
+        if self.status == "READY" and not self.episode_indices:
+            raise ValueError("ready loader preflight must select at least one episode")
         return self
 
 
@@ -447,11 +596,13 @@ class LeRobotTrainingDatasetConfig(BaseModel):
     dataset_alias: str = Field(min_length=1)
     repo_id: str = Field(min_length=1)
     root: str = Field(min_length=1)
-    episodes: tuple[int, ...] = Field(min_length=1)
+    episodes: tuple[int, ...] = ()
     plan_path: str = Field(min_length=1)
     plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     preflight_path: str = Field(min_length=1)
     preflight_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    retarget_mask_path: str | None = Field(default=None, min_length=1)
+    retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     blocking_reasons: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 
@@ -469,8 +620,12 @@ class LeRobotTrainingDatasetConfig(BaseModel):
             raise ValueError("training config warnings must be unique")
         if any(not warning.strip() for warning in self.warnings):
             raise ValueError("training config warnings must be non-empty")
+        if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
+            raise ValueError("retarget mask path and hash must be supplied together")
         if (self.status == "BLOCKED") != bool(self.blocking_reasons):
             raise ValueError("training config status must match blocking reasons")
+        if self.status == "READY" and not self.episodes:
+            raise ValueError("ready training config must select at least one episode")
         if self.status == "READY" and self.episodes != tuple(range(len(self.episodes))):
             raise ValueError("ready training config episodes must be zero-based and contiguous")
         return self

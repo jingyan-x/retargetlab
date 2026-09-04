@@ -53,6 +53,7 @@ from retargetlab.run import (
     build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
+    build_lerobot_retarget_mask,
     build_lerobot_target_table_binding_manifest,
     build_lerobot_training_dataset_config,
     build_synthetic_table_write_preflight,
@@ -73,6 +74,7 @@ from retargetlab.run import (
     verify_lerobot_multi_episode_dataset,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
+    verify_lerobot_retarget_mask,
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
     verify_lerobot_training_dataset_config,
@@ -96,6 +98,7 @@ from retargetlab.run import (
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
+    write_lerobot_retarget_mask,
     write_lerobot_statistics,
     write_lerobot_statistics_report,
     write_lerobot_target_table_binding_manifest,
@@ -429,6 +432,31 @@ def _parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
+    build_lerobot_mask = subparsers.add_parser(
+        "build-lerobot-retarget-mask",
+        help="build a row-preserving retarget validity mask",
+    )
+    build_lerobot_mask.add_argument("--plan", required=True, type=Path)
+    build_lerobot_mask.add_argument(
+        "--valid-frames",
+        required=True,
+        type=Path,
+        help="JSON object mapping episode indices to boolean frame arrays",
+    )
+    build_lerobot_mask.add_argument("--output", required=True, type=Path)
+    build_lerobot_mask.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_mask = subparsers.add_parser(
+        "verify-lerobot-retarget-mask",
+        help="verify a row-preserving retarget validity mask",
+    )
+    verify_lerobot_mask.add_argument("--mask", required=True, type=Path)
+    verify_lerobot_mask.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
     write_lerobot_multi = subparsers.add_parser(
         "write-lerobot-multi-episode-dataset",
         help="write grouped synthetic data shards from verified episode reports",
@@ -440,6 +468,11 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         type=Path,
         help="verified per-episode target-table binding manifest",
+    )
+    write_lerobot_multi.add_argument(
+        "--retarget-mask",
+        type=Path,
+        help="optional verified row mask; keep it outside --output-root",
     )
     write_lerobot_multi.add_argument(
         "--report",
@@ -463,6 +496,11 @@ def _parser() -> argparse.ArgumentParser:
         help="verified per-episode target-table binding manifest",
     )
     verify_lerobot_multi.add_argument(
+        "--retarget-mask",
+        type=Path,
+        help="optional verified row mask; keep it outside --output-root",
+    )
+    verify_lerobot_multi.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -477,6 +515,11 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         type=Path,
         help="verified per-episode target-table binding manifest",
+    )
+    write_lerobot_statistics.add_argument(
+        "--retarget-mask",
+        type=Path,
+        help="optional verified row mask; keep it outside --output-root",
     )
     write_lerobot_statistics.add_argument(
         "--report",
@@ -500,6 +543,11 @@ def _parser() -> argparse.ArgumentParser:
         help="verified per-episode target-table binding manifest",
     )
     verify_lerobot_statistics.add_argument(
+        "--retarget-mask",
+        type=Path,
+        help="optional verified row mask; keep it outside --output-root",
+    )
+    verify_lerobot_statistics.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -514,6 +562,11 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
         type=Path,
         help="verified per-episode target-table binding manifest",
+    )
+    build_lerobot_loader.add_argument(
+        "--retarget-mask",
+        type=Path,
+        help="optional verified row mask; keep it outside --output-root",
     )
     build_lerobot_loader.add_argument("--output", required=True, type=Path)
     build_lerobot_loader.add_argument(
@@ -1428,11 +1481,50 @@ def _verify_lerobot_table_bindings_payload(manifest_path: Path) -> dict[str, Any
     }
 
 
+def _build_lerobot_retarget_mask_payload(
+    *,
+    plan_path: Path,
+    valid_frames_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    raw_values = _json_file(valid_frames_path, "retarget mask frame values")
+    if not isinstance(raw_values, dict):
+        raise ValueError("retarget mask frame values must be a JSON object")
+    valid_frames: dict[int, list[bool]] = {}
+    for raw_episode_index, raw_frames in raw_values.items():
+        try:
+            episode_index = int(raw_episode_index)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("retarget mask keys must be integer episode indices") from exc
+        if not isinstance(raw_frames, list):
+            raise ValueError("retarget mask episode values must be boolean arrays")
+        valid_frames[episode_index] = raw_frames
+    mask = build_lerobot_retarget_mask(
+        plan_path=plan_path,
+        valid_frames_by_episode=valid_frames,
+    )
+    write_lerobot_retarget_mask(output_path, mask)
+    return {
+        "command": "build-lerobot-retarget-mask",
+        **mask.model_dump(mode="json"),
+        "output": str(output_path),
+    }
+
+
+def _verify_lerobot_retarget_mask_payload(mask_path: Path) -> dict[str, Any]:
+    verification = verify_lerobot_retarget_mask(mask_path)
+    return {
+        "command": "verify-lerobot-retarget-mask",
+        **verification.model_dump(mode="json"),
+    }
+
+
 def _write_lerobot_multi_payload(
     *,
     plan_path: Path,
     output_root: Path,
     target_table_bindings_path: Path,
+    retarget_mask_path: Path | None,
     report_path: Path | None,
 ) -> dict[str, Any]:
     if report_path is not None:
@@ -1446,6 +1538,7 @@ def _write_lerobot_multi_payload(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_bindings_path,
+        retarget_mask_path=retarget_mask_path,
     )
     if report_path is not None:
         write_lerobot_multi_episode_dataset_report(report_path, manifest)
@@ -1463,11 +1556,13 @@ def _verify_lerobot_multi_payload(
     plan_path: Path,
     output_root: Path,
     target_table_bindings_path: Path,
+    retarget_mask_path: Path | None,
 ) -> dict[str, Any]:
     verification = verify_lerobot_multi_episode_dataset(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_bindings_path,
+        retarget_mask_path=retarget_mask_path,
     )
     return {
         "command": "verify-lerobot-multi-episode-dataset",
@@ -1480,6 +1575,7 @@ def _write_lerobot_statistics_payload(
     plan_path: Path,
     output_root: Path,
     target_table_bindings_path: Path,
+    retarget_mask_path: Path | None,
     report_path: Path | None,
 ) -> dict[str, Any]:
     if report_path is not None:
@@ -1493,6 +1589,7 @@ def _write_lerobot_statistics_payload(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_bindings_path,
+        retarget_mask_path=retarget_mask_path,
     )
     if report_path is not None:
         write_lerobot_statistics_report(report_path, manifest)
@@ -1510,11 +1607,13 @@ def _verify_lerobot_statistics_payload(
     plan_path: Path,
     output_root: Path,
     target_table_bindings_path: Path,
+    retarget_mask_path: Path | None,
 ) -> dict[str, Any]:
     verification = verify_lerobot_statistics(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_bindings_path,
+        retarget_mask_path=retarget_mask_path,
     )
     return {
         "command": "verify-lerobot-statistics",
@@ -1527,12 +1626,14 @@ def _build_lerobot_loader_preflight_payload(
     plan_path: Path,
     output_root: Path,
     target_table_bindings_path: Path,
+    retarget_mask_path: Path | None,
     output_path: Path,
 ) -> tuple[dict[str, Any], int]:
     preflight = build_lerobot_loader_preflight(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_bindings_path,
+        retarget_mask_path=retarget_mask_path,
     )
     write_lerobot_loader_preflight(output_path, preflight)
     return (
@@ -2864,12 +2965,43 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "build-lerobot-retarget-mask":
+        try:
+            payload = _build_lerobot_retarget_mask_payload(
+                plan_path=args.plan,
+                valid_frames_path=args.valid_frames,
+                output_path=args.output,
+            )
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-lerobot-retarget-mask",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-retarget-mask":
+        try:
+            payload = _verify_lerobot_retarget_mask_payload(args.mask)
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-retarget-mask",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
     if args.command == "write-lerobot-multi-episode-dataset":
         try:
             payload = _write_lerobot_multi_payload(
                 plan_path=args.plan,
                 output_root=args.output_root,
                 target_table_bindings_path=args.target_table_bindings,
+                retarget_mask_path=args.retarget_mask,
                 report_path=args.report,
             )
         except RuntimeError as exc:
@@ -2896,6 +3028,7 @@ def app(argv: list[str] | None = None) -> int:
                 plan_path=args.plan,
                 output_root=args.output_root,
                 target_table_bindings_path=args.target_table_bindings,
+                retarget_mask_path=args.retarget_mask,
             )
         except RuntimeError as exc:
             error = {
@@ -2921,6 +3054,7 @@ def app(argv: list[str] | None = None) -> int:
                 plan_path=args.plan,
                 output_root=args.output_root,
                 target_table_bindings_path=args.target_table_bindings,
+                retarget_mask_path=args.retarget_mask,
                 report_path=args.report,
             )
         except RuntimeError as exc:
@@ -2947,6 +3081,7 @@ def app(argv: list[str] | None = None) -> int:
                 plan_path=args.plan,
                 output_root=args.output_root,
                 target_table_bindings_path=args.target_table_bindings,
+                retarget_mask_path=args.retarget_mask,
             )
         except RuntimeError as exc:
             error = {
@@ -2972,6 +3107,7 @@ def app(argv: list[str] | None = None) -> int:
                 plan_path=args.plan,
                 output_root=args.output_root,
                 target_table_bindings_path=args.target_table_bindings,
+                retarget_mask_path=args.retarget_mask,
                 output_path=args.output,
             )
         except RuntimeError as exc:

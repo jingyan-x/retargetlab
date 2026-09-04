@@ -16,6 +16,7 @@ from retargetlab.contracts import (
     FeatureDeclaration,
     LeRobotEpisodeMetadata,
     LeRobotEpisodeReplayBinding,
+    LeRobotEpisodeRetargetMask,
     LeRobotEpisodeTargetTableBinding,
     LeRobotLoaderPreflight,
     LeRobotMetadataPlan,
@@ -28,6 +29,8 @@ from retargetlab.contracts import (
     LeRobotPartialDatasetWrite,
     LeRobotReplayBindingManifest,
     LeRobotReplayBindingVerification,
+    LeRobotRetargetMask,
+    LeRobotRetargetMaskVerification,
     LeRobotStatisticsVerification,
     LeRobotStatisticsWrite,
     LeRobotTargetTableBindingManifest,
@@ -44,6 +47,9 @@ _SKELETON_OMISSIONS = ("data_shards", "video_shards", "meta/stats.json")
 _PARTIAL_DATASET_OMISSIONS = ("video_shards", "meta/stats.json")
 _STATS_DATASET_OMISSIONS = ("video_shards",)
 _DEFAULT_CHUNKS_SIZE = 1000
+_MASK_POLICY = "carry_forward_previous_valid_then_first_valid"
+_ALL_INVALID_POLICY = "retain_candidate_values_and_mark_fail"
+_DEFAULT_NORMALIZATION_EXCLUDE = ("valid.retarget",)
 _NUMERIC_STATISTICS_DTYPES = {
     "float",
     "float32",
@@ -167,6 +173,178 @@ def _load_verified_plan(path: Path) -> tuple[LeRobotMetadataPlan, LeRobotMetadat
     if verification.plan_sha256 != sha256_bytes(canonical_json_bytes(plan)):
         raise ValueError("LeRobot metadata plan hash changed during verification")
     return plan, verification
+
+
+def build_lerobot_retarget_mask(
+    *,
+    plan_path: Path,
+    valid_frames_by_episode: Mapping[int, Sequence[bool]],
+) -> LeRobotRetargetMask:
+    """Build a deterministic row-preserving mask without opening target rows."""
+
+    plan_path = plan_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    expected_episode_indices = {episode.episode_index for episode in plan.episodes}
+    if set(valid_frames_by_episode) != expected_episode_indices:
+        raise ValueError("retarget mask episodes must match the metadata plan")
+
+    episode_masks: list[LeRobotEpisodeRetargetMask] = []
+    for episode in plan.episodes:
+        raw_values = tuple(valid_frames_by_episode[episode.episode_index])
+        if len(raw_values) != episode.length:
+            raise ValueError(
+                "retarget mask frame count does not match episode "
+                f"{episode.episode_index}"
+            )
+        if any(not isinstance(value, bool) for value in raw_values):
+            raise ValueError("retarget mask values must be booleans")
+        valid_indices = [index for index, value in enumerate(raw_values) if value]
+        episode_masks.append(
+            LeRobotEpisodeRetargetMask(
+                episode_index=episode.episode_index,
+                frame_count=episode.length,
+                valid_frames=raw_values,
+                retarget_status=(
+                    "FAIL"
+                    if not valid_indices
+                    else "PASS"
+                    if len(valid_indices) == episode.length
+                    else "WARN"
+                ),
+                valid_frame_count=len(valid_indices),
+                first_valid_frame_index=valid_indices[0] if valid_indices else None,
+            )
+        )
+    pass_indices = {
+        episode.episode_index
+        for episode in episode_masks
+        if episode.retarget_status == "PASS"
+    }
+    training_allowlist = tuple(
+        episode_index
+        for episode_index in plan.training_episode_allowlist
+        if episode_index in pass_indices
+    )
+    return LeRobotRetargetMask(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        episodes=tuple(episode_masks),
+        training_episode_allowlist=training_allowlist,
+        normalization_exclude=_DEFAULT_NORMALIZATION_EXCLUDE,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_valid_frames=sum(item.valid_frame_count for item in episode_masks),
+    )
+
+
+def write_lerobot_retarget_mask(
+    path: Path,
+    mask: LeRobotRetargetMask,
+) -> LeRobotRetargetMask:
+    """Persist one exclusive retarget mask artifact."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(mask.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return mask
+
+
+def verify_lerobot_retarget_mask(path: Path) -> LeRobotRetargetMaskVerification:
+    """Rebuild a row-validity mask from its plan and declared booleans."""
+
+    path = path.resolve()
+    mask = LeRobotRetargetMask.model_validate_json(path.read_text(encoding="utf-8"))
+    expected = build_lerobot_retarget_mask(
+        plan_path=Path(mask.plan_path),
+        valid_frames_by_episode={
+            episode.episode_index: episode.valid_frames for episode in mask.episodes
+        },
+    )
+    if expected != mask:
+        raise ValueError("retarget mask does not match its bound metadata plan")
+    return LeRobotRetargetMaskVerification(
+        dataset_alias=mask.dataset_alias,
+        source_revision=mask.source_revision,
+        robot_id=mask.robot_id,
+        plan_path=mask.plan_path,
+        plan_sha256=mask.plan_sha256,
+        mask_sha256=sha256_bytes(canonical_json_bytes(mask)),
+        total_episodes=mask.total_episodes,
+        total_frames=mask.total_frames,
+        total_valid_frames=mask.total_valid_frames,
+        training_episode_allowlist=mask.training_episode_allowlist,
+    )
+
+
+def _default_lerobot_retarget_mask(
+    plan: LeRobotMetadataPlan,
+    *,
+    plan_path: Path,
+    plan_sha256: str,
+) -> LeRobotRetargetMask:
+    """Represent the legacy all-valid path with the same explicit semantics."""
+
+    return LeRobotRetargetMask(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_sha256,
+        episodes=tuple(
+            LeRobotEpisodeRetargetMask(
+                episode_index=episode.episode_index,
+                frame_count=episode.length,
+                valid_frames=(True,) * episode.length,
+                retarget_status="PASS",
+                valid_frame_count=episode.length,
+                first_valid_frame_index=0,
+            )
+            for episode in plan.episodes
+        ),
+        training_episode_allowlist=tuple(plan.training_episode_allowlist),
+        normalization_exclude=_DEFAULT_NORMALIZATION_EXCLUDE,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_valid_frames=plan.total_frames,
+    )
+
+
+def _load_retarget_mask_for_plan(
+    mask_path: Path | None,
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_path: Path,
+    plan_sha256: str,
+) -> tuple[LeRobotRetargetMask, str | None]:
+    if mask_path is None:
+        return (
+            _default_lerobot_retarget_mask(
+                plan,
+                plan_path=plan_path,
+                plan_sha256=plan_sha256,
+            ),
+            None,
+        )
+    mask_path = mask_path.resolve()
+    if not mask_path.is_file():
+        raise FileNotFoundError(f"retarget mask does not exist: {mask_path}")
+    verify_lerobot_retarget_mask(mask_path)
+    mask = LeRobotRetargetMask.model_validate_json(
+        mask_path.read_text(encoding="utf-8")
+    )
+    if mask.plan_path != plan_path.as_posix() or mask.plan_sha256 != plan_sha256:
+        raise ValueError("retarget mask plan binding does not match the metadata plan")
+    if mask.dataset_alias != plan.dataset_alias or mask.robot_id != plan.robot_id:
+        raise ValueError("retarget mask identity does not match the metadata plan")
+    if tuple(item.episode_index for item in mask.episodes) != tuple(
+        episode.episode_index for episode in plan.episodes
+    ):
+        raise ValueError("retarget mask episodes do not match the metadata plan")
+    return mask, sha256_file(mask_path)
 
 
 def build_lerobot_replay_binding_manifest(
@@ -524,6 +702,8 @@ def _info_payload(
     plan_sha256: str,
     data_shards_written: bool = False,
     stats_written: bool = False,
+    retarget_mask: LeRobotRetargetMask | None = None,
+    retarget_mask_sha256: str | None = None,
 ) -> dict[str, Any]:
     if stats_written and not data_shards_written:
         raise ValueError("statistics cannot be written before data shards")
@@ -538,6 +718,47 @@ def _info_payload(
     else:
         omissions = _SKELETON_OMISSIONS
         written_components = ("metadata",)
+    episode_statuses = {
+        str(episode.episode_index): (
+            retarget_mask.episodes[index].retarget_status
+            if retarget_mask is not None
+            else episode.retarget_status
+        )
+        for index, episode in enumerate(plan.episodes)
+    }
+    effective_allowlist = (
+        retarget_mask.training_episode_allowlist
+        if retarget_mask is not None
+        else plan.training_episode_allowlist
+    )
+    retarget_metadata: dict[str, Any] = {
+        "artifact_type": "lerobot_metadata_skeleton",
+        "status": "PARTIAL",
+        "source_scope": plan.source_scope,
+        "plan_sha256": plan_sha256,
+        "episode_index_policy": plan.episode_index_policy,
+        "training_episode_allowlist": list(effective_allowlist),
+        "episode_statuses": episode_statuses,
+        "normalization_exclude": list(
+            retarget_mask.normalization_exclude
+            if retarget_mask is not None
+            else _DEFAULT_NORMALIZATION_EXCLUDE
+        ),
+        "mask_policy": (
+            retarget_mask.mask_policy if retarget_mask is not None else _MASK_POLICY
+        ),
+        "all_invalid_policy": (
+            retarget_mask.all_invalid_policy
+            if retarget_mask is not None
+            else _ALL_INVALID_POLICY
+        ),
+        "episodes_path": plan.episodes_path_template,
+        "stats_features": list(plan.stats_features),
+        "written_components": list(written_components),
+        "omitted_components": list(omissions),
+    }
+    if retarget_mask_sha256 is not None:
+        retarget_metadata["mask_sha256"] = retarget_mask_sha256
     return {
         "codebase_version": plan.codebase_version,
         "dataset_name": plan.dataset_alias,
@@ -557,18 +778,7 @@ def _info_payload(
         "features": {
             name: _feature_payload(feature) for name, feature in plan.features.items()
         },
-        "retargetlab": {
-            "artifact_type": "lerobot_metadata_skeleton",
-            "status": "PARTIAL",
-            "source_scope": plan.source_scope,
-            "plan_sha256": plan_sha256,
-            "episode_index_policy": plan.episode_index_policy,
-            "training_episode_allowlist": list(plan.training_episode_allowlist),
-            "episodes_path": plan.episodes_path_template,
-            "stats_features": list(plan.stats_features),
-            "written_components": list(written_components),
-            "omitted_components": list(omissions),
-        },
+        "retargetlab": retarget_metadata,
     }
 
 
@@ -623,6 +833,7 @@ def _episodes_table(
     pa: Any,
     episodes: Sequence[LeRobotEpisodeMetadata],
     task_by_index: Mapping[int, str],
+    retarget_statuses: Mapping[int, str] | None = None,
 ) -> Any:
     return pa.table(
         {
@@ -654,6 +865,17 @@ def _episodes_table(
                 [episode.data_file_index for episode in episodes],
                 type=pa.int64(),
             ),
+            "retarget.status": pa.array(
+                [
+                    (
+                        retarget_statuses[episode.episode_index]
+                        if retarget_statuses is not None
+                        else episode.retarget_status
+                    )
+                    for episode in episodes
+                ],
+                type=pa.string(),
+            ),
         }
     )
 
@@ -675,6 +897,20 @@ def _write_parquet_exclusive(parquet: Any, table: Any, path: Path) -> None:
     except Exception:
         if reserved:
             path.unlink(missing_ok=True)
+        raise
+
+
+def _replace_parquet(parquet: Any, table: Any, path: Path) -> None:
+    """Replace one staged Parquet metadata file without exposing a partial write."""
+
+    staged_path = path.with_name(f"{path.name}.next")
+    if staged_path.exists():
+        raise FileExistsError(f"staged parquet path already exists: {staged_path}")
+    try:
+        parquet.write_table(table, staged_path)
+        staged_path.replace(path)
+    except Exception:
+        staged_path.unlink(missing_ok=True)
         raise
 
 
@@ -910,6 +1146,40 @@ def _normalize_declared_table(pa: Any, table: Any, plan: LeRobotMetadataPlan) ->
     return table
 
 
+def _apply_episode_retarget_mask(
+    pa: Any,
+    table: Any,
+    mask: LeRobotEpisodeRetargetMask,
+) -> Any:
+    """Keep every row, carrying valid target values across failed frames."""
+
+    if table.num_rows != mask.frame_count:
+        raise ValueError("retarget mask frame count does not match target table rows")
+    valid_values = list(mask.valid_frames)
+    if mask.retarget_status != "FAIL":
+        first_valid = mask.first_valid_frame_index
+        if first_valid is None:
+            raise ValueError("non-FAIL retarget mask must have a first valid frame")
+        for feature_name in ("observation.state", "action"):
+            values = table[feature_name].to_pylist()
+            previous = values[first_valid]
+            for frame_index, is_valid in enumerate(valid_values):
+                if is_valid:
+                    previous = values[frame_index]
+                else:
+                    values[frame_index] = previous
+            table = table.set_column(
+                table.column_names.index(feature_name),
+                feature_name,
+                pa.array(values, type=table[feature_name].type),
+            )
+    return table.set_column(
+        table.column_names.index("valid.retarget"),
+        "valid.retarget",
+        pa.array(valid_values, type=pa.bool_()),
+    )
+
+
 def _validate_episode_table(table: Any, episode: LeRobotEpisodeMetadata) -> None:
     if table.num_rows != episode.length:
         raise ValueError("target table row count does not match the metadata episode")
@@ -966,6 +1236,7 @@ def _load_verified_multi_target_tables(
     plan: LeRobotMetadataPlan,
     plan_path: Path,
     target_table_binding_manifest_path: Path,
+    retarget_mask: LeRobotRetargetMask | None = None,
 ) -> tuple[dict[tuple[int, int], Any], str]:
     target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
     target_binding_verification = verify_lerobot_target_table_binding_manifest(
@@ -990,6 +1261,14 @@ def _load_verified_multi_target_tables(
 
     pa, parquet = _load_pyarrow()
     grouped: defaultdict[tuple[int, int], list[Any]] = defaultdict(list)
+    effective_mask = retarget_mask or _default_lerobot_retarget_mask(
+        plan,
+        plan_path=plan_path.resolve(),
+        plan_sha256=plan_verification.plan_sha256,
+    )
+    mask_by_episode = {
+        item.episode_index: item for item in effective_mask.episodes
+    }
     for episode in plan.episodes:
         binding = binding_by_episode[episode.episode_index]
         report_path = Path(binding.target_table_report_path).resolve()
@@ -1027,7 +1306,12 @@ def _load_verified_multi_target_tables(
             )
         table = parquet.read_table(report.write.output_table_path)
         _validate_episode_table(table, episode)
-        normalized = _normalize_declared_table(pa, table, plan).replace_schema_metadata(None)
+        normalized = _normalize_declared_table(pa, table, plan)
+        normalized = _apply_episode_retarget_mask(
+            pa,
+            normalized,
+            mask_by_episode[episode.episode_index],
+        ).replace_schema_metadata(None)
         grouped[(episode.data_chunk_index, episode.data_file_index)].append(normalized)
 
     combined: dict[tuple[int, int], Any] = {}
@@ -1347,6 +1631,8 @@ def _multi_dataset_manifest(
     output_root: Path,
     target_table_binding_manifest_path: Path,
     target_table_binding_manifest_sha256: str,
+    retarget_mask_path: Path | None,
+    retarget_mask_sha256: str | None,
     info_path: Path,
     tasks_path: Path,
     episode_paths: Mapping[tuple[int, int], Path],
@@ -1363,6 +1649,10 @@ def _multi_dataset_manifest(
             target_table_binding_manifest_path.as_posix()
         ),
         target_table_binding_manifest_sha256=target_table_binding_manifest_sha256,
+        retarget_mask_path=(
+            retarget_mask_path.as_posix() if retarget_mask_path is not None else None
+        ),
+        retarget_mask_sha256=retarget_mask_sha256,
         written_files=_relative_files(
             output_root,
             (
@@ -1384,6 +1674,7 @@ def write_lerobot_multi_episode_dataset(
     plan_path: Path,
     output_root: Path,
     target_table_binding_manifest_path: Path,
+    retarget_mask_path: Path | None = None,
 ) -> LeRobotMultiEpisodeDatasetWrite:
     """Write grouped synthetic data shards for every verified plan episode."""
 
@@ -1391,6 +1682,18 @@ def write_lerobot_multi_episode_dataset(
     output_root = output_root.resolve()
     target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
     plan, plan_verification = _load_verified_plan(plan_path)
+    if retarget_mask_path is not None:
+        _assert_external_artifact_path(
+            retarget_mask_path,
+            output_root.as_posix(),
+            label="retarget mask",
+        )
+    retarget_mask, retarget_mask_sha256 = _load_retarget_mask_for_plan(
+        retarget_mask_path,
+        plan=plan,
+        plan_path=plan_path,
+        plan_sha256=plan_verification.plan_sha256,
+    )
     if plan.video_keys:
         raise ValueError("multi-episode dataset writer currently supports video-free plans only")
     if not output_root.is_dir():
@@ -1409,8 +1712,9 @@ def write_lerobot_multi_episode_dataset(
         plan=plan,
         plan_path=plan_path,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
+        retarget_mask=retarget_mask,
     )
-    parquet = _load_pyarrow()[1]
+    pa, parquet = _load_pyarrow()
     for key in sorted(combined):
         _write_parquet_exclusive(
             parquet,
@@ -1422,12 +1726,24 @@ def write_lerobot_multi_episode_dataset(
             ),
             data_paths[key],
         )
+    retarget_statuses = {
+        item.episode_index: item.retarget_status for item in retarget_mask.episodes
+    }
+    task_by_index = {task.task_index: task.task for task in plan.tasks}
+    for key, grouped in _episode_groups(plan).items():
+        _replace_parquet(
+            parquet,
+            _episodes_table(pa, grouped, task_by_index, retarget_statuses),
+            episode_paths[key],
+        )
     _replace_json(
         info_path,
         _info_payload(
             plan,
             plan_sha256=plan_verification.plan_sha256,
             data_shards_written=True,
+            retarget_mask=retarget_mask,
+            retarget_mask_sha256=retarget_mask_sha256,
         ),
     )
     return _multi_dataset_manifest(
@@ -1437,6 +1753,8 @@ def write_lerobot_multi_episode_dataset(
         output_root=output_root,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
         target_table_binding_manifest_sha256=binding_sha256,
+        retarget_mask_path=retarget_mask_path,
+        retarget_mask_sha256=retarget_mask_sha256,
         info_path=info_path,
         tasks_path=tasks_path,
         episode_paths=episode_paths,
@@ -1463,6 +1781,7 @@ def _verify_lerobot_multi_episode_dataset_files(
     output_root: Path,
     target_table_binding_manifest_path: Path,
     stats_written: bool,
+    retarget_mask_path: Path | None = None,
 ) -> tuple[
     LeRobotMetadataPlan,
     LeRobotMetadataPlanVerification,
@@ -1471,6 +1790,8 @@ def _verify_lerobot_multi_episode_dataset_files(
     str,
     Path,
     dict[tuple[int, int], Path],
+    LeRobotRetargetMask,
+    str | None,
 ]:
     """Verify shared dataset files, optionally allowing a verified stats file."""
 
@@ -1478,6 +1799,18 @@ def _verify_lerobot_multi_episode_dataset_files(
     output_root = output_root.resolve()
     target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
     plan, plan_verification = _load_verified_plan(plan_path)
+    if retarget_mask_path is not None:
+        _assert_external_artifact_path(
+            retarget_mask_path,
+            output_root.as_posix(),
+            label="retarget mask",
+        )
+    retarget_mask, retarget_mask_sha256 = _load_retarget_mask_for_plan(
+        retarget_mask_path,
+        plan=plan,
+        plan_path=plan_path,
+        plan_sha256=plan_verification.plan_sha256,
+    )
     if plan.video_keys:
         raise ValueError("multi-episode dataset verifier currently supports video-free plans only")
     if not output_root.is_dir():
@@ -1488,6 +1821,7 @@ def _verify_lerobot_multi_episode_dataset_files(
         plan=plan,
         plan_path=plan_path,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
+        retarget_mask=retarget_mask,
     )
     expected_paths = (info_path, tasks_path, *episode_paths.values(), *data_paths.values())
     if stats_written:
@@ -1500,6 +1834,8 @@ def _verify_lerobot_multi_episode_dataset_files(
         plan_sha256=plan_verification.plan_sha256,
         data_shards_written=True,
         stats_written=stats_written,
+        retarget_mask=retarget_mask,
+        retarget_mask_sha256=retarget_mask_sha256,
     )
     if _read_json_object(info_path, label="multi-episode dataset info") != expected_info:
         raise ValueError("multi-episode dataset info.json does not match the plan")
@@ -1513,7 +1849,15 @@ def _verify_lerobot_multi_episode_dataset_files(
     for key, grouped in _episode_groups(plan).items():
         _assert_table_matches(
             parquet.read_table(episode_paths[key]),
-            _episodes_table(pa, grouped, task_by_index),
+            _episodes_table(
+                pa,
+                grouped,
+                task_by_index,
+                {
+                    item.episode_index: item.retarget_status
+                    for item in retarget_mask.episodes
+                },
+            ),
             label=f"multi-episode dataset episodes {key}",
         )
     expected_metadata_keys = (
@@ -1550,6 +1894,8 @@ def _verify_lerobot_multi_episode_dataset_files(
         binding_sha256,
         stats_path,
         data_paths,
+        retarget_mask,
+        retarget_mask_sha256,
     )
 
 
@@ -1558,6 +1904,7 @@ def verify_lerobot_multi_episode_dataset(
     plan_path: Path,
     output_root: Path,
     target_table_binding_manifest_path: Path,
+    retarget_mask_path: Path | None = None,
 ) -> LeRobotMultiEpisodeDatasetVerification:
     """Verify grouped synthetic data shards against all bound episode reports."""
 
@@ -1569,11 +1916,14 @@ def verify_lerobot_multi_episode_dataset(
         binding_sha256,
         _stats_path,
         _data_paths,
+        _retarget_mask,
+        retarget_mask_sha256,
     ) = _verify_lerobot_multi_episode_dataset_files(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
         stats_written=False,
+        retarget_mask_path=retarget_mask_path,
     )
     return LeRobotMultiEpisodeDatasetVerification(
         dataset_alias=plan.dataset_alias,
@@ -1584,6 +1934,12 @@ def verify_lerobot_multi_episode_dataset(
         output_root=output_root.resolve().as_posix(),
         target_table_binding_manifest_path=target_table_binding_manifest_path.resolve().as_posix(),
         target_table_binding_manifest_sha256=binding_sha256,
+        retarget_mask_path=(
+            retarget_mask_path.resolve().as_posix()
+            if retarget_mask_path is not None
+            else None
+        ),
+        retarget_mask_sha256=retarget_mask_sha256,
         written_files=expected_files,
         omitted_components=_PARTIAL_DATASET_OMISSIONS,
         total_episodes=plan.total_episodes,
@@ -1631,14 +1987,40 @@ def _compute_numeric_statistics(
     *,
     plan: LeRobotMetadataPlan,
     data_tables: Mapping[tuple[int, int], Any],
+    retarget_mask: LeRobotRetargetMask | None = None,
 ) -> dict[str, dict[str, list[float] | list[int]]]:
-    """Compute exact population statistics for declared numeric vector features."""
+    """Compute exact stats over the effective training episode/frame view."""
+
+    training_episode_allowlist = set(
+        retarget_mask.training_episode_allowlist
+        if retarget_mask is not None
+        else plan.training_episode_allowlist
+    )
+    filtered_tables: list[tuple[Any, np.ndarray]] = []
+    for _key, table in sorted(data_tables.items()):
+        episode_values = table["episode_index"].to_pylist()
+        valid_values = table["valid.retarget"].to_pylist()
+        if len(episode_values) != len(valid_values):
+            raise ValueError("statistics mask columns have different row counts")
+        keep = np.asarray(
+            [
+                isinstance(valid, bool)
+                and valid
+                and int(episode_index) in training_episode_allowlist
+                for episode_index, valid in zip(episode_values, valid_values, strict=True)
+            ],
+            dtype=bool,
+        )
+        if keep.any():
+            filtered_tables.append((table, keep))
+    if not filtered_tables:
+        raise ValueError("training view contains no valid retarget frames")
 
     result: dict[str, dict[str, list[float] | list[int]]] = {}
     for feature_name in plan.stats_features:
         matrices = [
-            _statistics_matrix(table, plan, feature_name)
-            for _key, table in sorted(data_tables.items())
+            _statistics_matrix(table, plan, feature_name)[keep]
+            for table, keep in filtered_tables
         ]
         matrix = np.concatenate(matrices, axis=0)
         result[feature_name] = {
@@ -1664,6 +2046,8 @@ def _statistics_manifest(
     output_root: Path,
     target_table_binding_manifest_path: Path,
     target_table_binding_manifest_sha256: str,
+    retarget_mask_path: Path | None,
+    retarget_mask_sha256: str | None,
     stats_path: Path,
     written_files: tuple[str, ...],
 ) -> LeRobotStatisticsWrite:
@@ -1676,6 +2060,10 @@ def _statistics_manifest(
         output_root=output_root.as_posix(),
         target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
         target_table_binding_manifest_sha256=target_table_binding_manifest_sha256,
+        retarget_mask_path=(
+            retarget_mask_path.as_posix() if retarget_mask_path is not None else None
+        ),
+        retarget_mask_sha256=retarget_mask_sha256,
         stats_path=stats_path.as_posix(),
         stats_relative_path=stats_path.relative_to(output_root).as_posix(),
         stats_sha256=sha256_file(stats_path),
@@ -1693,6 +2081,7 @@ def write_lerobot_statistics(
     plan_path: Path,
     output_root: Path,
     target_table_binding_manifest_path: Path,
+    retarget_mask_path: Path | None = None,
 ) -> LeRobotStatisticsWrite:
     """Write exact numeric stats after verifying the grouped partial dataset."""
 
@@ -1700,6 +2089,18 @@ def write_lerobot_statistics(
     output_root = output_root.resolve()
     target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
     plan, plan_verification = _load_verified_plan(plan_path)
+    if retarget_mask_path is not None:
+        _assert_external_artifact_path(
+            retarget_mask_path,
+            output_root.as_posix(),
+            label="retarget mask",
+        )
+    retarget_mask, _retarget_mask_sha256 = _load_retarget_mask_for_plan(
+        retarget_mask_path,
+        plan=plan,
+        plan_path=plan_path,
+        plan_sha256=plan_verification.plan_sha256,
+    )
     if plan.video_keys:
         raise ValueError("statistics writer currently supports video-free plans only")
     if not output_root.is_dir():
@@ -1713,12 +2114,17 @@ def write_lerobot_statistics(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
+        retarget_mask_path=retarget_mask_path,
     )
     info_path, _tasks_path, stats_path, _episode_paths = _planned_paths(plan, output_root)
     data_paths = _data_shard_paths(plan, output_root)
     parquet = _load_pyarrow()[1]
     data_tables = {key: parquet.read_table(path) for key, path in data_paths.items()}
-    stats_payload = _compute_numeric_statistics(plan=plan, data_tables=data_tables)
+    stats_payload = _compute_numeric_statistics(
+        plan=plan,
+        data_tables=data_tables,
+        retarget_mask=retarget_mask,
+    )
     _write_json_exclusive(stats_path, stats_payload)
     _replace_json(
         info_path,
@@ -1727,12 +2133,15 @@ def write_lerobot_statistics(
             plan_sha256=plan_verification.plan_sha256,
             data_shards_written=True,
             stats_written=True,
+            retarget_mask=retarget_mask,
+            retarget_mask_sha256=_retarget_mask_sha256,
         ),
     )
     verification = verify_lerobot_statistics(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
+        retarget_mask_path=retarget_mask_path,
     )
     return LeRobotStatisticsWrite(
         dataset_alias=verification.dataset_alias,
@@ -1743,6 +2152,8 @@ def write_lerobot_statistics(
         output_root=verification.output_root,
         target_table_binding_manifest_path=verification.target_table_binding_manifest_path,
         target_table_binding_manifest_sha256=verification.target_table_binding_manifest_sha256,
+        retarget_mask_path=verification.retarget_mask_path,
+        retarget_mask_sha256=verification.retarget_mask_sha256,
         stats_path=verification.stats_path,
         stats_relative_path=verification.stats_relative_path,
         stats_sha256=verification.stats_sha256,
@@ -1773,6 +2184,7 @@ def verify_lerobot_statistics(
     plan_path: Path,
     output_root: Path,
     target_table_binding_manifest_path: Path,
+    retarget_mask_path: Path | None = None,
 ) -> LeRobotStatisticsVerification:
     """Verify exact numeric stats and the complete video-free partial dataset."""
 
@@ -1784,14 +2196,21 @@ def verify_lerobot_statistics(
         binding_sha256,
         stats_path,
         _data_paths,
+        retarget_mask,
+        retarget_mask_sha256,
     ) = _verify_lerobot_multi_episode_dataset_files(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
         stats_written=True,
+        retarget_mask_path=retarget_mask_path,
     )
     actual_stats = _read_json_object(stats_path, label="LeRobot stats")
-    expected_stats = _compute_numeric_statistics(plan=plan, data_tables=actual_tables)
+    expected_stats = _compute_numeric_statistics(
+        plan=plan,
+        data_tables=actual_tables,
+        retarget_mask=retarget_mask,
+    )
     if actual_stats != expected_stats:
         raise ValueError("LeRobot stats.json does not match the written data shards")
     output_root = output_root.resolve()
@@ -1806,6 +2225,12 @@ def verify_lerobot_statistics(
         output_root=output_root.as_posix(),
         target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
         target_table_binding_manifest_sha256=binding_sha256,
+        retarget_mask_path=(
+            retarget_mask_path.resolve().as_posix()
+            if retarget_mask_path is not None
+            else None
+        ),
+        retarget_mask_sha256=retarget_mask_sha256,
         stats_path=stats_path.as_posix(),
         stats_relative_path=stats_path.relative_to(output_root).as_posix(),
         stats_sha256=sha256_file(stats_path),
@@ -1823,18 +2248,32 @@ def build_lerobot_loader_preflight(
     plan_path: Path,
     output_root: Path,
     target_table_binding_manifest_path: Path,
+    retarget_mask_path: Path | None = None,
 ) -> LeRobotLoaderPreflight:
     """Check the local v3 numeric file contract without importing LeRobot."""
 
     plan_path = plan_path.resolve()
     output_root = output_root.resolve()
     target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    if retarget_mask_path is not None:
+        _assert_external_artifact_path(
+            retarget_mask_path,
+            output_root.as_posix(),
+            label="retarget mask",
+        )
+    retarget_mask, retarget_mask_sha256 = _load_retarget_mask_for_plan(
+        retarget_mask_path,
+        plan=plan,
+        plan_path=plan_path,
+        plan_sha256=plan_verification.plan_sha256,
+    )
     statistics = verify_lerobot_statistics(
         plan_path=plan_path,
         output_root=output_root,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
+        retarget_mask_path=retarget_mask_path,
     )
-    plan, plan_verification = _load_verified_plan(plan_path)
     info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
     info = _read_json_object(info_path, label="loader preflight info")
     if info.get("codebase_version") != "v3.0":
@@ -1843,6 +2282,23 @@ def build_lerobot_loader_preflight(
         raise ValueError("loader preflight data path does not match the metadata plan")
     if info.get("video_path") is not None:
         raise ValueError("loader preflight expects a video-free dataset")
+    retarget_info = info.get("retargetlab")
+    if not isinstance(retarget_info, dict):
+        raise ValueError("loader preflight requires retarget metadata")
+    if retarget_info.get("training_episode_allowlist") != list(
+        retarget_mask.training_episode_allowlist
+    ):
+        raise ValueError("loader preflight training allowlist does not match retarget mask")
+    if retarget_info.get("normalization_exclude") != list(
+        retarget_mask.normalization_exclude
+    ):
+        raise ValueError("loader preflight normalization exclusions do not match retarget mask")
+    if retarget_info.get("mask_policy") != retarget_mask.mask_policy:
+        raise ValueError("loader preflight mask policy does not match retarget mask")
+    if retarget_mask_sha256 is not None and retarget_info.get("mask_sha256") != (
+        retarget_mask_sha256
+    ):
+        raise ValueError("loader preflight mask hash does not match dataset metadata")
 
     pa, parquet = _load_pyarrow()
     tasks_table = parquet.read_table(tasks_path)
@@ -1875,15 +2331,33 @@ def build_lerobot_loader_preflight(
             "dataset_to_index",
             "data/chunk_index",
             "data/file_index",
+            "retarget.status",
         }
         if not required_columns.issubset(episode_table.column_names):
             raise ValueError(f"loader preflight episode metadata is incomplete: {key}")
+        for episode_index, status in zip(
+            episode_table["episode_index"].to_pylist(),
+            episode_table["retarget.status"].to_pylist(),
+            strict=True,
+        ):
+            expected_status = next(
+                item.retarget_status
+                for item in retarget_mask.episodes
+                if item.episode_index == episode_index
+            )
+            if status != expected_status:
+                raise ValueError(
+                    "loader preflight episode retarget status does not match mask"
+                )
 
-    blocking_reasons: tuple[str, ...] = ()
-    if tuple(plan.training_episode_allowlist) != tuple(range(plan.total_episodes)):
-        blocking_reasons = (
+    physical_episode_indices = tuple(episode.episode_index for episode in plan.episodes)
+    blocking_reasons: list[str] = []
+    if physical_episode_indices != tuple(range(plan.total_episodes)):
+        blocking_reasons.append(
             "preserve_source_episode_indices_are_not_zero_based_for_explicit_loader_selection",
         )
+    if not retarget_mask.training_episode_allowlist:
+        blocking_reasons.append("no_pass_episode_available_for_training")
     return LeRobotLoaderPreflight(
         status="BLOCKED" if blocking_reasons else "READY",
         dataset_alias=plan.dataset_alias,
@@ -1894,7 +2368,11 @@ def build_lerobot_loader_preflight(
         output_root=output_root.as_posix(),
         target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
         target_table_binding_manifest_sha256=statistics.target_table_binding_manifest_sha256,
-        episode_indices=tuple(plan.training_episode_allowlist),
+        retarget_mask_path=(
+            retarget_mask_path.as_posix() if retarget_mask_path is not None else None
+        ),
+        retarget_mask_sha256=retarget_mask_sha256,
+        episode_indices=tuple(retarget_mask.training_episode_allowlist),
         stats_features=plan.stats_features,
         checked_files=_actual_files(output_root),
         passed_checks=(
@@ -1904,8 +2382,9 @@ def build_lerobot_loader_preflight(
             "data_feature_schema",
             "numeric_stats_schema",
             "video_free_inventory",
+            "retarget_mask_schema",
         ),
-        blocking_reasons=blocking_reasons,
+        blocking_reasons=tuple(blocking_reasons),
         warnings=("upstream_training_compatibility_not_claimed",),
         total_episodes=plan.total_episodes,
         total_frames=plan.total_frames,
@@ -1953,6 +2432,11 @@ def verify_lerobot_loader_preflight(path: Path) -> LeRobotLoaderPreflight:
         target_table_binding_manifest_path=Path(
             preflight.target_table_binding_manifest_path
         ),
+        retarget_mask_path=(
+            Path(preflight.retarget_mask_path)
+            if preflight.retarget_mask_path is not None
+            else None
+        ),
     )
     if expected != preflight:
         raise ValueError("loader preflight does not match its bound dataset inputs")
@@ -1977,6 +2461,8 @@ def build_lerobot_training_dataset_config(
         plan_sha256=preflight.plan_sha256,
         preflight_path=preflight_path.as_posix(),
         preflight_sha256=sha256_file(preflight_path),
+        retarget_mask_path=preflight.retarget_mask_path,
+        retarget_mask_sha256=preflight.retarget_mask_sha256,
         blocking_reasons=preflight.blocking_reasons,
         warnings=(*preflight.warnings, "dataset_config_is_not_a_training_run"),
     )

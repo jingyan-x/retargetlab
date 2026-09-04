@@ -19,6 +19,7 @@ from retargetlab.run import (
     build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
+    build_lerobot_retarget_mask,
     build_lerobot_target_table_binding_manifest,
     build_lerobot_training_dataset_config,
     build_synthetic_table_write_report,
@@ -28,6 +29,7 @@ from retargetlab.run import (
     verify_lerobot_multi_episode_dataset,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
+    verify_lerobot_retarget_mask,
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
     verify_lerobot_training_dataset_config,
@@ -39,6 +41,7 @@ from retargetlab.run import (
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
+    write_lerobot_retarget_mask,
     write_lerobot_statistics,
     write_lerobot_target_table_binding_manifest,
     write_lerobot_training_dataset_config,
@@ -671,6 +674,154 @@ def test_lerobot_multi_episode_dataset_groups_verified_shards(
     assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
 
 
+def test_lerobot_retarget_mask_preserves_rows_and_filters_training_stats(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    pytest.importorskip("pyarrow")
+    import pyarrow.parquet as parquet
+
+    episode3_bundle = _write_bundle(tmp_path / "episode3")
+    gate_path = _write_gate(
+        tmp_path,
+        episode3_bundle,
+        source_frame_count=4,
+        target_replay_frame_count=4,
+        training_episode_allowlist=(3, 4),
+    )
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "episode3" / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_multi_tasks(),
+        episodes=_multi_episodes(),
+    )
+    plan_path = tmp_path / "multi-metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    replay_path = tmp_path / "multi-replay-bindings.json"
+    write_lerobot_replay_binding_manifest(
+        replay_path,
+        build_lerobot_replay_binding_manifest(
+            plan_path=plan_path,
+            target_replay_bundle_paths={3: episode3_bundle, 4: episode3_bundle},
+        ),
+    )
+    report3 = _write_target_table_report(tmp_path, episode3_bundle, episode_index=3)
+    report4 = _write_target_table_report(
+        tmp_path,
+        episode3_bundle,
+        episode_index=4,
+        task_index=1,
+    )
+    target_binding_path = tmp_path / "multi-target-table-bindings.json"
+    write_lerobot_target_table_binding_manifest(
+        target_binding_path,
+        build_lerobot_target_table_binding_manifest(
+            plan_path=plan_path,
+            replay_binding_manifest_path=replay_path,
+            target_table_report_paths={3: report3, 4: report4},
+        ),
+    )
+    mask = build_lerobot_retarget_mask(
+        plan_path=plan_path,
+        valid_frames_by_episode={3: (False, True), 4: (True, True)},
+    )
+    assert mask.episodes[0].retarget_status == "WARN"
+    assert mask.episodes[0].first_valid_frame_index == 1
+    assert mask.training_episode_allowlist == (4,)
+    mask_path = tmp_path / "retarget-mask.json"
+    write_lerobot_retarget_mask(mask_path, mask)
+    assert verify_lerobot_retarget_mask(mask_path).total_valid_frames == 3
+    valid_frames_path = tmp_path / "valid-frames.json"
+    valid_frames_path.write_text(
+        json.dumps({"3": [False, True], "4": [True, True]}),
+        encoding="utf-8",
+    )
+    cli_mask_path = tmp_path / "cli-retarget-mask.json"
+    assert (
+        app(
+            [
+                "build-lerobot-retarget-mask",
+                "--plan",
+                str(plan_path),
+                "--valid-frames",
+                str(valid_frames_path),
+                "--output",
+                str(cli_mask_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["artifact_type"] == "lerobot_retarget_mask"
+    assert (
+        app(
+            [
+                "verify-lerobot-retarget-mask",
+                "--mask",
+                str(cli_mask_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+    output_root = tmp_path / "multi-dataset"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+    manifest = write_lerobot_multi_episode_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+        retarget_mask_path=mask_path,
+    )
+    assert manifest.retarget_mask_path == mask_path.resolve().as_posix()
+    data_path = output_root / "data" / "chunk-000" / "file-000.parquet"
+    data = parquet.read_table(data_path)
+    assert data.num_rows == 4
+    assert data["valid.retarget"].to_pylist() == [False, True, True, True]
+    assert data["observation.state"].to_pylist()[0] == pytest.approx([0.1, 0.044])
+    episode_table = parquet.read_table(
+        output_root / "meta" / "episodes" / "chunk-000" / "file-000.parquet"
+    )
+    assert episode_table["retarget.status"].to_pylist() == ["WARN", "PASS"]
+    info = json.loads((output_root / "meta" / "info.json").read_text(encoding="utf-8"))
+    assert info["retargetlab"]["training_episode_allowlist"] == [4]
+    assert info["retargetlab"]["normalization_exclude"] == ["valid.retarget"]
+
+    stats_manifest = write_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+        retarget_mask_path=mask_path,
+    )
+    assert stats_manifest.retarget_mask_sha256 is not None
+    stats = json.loads((output_root / "meta" / "stats.json").read_text(encoding="utf-8"))
+    assert stats["observation.state"]["count"] == [2]
+    assert stats["action"]["count"] == [2]
+    assert stats["observation.state"]["min"] == [0.0, 0.0]
+    assert stats["observation.state"]["max"] == pytest.approx([0.1, 0.044])
+
+    preflight = build_lerobot_loader_preflight(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+        retarget_mask_path=mask_path,
+    )
+    assert preflight.status == "BLOCKED"
+    assert preflight.episode_indices == (4,)
+    assert preflight.retarget_mask_path == mask_path.resolve().as_posix()
+
+    all_invalid = build_lerobot_retarget_mask(
+        plan_path=plan_path,
+        valid_frames_by_episode={3: (False, False), 4: (True, True)},
+    )
+    assert all_invalid.episodes[0].retarget_status == "FAIL"
+    assert all_invalid.episodes[0].first_valid_frame_index is None
+    assert all_invalid.training_episode_allowlist == (4,)
+
+
 def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, capsys) -> None:
     pytest.importorskip("pyarrow")
 
@@ -985,6 +1136,7 @@ def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path)
             "dataset_to_index": 2,
             "data/chunk_index": 0,
             "data/file_index": 0,
+            "retarget.status": "PASS",
         }
     ]
 
