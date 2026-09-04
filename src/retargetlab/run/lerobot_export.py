@@ -17,6 +17,7 @@ from retargetlab.contracts import (
     LeRobotEpisodeMetadata,
     LeRobotEpisodeReplayBinding,
     LeRobotEpisodeTargetTableBinding,
+    LeRobotLoaderPreflight,
     LeRobotMetadataPlan,
     LeRobotMetadataPlanVerification,
     LeRobotMetadataSkeletonVerification,
@@ -1818,3 +1819,130 @@ def verify_lerobot_statistics(
         total_frames=plan.total_frames,
         total_tasks=plan.total_tasks,
     )
+
+
+def build_lerobot_loader_preflight(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+) -> LeRobotLoaderPreflight:
+    """Check the local v3 numeric file contract without importing LeRobot."""
+
+    plan_path = plan_path.resolve()
+    output_root = output_root.resolve()
+    target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    statistics = verify_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+    )
+    plan, plan_verification = _load_verified_plan(plan_path)
+    info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
+    info = _read_json_object(info_path, label="loader preflight info")
+    if info.get("codebase_version") != "v3.0":
+        raise ValueError("loader preflight requires LeRobot codebase version v3.0")
+    if info.get("data_path") != plan.data_path_template:
+        raise ValueError("loader preflight data path does not match the metadata plan")
+    if info.get("video_path") is not None:
+        raise ValueError("loader preflight expects a video-free dataset")
+
+    pa, parquet = _load_pyarrow()
+    tasks_table = parquet.read_table(tasks_path)
+    task_metadata_raw = (tasks_table.schema.metadata or {}).get(b"pandas")
+    if task_metadata_raw is None:
+        raise ValueError("loader preflight tasks parquet lacks pandas index metadata")
+    try:
+        task_metadata = json.loads(task_metadata_raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("loader preflight tasks pandas metadata is invalid") from exc
+    if task_metadata.get("index_columns") != ["__index_level_0__"]:
+        raise ValueError("loader preflight tasks index is not the LeRobot named index")
+    task_columns = {
+        column.get("field_name"): column.get("name")
+        for column in task_metadata.get("columns", [])
+        if isinstance(column, dict)
+    }
+    if task_columns.get("__index_level_0__") != "task":
+        raise ValueError("loader preflight tasks index name is not task")
+    if task_columns.get("task_index") != "task_index":
+        raise ValueError("loader preflight task_index column metadata is invalid")
+
+    for key, episode_path in episode_paths.items():
+        episode_table = parquet.read_table(episode_path)
+        required_columns = {
+            "episode_index",
+            "tasks",
+            "length",
+            "dataset_from_index",
+            "dataset_to_index",
+            "data/chunk_index",
+            "data/file_index",
+        }
+        if not required_columns.issubset(episode_table.column_names):
+            raise ValueError(f"loader preflight episode metadata is incomplete: {key}")
+
+    blocking_reasons: tuple[str, ...] = ()
+    if tuple(plan.training_episode_allowlist) != tuple(range(plan.total_episodes)):
+        blocking_reasons = (
+            "preserve_source_episode_indices_are_not_zero_based_for_explicit_loader_selection",
+        )
+    return LeRobotLoaderPreflight(
+        status="BLOCKED" if blocking_reasons else "READY",
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        output_root=output_root.as_posix(),
+        target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
+        target_table_binding_manifest_sha256=statistics.target_table_binding_manifest_sha256,
+        episode_indices=tuple(plan.training_episode_allowlist),
+        stats_features=plan.stats_features,
+        checked_files=_actual_files(output_root),
+        passed_checks=(
+            "info_v3_fields",
+            "tasks_named_index",
+            "episode_metadata_data_links",
+            "data_feature_schema",
+            "numeric_stats_schema",
+            "video_free_inventory",
+        ),
+        blocking_reasons=blocking_reasons,
+        warnings=("upstream_training_compatibility_not_claimed",),
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def write_lerobot_loader_preflight(
+    path: Path,
+    preflight: LeRobotLoaderPreflight,
+) -> LeRobotLoaderPreflight:
+    """Persist one exclusive loader-contract preflight outside the dataset root."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(preflight.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return preflight
+
+
+def verify_lerobot_loader_preflight(path: Path) -> LeRobotLoaderPreflight:
+    """Rebuild a loader preflight from its current dataset inputs."""
+
+    path = path.resolve()
+    preflight = LeRobotLoaderPreflight.model_validate_json(
+        path.read_text(encoding="utf-8")
+    )
+    expected = build_lerobot_loader_preflight(
+        plan_path=Path(preflight.plan_path),
+        output_root=Path(preflight.output_root),
+        target_table_binding_manifest_path=Path(
+            preflight.target_table_binding_manifest_path
+        ),
+    )
+    if expected != preflight:
+        raise ValueError("loader preflight does not match its bound dataset inputs")
+    return preflight

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from test_export_table import _write_bundle, _write_source_table
 
-from retargetlab.cli.main import EXIT_OK, EXIT_SEMANTIC, app
+from retargetlab.cli.main import EXIT_OK, EXIT_QUALITY, EXIT_SEMANTIC, app
 from retargetlab.contracts import (
     ExportInputGate,
     FeatureDeclaration,
@@ -16,10 +16,12 @@ from retargetlab.export import (
     write_synthetic_target_table,
 )
 from retargetlab.run import (
+    build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
     build_lerobot_target_table_binding_manifest,
     build_synthetic_table_write_report,
+    verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
     verify_lerobot_multi_episode_dataset,
@@ -28,6 +30,7 @@ from retargetlab.run import (
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
     verify_target_replay_bundle,
+    write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
     write_lerobot_multi_episode_dataset,
@@ -795,6 +798,52 @@ def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, ca
         == EXIT_OK
     )
     assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+    loader_preflight = build_lerobot_loader_preflight(
+        plan_path=plan_path,
+        output_root=cli_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+    assert loader_preflight.status == "BLOCKED"
+    assert loader_preflight.upstream_training_compatibility == "NOT_CLAIMED"
+    assert loader_preflight.blocking_reasons == (
+        "preserve_source_episode_indices_are_not_zero_based_for_explicit_loader_selection",
+    )
+    loader_preflight_path = tmp_path / "loader-preflight.json"
+    write_lerobot_loader_preflight(loader_preflight_path, loader_preflight)
+    assert verify_lerobot_loader_preflight(loader_preflight_path).status == "BLOCKED"
+
+    cli_loader_preflight_path = tmp_path / "cli-loader-preflight.json"
+    assert (
+        app(
+            [
+                "build-lerobot-loader-preflight",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(cli_root),
+                "--target-table-bindings",
+                str(target_binding_path),
+                "--output",
+                str(cli_loader_preflight_path),
+                "--json",
+            ]
+        )
+        == EXIT_QUALITY
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
+    assert (
+        app(
+            [
+                "verify-lerobot-loader-preflight",
+                "--preflight",
+                str(cli_loader_preflight_path),
+                "--json",
+            ]
+        )
+        == EXIT_QUALITY
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
 
     stats_path = cli_root / "meta" / "stats.json"
     stats_payload = json.loads(stats_path.read_text(encoding="utf-8"))

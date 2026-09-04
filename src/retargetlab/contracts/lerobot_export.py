@@ -368,6 +368,66 @@ class LeRobotStatisticsVerification(BaseModel):
     total_tasks: int = Field(gt=0)
 
 
+class LeRobotLoaderPreflight(BaseModel):
+    """Compatibility preflight without claiming upstream training readiness."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_loader_preflight"] = "lerobot_loader_preflight"
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    loader_contract: Literal["lerobot_v3_numeric_video_free_v0.1"] = (
+        "lerobot_v3_numeric_video_free_v0.1"
+    )
+    upstream_training_compatibility: Literal["NOT_CLAIMED"] = "NOT_CLAIMED"
+    status: Literal["READY", "BLOCKED"]
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    output_root: str = Field(min_length=1)
+    target_table_binding_manifest_path: str = Field(min_length=1)
+    target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    episode_indices: tuple[int, ...] = Field(min_length=1)
+    stats_features: tuple[str, ...] = Field(min_length=1)
+    checked_files: tuple[str, ...] = Field(min_length=1)
+    passed_checks: tuple[str, ...] = Field(min_length=1)
+    blocking_reasons: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_preflight(self) -> LeRobotLoaderPreflight:
+        if len(set(self.episode_indices)) != len(self.episode_indices):
+            raise ValueError("loader preflight episode indices must be unique")
+        if any(index < 0 for index in self.episode_indices):
+            raise ValueError("loader preflight episode indices must be non-negative")
+        if len(set(self.stats_features)) != len(self.stats_features):
+            raise ValueError("loader preflight stats features must be unique")
+        if any(not feature.strip() for feature in self.stats_features):
+            raise ValueError("loader preflight stats features must be non-empty")
+        if len(set(self.checked_files)) != len(self.checked_files):
+            raise ValueError("loader preflight checked files must be unique")
+        if any(not path.strip() or path.startswith("/") for path in self.checked_files):
+            raise ValueError("loader preflight checked files must be relative paths")
+        if len(set(self.passed_checks)) != len(self.passed_checks):
+            raise ValueError("loader preflight checks must be unique")
+        if any(not check.strip() for check in self.passed_checks):
+            raise ValueError("loader preflight checks must be non-empty")
+        if len(set(self.blocking_reasons)) != len(self.blocking_reasons):
+            raise ValueError("loader preflight blocking reasons must be unique")
+        if len(set(self.warnings)) != len(self.warnings):
+            raise ValueError("loader preflight warnings must be unique")
+        if (self.status == "BLOCKED") != bool(self.blocking_reasons):
+            raise ValueError("loader preflight status must match blocking reasons")
+        if len(self.episode_indices) != self.total_episodes:
+            raise ValueError("loader preflight episode count does not match episode indices")
+        return self
+
+
 class LeRobotMetadataPlan(BaseModel):
     """Value-free plan for a complete, video-free LeRobot v3 metadata set."""
 

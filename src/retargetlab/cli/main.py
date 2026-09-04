@@ -50,6 +50,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_export_input_gate,
+    build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
     build_lerobot_target_table_binding_manifest,
@@ -65,6 +66,7 @@ from retargetlab.run import (
     recipe_sha256,
     verify_calibration_run,
     verify_data_profile,
+    verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
     verify_lerobot_multi_episode_dataset,
@@ -83,6 +85,7 @@ from retargetlab.run import (
     write_dataset_coverage,
     write_export_input_gate,
     write_export_profile,
+    write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
     write_lerobot_metadata_skeleton_report,
@@ -494,6 +497,32 @@ def _parser() -> argparse.ArgumentParser:
         help="verified per-episode target-table binding manifest",
     )
     verify_lerobot_statistics.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    build_lerobot_loader = subparsers.add_parser(
+        "build-lerobot-loader-preflight",
+        help="check the local LeRobot v3 numeric loader contract",
+    )
+    build_lerobot_loader.add_argument("--plan", required=True, type=Path)
+    build_lerobot_loader.add_argument("--output-root", required=True, type=Path)
+    build_lerobot_loader.add_argument(
+        "--target-table-bindings",
+        required=True,
+        type=Path,
+        help="verified per-episode target-table binding manifest",
+    )
+    build_lerobot_loader.add_argument("--output", required=True, type=Path)
+    build_lerobot_loader.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_loader = subparsers.add_parser(
+        "verify-lerobot-loader-preflight",
+        help="verify a saved local LeRobot loader preflight",
+    )
+    verify_lerobot_loader.add_argument("--preflight", required=True, type=Path)
+    verify_lerobot_loader.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1459,6 +1488,42 @@ def _verify_lerobot_statistics_payload(
         "command": "verify-lerobot-statistics",
         **verification.model_dump(mode="json"),
     }
+
+
+def _build_lerobot_loader_preflight_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_bindings_path: Path,
+    output_path: Path,
+) -> tuple[dict[str, Any], int]:
+    preflight = build_lerobot_loader_preflight(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_bindings_path,
+    )
+    write_lerobot_loader_preflight(output_path, preflight)
+    return (
+        {
+            "command": "build-lerobot-loader-preflight",
+            **preflight.model_dump(mode="json"),
+            "output": str(output_path),
+        },
+        EXIT_OK if preflight.status == "READY" else EXIT_QUALITY,
+    )
+
+
+def _verify_lerobot_loader_preflight_payload(
+    preflight_path: Path,
+) -> tuple[dict[str, Any], int]:
+    preflight = verify_lerobot_loader_preflight(preflight_path)
+    return (
+        {
+            "command": "verify-lerobot-loader-preflight",
+            **preflight.model_dump(mode="json"),
+        },
+        EXIT_OK if preflight.status == "READY" else EXIT_QUALITY,
+    )
 
 
 def _candidate_payload(
@@ -2839,6 +2904,53 @@ def app(argv: list[str] | None = None) -> int:
             return EXIT_SEMANTIC
         _emit(payload, args.json, sys.stdout)
         return EXIT_OK
+    if args.command == "build-lerobot-loader-preflight":
+        try:
+            payload, exit_code = _build_lerobot_loader_preflight_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+                target_table_bindings_path=args.target_table_bindings,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-lerobot-loader-preflight",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-lerobot-loader-preflight",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "verify-lerobot-loader-preflight":
+        try:
+            payload, exit_code = _verify_lerobot_loader_preflight_payload(args.preflight)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-loader-preflight",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-loader-preflight",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
     if args.command == "candidate":
         try:
             payload = _candidate_payload(

@@ -17,9 +17,11 @@ from .export_table import (
 from .fingerprint import canonical_json_bytes, recipe_sha256
 from .gripper import map_target_grippers, write_target_gripper_trajectory
 from .lerobot_export import (
+    build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
     build_lerobot_target_table_binding_manifest,
+    verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
     verify_lerobot_multi_episode_dataset,
@@ -27,6 +29,7 @@ from .lerobot_export import (
     verify_lerobot_replay_binding_manifest,
     verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
+    write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
     write_lerobot_metadata_skeleton_report,
@@ -86,6 +89,7 @@ __all__ = [
     "verify_synthetic_table_write_report",
     "map_target_grippers",
     "write_target_gripper_trajectory",
+    "build_lerobot_loader_preflight",
     "build_lerobot_metadata_plan",
     "build_lerobot_replay_binding_manifest",
     "build_lerobot_target_table_binding_manifest",
@@ -93,6 +97,7 @@ __all__ = [
     "write_lerobot_partial_dataset",
     "write_lerobot_partial_dataset_report",
     "verify_lerobot_partial_dataset",
+    "verify_lerobot_loader_preflight",
     "verify_lerobot_metadata_plan",
     "write_lerobot_metadata_skeleton",
     "write_lerobot_metadata_skeleton_report",
@@ -107,6 +112,7 @@ __all__ = [
     "write_lerobot_statistics",
     "write_lerobot_statistics_report",
     "verify_lerobot_statistics",
+    "write_lerobot_loader_preflight",
     "build_target_replay_manifest",
     "build_target_replay_bundle",
     "build_target_replay_trajectory",

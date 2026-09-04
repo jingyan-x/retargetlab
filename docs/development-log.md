@@ -2150,3 +2150,33 @@ Remote verification:
 - full regression with the real OpenArm asset smoke enabled: 120 passed, 1
   Panda asset smoke skipped;
 - `ruff check src tests` and `mypy src`: passed.
+
+### M1b.3l: record the local loader-contract preflight
+
+The partial numeric LeRobot v3 output now has an explicit loader-contract
+preflight. It rechecks the current `info.json`, the named task index and
+`task_index` metadata, episode data-link columns, grouped data feature
+schemas, numeric statistics, and the video-free file inventory. The result is
+persisted as a separate, exclusive preflight artifact and exposes
+`upstream_training_compatibility: NOT_CLAIMED` so structural compatibility is
+not confused with a successful upstream training run.
+
+The current metadata plan deliberately preserves source episode identifiers.
+For the synthetic plan these are `(3, 4)`, while the current explicit
+LeRobot loader selection contract requires zero-based contiguous episode
+indices. The preflight therefore reports `BLOCKED` with the explicit reason
+`preserve_source_episode_indices_are_not_zero_based_for_explicit_loader_selection`.
+This is a recorded compatibility boundary, not a writer failure or a reason
+to stop the development chain; the default preserve-source policy remains
+unchanged and no silent reindexing is introduced.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with the real OpenArm asset smoke enabled: 120 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- preflight CLI build/verify behavior is covered, including the expected
+  quality-status exit for the explicit blocked boundary;
+- all coverage remains synthetic/public only; no private dataset rows, video,
+  or target dataset output was read or changed.
