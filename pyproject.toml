@@ -43,6 +43,9 @@ where = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+  "lerobot: optional LeRobot runtime acceptance checks",
+]
 
 [tool.ruff]
 line-length = 100

@@ -2315,3 +2315,24 @@ Remote verification:
 - `ruff check src tests` and `mypy src`: passed;
 - full dual-morphology regression remains green at 121 passed;
 - no private dataset rows, video, or target dataset output was read or changed.
+
+### M1b.3t: register the optional upstream loader smoke boundary
+
+The test suite now registers a dedicated `lerobot` marker and adds an
+acceptance-only API smoke test pinned to `lerobot==0.6.1`. When that optional
+runtime is available, the smoke checks the documented `LeRobotDataset`
+constructor surface (`repo_id`, `root`, `episodes`, and `download_videos`). It
+does not turn the optional stack into a core dependency, does not claim local
+dataset loading or training compatibility, and skips cleanly when the optional
+runtime is absent.
+
+On this remote host the smoke test skipped because `lerobot` is not installed;
+the read-only `/root/lerobot` source checkout at version 0.6.2 was not silently
+substituted for the pinned 0.6.1 acceptance runtime.
+
+Remote verification:
+
+- `pytest -m lerobot -q`: 1 skipped, 121 deselected;
+- full dual-morphology regression: 121 passed, 1 skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or changed.
