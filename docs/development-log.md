@@ -2280,35 +2280,6 @@ Remote verification:
 - `ruff check src tests` and `mypy src`: passed;
 - no private dataset rows, video, or target dataset output was read or changed.
 
-### M1b.7: add the optional five-check LeRobot acceptance report
-
-The project now has an explicit loader-backed acceptance boundary with five
-named checks: configuration binding, episode allowlist, temporal windows,
-normalization of a small batch, and FK semantic recheck. The first four checks
-use the exact `LeRobotDataset` configuration and keep the optional runtime
-imports inside the acceptance function. Missing `lerobot`, `torch`,
-`datasets`, or `huggingface_hub` produces an archived
-`ENVIRONMENT_UNAVAILABLE` report rather than a false compatibility claim.
-
-The FK semantic check is deliberately recorded as `BLOCKED` for the current
-config contract: the direct training config does not yet bind a
-`RobotProfile` and source EEF reference artifact. The report verifier checks
-the config hash, identity, five-check structure, and current config binding
-without silently rerunning an unavailable optional environment. CLI build and
-verify commands are available, and audit reports remain outside the dataset
-root.
-
-On this remote host the optional loader stack remains uninstalled, so the
-loader-backed path was not falsely reported as passed. No private dataset
-rows, video, or target dataset output was read or changed.
-
-Remote verification:
-
-- acceptance/CLI/contracts focused tests: 14 passed;
-- full dual-morphology regression with both assets enabled: 124 passed, 1 skipped;
-- `ruff check` on changed files and `mypy src`: passed;
-- CLI help exposes `run-lerobot-acceptance` and `verify-lerobot-acceptance`.
-
 ### M1b.3r: enforce external audit-artifact placement
 
 Loader preflight and training-dataset config writers now reject output paths
@@ -2397,3 +2368,32 @@ Remote verification:
 - full dual-morphology regression: 122 passed, 1 skipped;
 - `ruff check src tests` and `mypy src`: passed;
 - no private dataset rows, video, or target dataset output was read or changed.
+
+### M1b.7: add the optional five-check LeRobot acceptance report
+
+The project now has an explicit loader-backed acceptance boundary with five
+named checks: configuration binding, episode allowlist, temporal windows,
+normalization of a small batch, and FK semantic recheck. The first four checks
+use the exact `LeRobotDataset` configuration and keep the optional runtime
+imports inside the acceptance function. Missing `lerobot`, `torch`,
+`datasets`, or `huggingface_hub` produces an archived
+`ENVIRONMENT_UNAVAILABLE` report rather than a false compatibility claim.
+
+The FK semantic check is deliberately recorded as `BLOCKED` for the current
+config contract: the direct training config does not yet bind a
+`RobotProfile` and source EEF reference artifact. The report verifier checks
+the config hash, identity, five-check structure, and current config binding
+without silently rerunning an unavailable optional environment. CLI build and
+verify commands are available, and audit reports remain outside the dataset
+root.
+
+On this remote host the optional loader stack remains uninstalled, so the
+loader-backed path was not falsely reported as passed. No private dataset
+rows, video, or target dataset output was read or changed.
+
+Remote verification:
+
+- acceptance/CLI/contracts focused tests: 14 passed;
+- full dual-morphology regression with both assets enabled: 124 passed, 1 skipped;
+- `ruff check` on changed files and `mypy src`: passed;
+- CLI help exposes `run-lerobot-acceptance` and `verify-lerobot-acceptance`.
