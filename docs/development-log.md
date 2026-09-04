@@ -2110,3 +2110,28 @@ Remote verification:
 The next implementation boundary is a loader-compatibility preflight for the
 video-free numeric dataset, while preserving the explicit partial status and
 not claiming upstream training compatibility without direct loader evidence.
+
+### M1b.3j: align tasks parquet with the current LeRobot loader
+
+The current LeRobot `load_tasks` path reads `meta/tasks.parquet` through
+pandas and uses the task string as the named index, with `task_index` as the
+data column. The exporter previously wrote the task string as an ordinary
+`task` column, which could make a loader see a RangeIndex and lose task-name
+lookup. The tasks writer now emits the pandas-compatible index field
+`__index_level_0__`, records the named `task` index in the Parquet pandas
+metadata, and retains `task_index` as the physical data column. Skeleton,
+partial, grouped, and statistics verifiers compare schema metadata as well as
+values, so index metadata drift is now detected.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with the real OpenArm asset smoke enabled: 120 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows or video output was read or changed.
+
+The next implementation boundary is a local loader-contract preflight that
+checks the emitted info, tasks, episode metadata, data, and stats assumptions
+against the current public LeRobot file contract without silently claiming
+that the optional upstream training dependencies are installed.

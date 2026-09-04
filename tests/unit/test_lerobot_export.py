@@ -866,8 +866,13 @@ def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path)
     assert not (output_root / "meta" / "stats.json").exists()
 
     task_table = parquet.read_table(output_root / "meta" / "tasks.parquet")
-    assert task_table.column_names == ["task", "task_index"]
-    assert task_table.to_pylist() == [{"task": "fixture task", "task_index": 0}]
+    assert task_table.column_names == ["task_index", "__index_level_0__"]
+    assert task_table.to_pylist() == [
+        {"task_index": 0, "__index_level_0__": "fixture task"}
+    ]
+    pandas_metadata = json.loads((task_table.schema.metadata or {})[b"pandas"])
+    assert pandas_metadata["index_columns"] == ["__index_level_0__"]
+    assert pandas_metadata["columns"][1]["name"] == "task"
     episode_table = parquet.read_table(
         output_root / "meta" / "episodes" / "chunk-000" / "file-000.parquet"
     )

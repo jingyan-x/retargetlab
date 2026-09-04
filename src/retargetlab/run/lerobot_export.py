@@ -571,14 +571,50 @@ def _info_payload(
 
 
 def _tasks_table(pa: Any, plan: LeRobotMetadataPlan) -> Any:
-    return pa.table(
+    table = pa.table(
         {
-            "task": pa.array([task.task for task in plan.tasks], type=pa.string()),
             "task_index": pa.array(
                 [task.task_index for task in plan.tasks],
                 type=pa.int64(),
             ),
+            "__index_level_0__": pa.array(
+                [task.task for task in plan.tasks],
+                type=pa.string(),
+            ),
         }
+    )
+    pandas_metadata = {
+        "index_columns": ["__index_level_0__"],
+        "column_indexes": [
+            {
+                "name": None,
+                "field_name": None,
+                "pandas_type": "unicode",
+                "numpy_type": "object",
+                "metadata": None,
+            }
+        ],
+        "columns": [
+            {
+                "name": "task_index",
+                "field_name": "task_index",
+                "pandas_type": "int64",
+                "numpy_type": "int64",
+                "metadata": None,
+            },
+            {
+                "name": "task",
+                "field_name": "__index_level_0__",
+                "pandas_type": "unicode",
+                "numpy_type": "object",
+                "metadata": None,
+            },
+        ],
+        "attributes": {},
+        "pandas_version": "2.2.3",
+    }
+    return table.replace_schema_metadata(
+        {b"pandas": json.dumps(pandas_metadata, separators=(",", ":")).encode("utf-8")}
     )
 
 
@@ -758,6 +794,8 @@ def _actual_files(output_root: Path) -> tuple[str, ...]:
 def _assert_table_matches(actual: Any, expected: Any, *, label: str) -> None:
     if actual.column_names != expected.column_names:
         raise ValueError(f"{label} columns do not match the metadata plan")
+    if actual.schema.metadata != expected.schema.metadata:
+        raise ValueError(f"{label} schema metadata does not match the metadata plan")
     for name in expected.column_names:
         if actual[name].type != expected[name].type:
             raise ValueError(f"{label} column type does not match: {name}")
