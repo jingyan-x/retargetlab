@@ -20,6 +20,15 @@
 4. 需要理解决策原因时再查讨论归档或早期评审。历史文件与现行规划冲突时，以现行规划为准。
 5. 新的架构决定先讨论确认，再写入现行规划，并在 `product-plan-v2.md` §14.1 追加决策记录。
 
+## 当前执行顺序（2026-09-04）
+
+用户已再次确认 **OpenArm-first**。因此本工作区当前按
+`M-1 OpenArm 语义/约束闸门 → OpenArm 正式数值闭环 → M1a/b/c` 推进；
+Panda 仅保留为历史目标重选证据和后续回归夹具，不是当前交付目标，也
+不能复用其映射或可达结论。详细证据与停止点见
+[`development-log.md`](./development-log.md) 和
+[`m1-004-frame-semantics-blocker.md`](./m1-004-frame-semantics-blocker.md)。
+
 ## 基线切换记录
 
 `product-plan-v2.md` 经多轮评审后取代 `current-product-plan.md`，2026-09-02 完成第七轮 remote-first 与首轮预检闭合。各轮修了什么，见该文 §14.1：

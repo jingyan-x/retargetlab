@@ -10,6 +10,13 @@
 >
 > 生效日期 2026-09-02，基于基线第七轮 remote-first 收口。
 
+> **当前执行覆盖（2026-09-04）：OpenArm-first。** 这是用户确认的执行
+> 顺序：先完成 OpenArm 的 M-1 语义/约束闸门与正式数值闭环；Panda 仅作
+> 历史重选证据和后续回归夹具。文中原有的 “M0 Panda → M1 OpenArm”
+> 分层是设计演进记录，不能覆盖当前工作区的目标选择。当前停止点和证据
+> 以 `docs/development-log.md` 及 `docs/m1-004-frame-semantics-blocker.md`
+> 为准。
+
 ---
 
 ## 1. 环境与依赖

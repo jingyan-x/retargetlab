@@ -2569,3 +2569,28 @@ individually passing yet, so no bimanual constraint relaxation is justified.
 The next action remains source-to-target frame reconstruction/authorization,
 followed by rechecking each arm independently before another bimanual recipe.
 No formal recipe, held-out split, or export data was changed.
+
+### 2026-09-04 · add an OpenArm frame-lineage preflight
+
+The repository now carries `harness/m_minus_1/inspect_openarm_frame_lineage.py`.
+This standalone, value-free preflight reads only the recipe, the review-only
+mapping candidate, and the target asset metadata/URDF. It records evidence
+presence and hashes without reading dataset rows, held-out values, or emitting
+source paths. Optional `--source-urdf` and `--authorized-mapping` inputs are
+accepted for the next evidence handoff, but their presence never promotes a
+formal recipe by itself.
+
+On the current OpenArm-first inputs, the target asset checks pass: the
+generated URDF parses and matches its manifest hash, both `link7` and
+`hand_tcp` frames are present, the fixed TCP chain is explicit with a total
+`0.1801 m` z offset on each side, and mesh references are relative. The source
+mapping candidate still leaves the coordinate frame, position unit, and slot
+labels unresolved; no source URDF or authorized source-to-target mapping is
+available. The preflight therefore returns `BLOCKED_SEMANTICS` with next action
+`OBTAIN_SOURCE_FRAME_EVIDENCE`.
+
+The aggregate report is retained under the gitignored
+`20260904-openarm-recovery-004` run directory; its SHA-256 is
+`e036231036252e4ee2b8c54576f5530854b5a1bf8e9d8ea06888f7bcfaecfcc7`.
+This result is a semantic gate, not a new T2 recipe or a held-out/export
+result. No formal recipe, held-out split, or export data was changed.

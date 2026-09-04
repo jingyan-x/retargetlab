@@ -159,3 +159,25 @@ the candidate frame/orientation mapping. The next gate remains an authorized
 source-to-target frame reconstruction, followed by independent per-arm
 validation and only then a new bimanual recipe. Held-out episodes and export
 data remain unopened.
+
+## 2026-09-04 follow-up: frame-lineage preflight
+
+`harness/m_minus_1/inspect_openarm_frame_lineage.py` now provides a
+value-free, calibration-independent preflight for the semantic handoff. It
+checks the target manifest/URDF hash, both candidate target frames, the fixed
+TCP chain, and path portability, while recording only hashes and aggregate
+booleans. It accepts optional source-URDF or authorized-mapping evidence for
+the next handoff; neither input alone authorizes recipe promotion.
+
+The current report confirms the OpenArm target asset is ready for semantic
+validation: both fixed chains are explicit and total `0.1801 m` in z, with
+relative mesh references and matching manifest hash. The review-only mapping
+candidate still has unresolved source coordinate frame, position unit, and
+slot labels, and no source URDF or authorized mapping is present. The report
+therefore returns `BLOCKED_SEMANTICS` and
+`OBTAIN_SOURCE_FRAME_EVIDENCE`. Its SHA-256 is
+`e036231036252e4ee2b8c54576f5530854b5a1bf8e9d8ea06888f7bcfaecfcc7` under the
+gitignored `20260904-openarm-recovery-004` run directory.
+
+This is an evidence gate only. It does not change the formal recipe, open
+held-out episodes, relax collision/IK constraints, or produce export data.

@@ -6,6 +6,12 @@
 >
 > **v0.4 变更：** 主开发环境改为实验室远程 Linux；补齐 M-1 可达定义、`SolveOptions`、T2 的 81→9 确定性预算和 harness 资产断言落点。
 
+> **当前执行覆盖（2026-09-04）：OpenArm-first。** 用户已确认先完成
+> OpenArm 的语义、单臂和双臂数值闭环；下方历史 M0 Panda 施工项不能把
+> Panda 当成当前目标。Panda 只作回归夹具/历史重选证据。OpenArm 的
+> `BLOCKED_SEMANTICS` 停止点以 `docs/development-log.md` 为准；在源到
+> 目标 frame 证据到位前，不打开 held-out、不放宽正式约束、不导出数据。
+
 ---
 
 ## 开工前必须先完成的五件事
