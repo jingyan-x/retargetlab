@@ -181,3 +181,35 @@ gitignored `20260904-openarm-recovery-004` run directory.
 
 This is an evidence gate only. It does not change the formal recipe, open
 held-out episodes, relax collision/IK constraints, or produce export data.
+
+## Strict data-only axis candidate gate (2026-09-04)
+
+The earlier preflight's `OBTAIN_SOURCE_FRAME_EVIDENCE` blocker is retired.
+The tracked MappingSpec record now marks the schema facts and their evidence
+levels separately from the three unresolved frame questions. The source URDF
+is an optional cross-check and is not required for the product or for the
+data-only calibration.
+
+The new preflight returns
+`READY_FOR_DATA_ONLY_CALIBRATION` and
+`RESOLVE_FRAME_SEMANTICS_FROM_SCHEMA_OR_DATA_ONLY_CALIBRATION`. It still sets
+`semantic_status=UNRESOLVED`, keeps `kinematic_status=RED`, and refuses formal
+recipe promotion until a validated candidate exists.
+
+The strict calibration-only screen evaluated 24 legal proper axis rotations,
+both forward/inverse pose directions, both `link7` and `hand_tcp`, and direct
+left/right mapping: 96 deterministic candidates in total, each arm on the
+same 60-frame calibration prescreen and the same 120-iteration/1-seed IK
+budget. No candidate reached 0.80 nominal on both independent arms. The best
+`link7` rates were left `0.050` and right `0.550`; the best `hand_tcp` rates
+were left `0.183` and right `0.067`. No joint-limit violations were observed
+in these single-arm aggregates. Because the single-arm gate failed, the
+bimanual shortlist remained empty and no bimanual run was performed.
+
+This is the stop condition requested for the data-only rotation search. Do
+not expand the axis set or open held-out data. The next gate is to resolve
+pose direction, source base/world semantics, and source-tool-to-OpenArm
+tool-frame alignment, then repeat the independent-arm gate with the corrected
+semantic transform. The merged report is retained outside Git under the
+calibration-only run workspace; its SHA-256 is
+`165c17aec153150abce18b886f6889baabcfd4a38bb4a3467abf8cab0aa4cde0`.

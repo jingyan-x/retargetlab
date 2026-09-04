@@ -1,0 +1,116 @@
+{
+  "schema_version": "m_minus_1.openarm_mapping_spec.v1",
+  "dataset_alias": "private-sample-20",
+  "source_revision": "info.json@sha256:5447be7ef21b29fb03e04871ee6b908e3013051217b757fd9a3f30c8d3555a40",
+  "status": "REVIEW_REQUIRED",
+  "semantic_status": "UNRESOLVED",
+  "source_urdf": {
+    "required_for_product": false,
+    "role": "optional_cross_check_only",
+    "absence_effect": "does_not_block_data_only_calibration"
+  },
+  "known": {
+    "observation_state_layout": {
+      "value": "[gripper, qw, qx, qy, qz, x, y, z] x 2",
+      "evidence": "EXPLICIT",
+      "provenance": "meta/info.json features.observation.state.names",
+      "evidence_scope": "private-sample-20 metadata"
+    },
+    "quaternion_order": {
+      "value": "wxyz",
+      "evidence": "EXPLICIT",
+      "provenance": "meta/info.json element names and review mapping",
+      "evidence_scope": "private-sample-20 metadata"
+    },
+    "slot_semantics": {
+      "value": "slot_0=left_arm; slot_1=right_arm",
+      "evidence": "DERIVED",
+      "supporting_evidence": "explicit epos_0/epos_1 layout plus source-side review evidence",
+      "provenance": "info.json schema and existing review material",
+      "evidence_scope": "private-sample-20 metadata and calibration-only review",
+      "limitations": [
+        "source world-axis orientation remains unresolved",
+        "target side mapping remains diagnostic until a candidate passes the gate"
+      ]
+    },
+    "eef_trajectory_semantics": {
+      "value": "dual_eef_absolute_pose",
+      "evidence": "DATA_DERIVED",
+      "provenance": "existing calibration semantic review and state/action consistency checks",
+      "evidence_scope": "private-sample-20 calibration and metadata",
+      "limitations": [
+        "source pose direction is not identified"
+      ]
+    },
+    "source_end_links": {
+      "value": [
+        "Larm08_link",
+        "Rarm08_link"
+      ],
+      "evidence": "EXPLICIT",
+      "provenance": "existing source-frame review material",
+      "evidence_scope": "private-sample-20 source metadata"
+    },
+    "source_tcp": {
+      "value": {
+        "flange_to_tcp_translation_m": [
+          0.0,
+          0.0,
+          0.22855
+        ],
+        "quaternion": "unchanged",
+        "reference_point": "TCP"
+      },
+      "evidence": "DATA_DERIVED",
+      "provenance": "existing source EEF/TCP review material",
+      "evidence_scope": "private-sample-20 metadata and calibration review",
+      "limitations": [
+        "the offset is recorded as source metadata; the source-to-OpenArm tool-axis alignment remains unresolved"
+      ]
+    },
+    "position_unit": {
+      "value": "m",
+      "evidence": "DATA_DERIVED",
+      "provenance": "aggregate calibration scale audit against robot-scale workspace",
+      "evidence_scope": "all accessible private-sample-20 calibration frames",
+      "scale_summary": "sub_meter_robot_workspace; millimetre-scale interpretation rejected",
+      "limitations": [
+        "unit evidence is scoped to the current private sample revision"
+      ]
+    }
+  },
+  "unresolved": {
+    "source_world_axes": {
+      "value": null,
+      "evidence": "UNRESOLVED",
+      "provenance": "not declared by the available schema or review artifacts"
+    },
+    "source_pose_direction": {
+      "value": null,
+      "evidence": "UNRESOLVED",
+      "provenance": "forward versus inverse pose convention is not declared"
+    },
+    "source_tool_axis_alignment_to_openarm_tool_axis": {
+      "value": null,
+      "evidence": "UNRESOLVED",
+      "provenance": "no authorized source-to-target tool-frame declaration"
+    }
+  },
+  "calibration_policy": {
+    "candidate_family": "24 proper right_handed axis rotations x forward_or_inverse_pose",
+    "side_mapping_default": "direct",
+    "swapped_side_mapping": "negative_control_only",
+    "target_frames": [
+      "link7",
+      "hand_tcp"
+    ],
+    "held_out_access": "forbidden_before_m1c",
+    "formal_recipe_promotion": "disallowed_until_both_single_arms_reach_0.80"
+  },
+  "privacy": {
+    "raw_pose_values_emitted": false,
+    "raw_joint_values_emitted": false,
+    "private_absolute_paths_emitted": false,
+    "target_training_data_exported": false
+  }
+}

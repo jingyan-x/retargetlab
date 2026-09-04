@@ -20,10 +20,17 @@ from typing import Any
 
 import yaml
 
-SCHEMA = "m_minus_1.openarm_frame_lineage.v1"
+SCHEMA = "m_minus_1.openarm_frame_lineage.v2"
 TARGET_SIDES = ("left", "right")
 TARGET_FRAME_SUFFIXES = ("link7", "hand_tcp")
 SOURCE_END_LINKS = ("Larm08_link", "Rarm08_link")
+EVIDENCE_LEVELS = (
+    "EXPLICIT",
+    "DERIVED",
+    "DATA_DERIVED",
+    "INFERRED_CANDIDATE",
+    "UNRESOLVED",
+)
 
 
 def sha256_file(path: Path) -> str | None:
@@ -97,6 +104,10 @@ def _mapping_payload(raw: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _present(value: Any) -> bool:
+    return value is not None and value != "" and value != "UNRESOLVED"
+
+
 def inspect_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
     streams = mapping.get("streams")
     if not isinstance(streams, list):
@@ -128,28 +139,258 @@ def inspect_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(metadata, dict):
         metadata = {}
     slot_semantics = str(metadata.get("slot_semantics", ""))
+    position_unit_present = bool(position_units) and all(
+        _present(unit) for unit in position_units
+    )
+    position_frame_present = bool(position_frames) and all(
+        _present(frame) for frame in position_frames
+    )
+    orientation_order_present = bool(orientation_orders) and all(
+        _present(order) for order in orientation_orders
+    )
+    orientation_frame_present = bool(orientation_frames) and all(
+        _present(frame) for frame in orientation_frames
+    )
     return {
         "dataset_alias": mapping.get("dataset_alias"),
         "source_revision": mapping.get("source_revision"),
         "coordinate_frame": coordinate_frame,
         "stream_count": len(stream_names),
-        "stream_names_are_explicit": bool(stream_names)
-        and all(not name.endswith(("slot_0", "slot_1")) for name in stream_names),
-        "source_frame_declared": isinstance(coordinate_frame, str)
-        and bool(coordinate_frame.strip())
-        and coordinate_frame != "UNRESOLVED"
-        and bool(position_frames)
-        and all(frame == coordinate_frame for frame in position_frames)
-        and bool(orientation_frames)
-        and all(frame == coordinate_frame for frame in orientation_frames),
-        "source_position_unit_declared": bool(position_units)
+        "stream_names_are_explicit": bool(stream_names),
+        "mapping_coordinate_frame_present": _present(coordinate_frame)
+        and position_frame_present
+        and orientation_frame_present,
+        "mapping_position_unit_present": position_unit_present
         and all(unit == "m" for unit in position_units),
-        "source_orientation_order_declared": bool(orientation_orders)
+        "mapping_quaternion_order_present": orientation_order_present
+        and all(order == "wxyz" for order in orientation_orders),
+        "mapping_slot_semantics_present": bool(slot_semantics)
+        and "unresolved" not in slot_semantics.lower(),
+        # Keep the old names as compatibility aliases for prior reports.
+        "source_frame_declared": _present(coordinate_frame)
+        and position_frame_present
+        and orientation_frame_present,
+        "source_position_unit_declared": position_unit_present
+        and all(unit == "m" for unit in position_units),
+        "source_orientation_order_declared": orientation_order_present
         and all(order == "wxyz" for order in orientation_orders),
         "source_slot_labels_declared": bool(slot_semantics)
         and "unresolved" not in slot_semantics.lower(),
         "candidate_status": metadata.get("candidate_status"),
     }
+
+
+def inspect_dataset_info(path: Path | None) -> dict[str, Any]:
+    """Inspect only value-free schema declarations from the source info file."""
+
+    if path is None:
+        return {
+            "provided": False,
+            "present": False,
+            "parseable": False,
+            "observation_state_layout_explicit": False,
+            "quaternion_order_explicit": False,
+            "eef_channel_declared": False,
+            "sha256": None,
+        }
+    try:
+        info = load_json(path, "dataset info")
+    except ValueError:
+        return {
+            "provided": True,
+            "present": path.is_file(),
+            "parseable": False,
+            "observation_state_layout_explicit": False,
+            "quaternion_order_explicit": False,
+            "eef_channel_declared": False,
+            "sha256": sha256_file(path),
+        }
+    features = info.get("features")
+    if not isinstance(features, dict):
+        features = {}
+    state = features.get("observation.state")
+    state_names = state.get("names") if isinstance(state, dict) else None
+    expected_names = [
+        "gripper_0",
+        "epos_0_qw",
+        "epos_0_qx",
+        "epos_0_qy",
+        "epos_0_qz",
+        "epos_0_x",
+        "epos_0_y",
+        "epos_0_z",
+        "gripper_1",
+        "epos_1_qw",
+        "epos_1_qx",
+        "epos_1_qy",
+        "epos_1_qz",
+        "epos_1_x",
+        "epos_1_y",
+        "epos_1_z",
+    ]
+    layout_explicit = state_names == expected_names
+    return {
+        "provided": True,
+        "present": path.is_file(),
+        "parseable": True,
+        "observation_state_layout_explicit": layout_explicit,
+        "quaternion_order_explicit": layout_explicit,
+        "eef_channel_declared": layout_explicit,
+        "observation_state_shape": state.get("shape") if isinstance(state, dict) else None,
+        "sha256": sha256_file(path),
+    }
+
+
+def inspect_semantics_record(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {
+            "provided": False,
+            "present": False,
+            "parseable": False,
+            "field_count": 0,
+            "fields": {},
+            "sha256": None,
+        }
+    try:
+        record = load_json(path, "OpenArm MappingSpec")
+    except ValueError:
+        return {
+            "provided": True,
+            "present": path.is_file(),
+            "parseable": False,
+            "field_count": 0,
+            "fields": {},
+            "sha256": sha256_file(path),
+        }
+    known = record.get("known")
+    unresolved = record.get("unresolved")
+    fields: dict[str, Any] = {}
+    if isinstance(known, dict):
+        fields.update(known)
+    if isinstance(unresolved, dict):
+        fields.update(unresolved)
+    valid_fields: dict[str, Any] = {}
+    for name, field in fields.items():
+        if not isinstance(field, dict):
+            continue
+        evidence = field.get("evidence")
+        if evidence not in EVIDENCE_LEVELS:
+            continue
+        valid_fields[str(name)] = {
+            "evidence": evidence,
+            "value_present": field.get("value") is not None,
+            "evidence_scope_present": bool(field.get("evidence_scope")),
+            "limitations_present": "limitations" in field,
+        }
+    return {
+        "provided": True,
+        "present": path.is_file(),
+        "parseable": True,
+        "field_count": len(valid_fields),
+        "fields": valid_fields,
+        "semantic_status": record.get("semantic_status"),
+        "source_urdf_required": record.get("source_urdf", {}).get(
+            "required_for_product"
+        )
+        if isinstance(record.get("source_urdf"), dict)
+        else None,
+        "sha256": sha256_file(path),
+    }
+
+
+def _field(
+    value: Any,
+    evidence: str,
+    provenance: str,
+    *,
+    evidence_scope: str | None = None,
+    limitations: list[str] | None = None,
+) -> dict[str, Any]:
+    if evidence not in EVIDENCE_LEVELS:
+        raise ValueError(f"unsupported evidence level: {evidence}")
+    result: dict[str, Any] = {
+        "value": value,
+        "evidence": evidence,
+        "provenance": provenance,
+    }
+    if evidence_scope is not None:
+        result["evidence_scope"] = evidence_scope
+    if limitations is not None:
+        result["limitations"] = limitations
+    return result
+
+
+def build_evidence_map(
+    mapping_checks: dict[str, Any],
+    dataset_info: dict[str, Any],
+    semantics_record: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Resolve each semantic item without confusing missing mapping with absent data."""
+
+    record_fields = semantics_record.get("fields", {})
+    if not isinstance(record_fields, dict):
+        record_fields = {}
+
+    def record_field(name: str) -> dict[str, Any] | None:
+        value = record_fields.get(name)
+        return value if isinstance(value, dict) else None
+
+    evidence: dict[str, dict[str, Any]] = {}
+    for name in (
+        "observation_state_layout",
+        "quaternion_order",
+        "slot_semantics",
+        "eef_trajectory_semantics",
+        "source_end_links",
+        "source_tcp",
+        "position_unit",
+        "source_world_axes",
+        "source_pose_direction",
+        "source_tool_axis_alignment_to_openarm_tool_axis",
+    ):
+        field = record_field(name)
+        if field is not None:
+            evidence[name] = field
+
+    if "observation_state_layout" not in evidence:
+        evidence["observation_state_layout"] = _field(
+            "[gripper, qw, qx, qy, qz, x, y, z] x 2",
+            "EXPLICIT" if dataset_info.get("observation_state_layout_explicit") else "UNRESOLVED",
+            "dataset info observation.state names",
+        )
+    if "quaternion_order" not in evidence:
+        evidence["quaternion_order"] = _field(
+            "wxyz",
+            "EXPLICIT" if dataset_info.get("quaternion_order_explicit") else "UNRESOLVED",
+            "dataset info observation.state names",
+        )
+    if "position_unit" not in evidence:
+        evidence["position_unit"] = _field(
+            "m" if mapping_checks["mapping_position_unit_present"] else None,
+            "DERIVED" if mapping_checks["mapping_position_unit_present"] else "UNRESOLVED",
+            "mapping candidate position fields",
+        )
+    if "slot_semantics" not in evidence:
+        evidence["slot_semantics"] = _field(
+            "slot_0=left_arm; slot_1=right_arm"
+            if mapping_checks["mapping_slot_semantics_present"]
+            else None,
+            "DERIVED" if mapping_checks["mapping_slot_semantics_present"] else "UNRESOLVED",
+            "mapping candidate slot metadata",
+        )
+    for name, provenance in (
+        ("source_world_axes", "source schema and review artifacts"),
+        ("source_pose_direction", "source schema and review artifacts"),
+        (
+            "source_tool_axis_alignment_to_openarm_tool_axis",
+            "source schema and review artifacts",
+        ),
+    ):
+        evidence.setdefault(
+            name,
+            _field(None, "UNRESOLVED", f"no declaration in {provenance}"),
+        )
+    return evidence
 
 
 def _fixed_joint_origin(joint: ET.Element) -> tuple[float, float, float] | None:
@@ -277,6 +518,13 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     mapping_raw = load_json(args.mapping_candidate.resolve(), "mapping candidate")
     mapping = _mapping_payload(mapping_raw)
     mapping_checks = inspect_mapping(mapping)
+    dataset_info = inspect_dataset_info(
+        args.dataset_info.resolve() if args.dataset_info is not None else None
+    )
+    semantics_record = inspect_semantics_record(
+        args.semantics_record.resolve() if args.semantics_record is not None else None
+    )
+    evidence = build_evidence_map(mapping_checks, dataset_info, semantics_record)
     target = inspect_target_asset(args.asset_dir.resolve())
     source_urdf = inspect_optional_source(
         args.source_urdf.resolve() if args.source_urdf is not None else None
@@ -318,39 +566,46 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "target_mesh_references_relative",
         )
     )
-    source_evidence_present = (
-        source_urdf["parseable"] and source_urdf["expected_end_links_present"]
-    ) or authorized_mapping["parseable"]
     blocking_reasons: list[str] = []
     if not target_ready:
         blocking_reasons.append("target OpenArm asset evidence is incomplete")
-    if not mapping_checks["source_frame_declared"]:
-        blocking_reasons.append("source coordinate frame is unresolved")
-    if not mapping_checks["source_position_unit_declared"]:
-        blocking_reasons.append("source position unit is unresolved")
-    if not mapping_checks["source_slot_labels_declared"]:
-        blocking_reasons.append("source slot-to-side labels are unresolved")
-    if not source_evidence_present:
-        blocking_reasons.append("no source URDF or authorized source-to-target mapping is present")
     if recipe_semantics_unconfirmed and not recipe_policy_safe:
         blocking_reasons.append("recipe does not preserve the held-out access policy")
 
     if not target_ready:
         status = "ASSET_INVALID"
         next_action = "REPAIR_TARGET_ASSET"
-    elif source_evidence_present:
-        status = "READY_FOR_AUTHORIZED_MAPPING_VALIDATION"
-        next_action = "RUN_CALIBRATION_MAPPING_VALIDATION"
     else:
-        status = "BLOCKED_SEMANTICS"
-        next_action = "OBTAIN_SOURCE_FRAME_EVIDENCE"
+        # Unresolved frame semantics are the purpose of the next calibration
+        # slice, not evidence that the dataset or source URDF is unavailable.
+        status = "READY_FOR_DATA_ONLY_CALIBRATION"
+        next_action = "RESOLVE_FRAME_SEMANTICS_FROM_SCHEMA_OR_DATA_ONLY_CALIBRATION"
+
+    unresolved = [
+        name
+        for name, field in evidence.items()
+        if field.get("evidence") == "UNRESOLVED"
+    ]
+    source_urdf_evidence_present = bool(
+        source_urdf["parseable"] and source_urdf["expected_end_links_present"]
+    )
 
     return {
         "schema_version": SCHEMA,
         "status": status,
         "next_action": next_action,
+        "semantic_status": "UNRESOLVED" if unresolved else "UNCONFIRMED",
+        "kinematic_status": "RED",
         "dataset_alias": mapping.get("dataset_alias", recipe_dataset.get("alias")),
         "source_revision": mapping.get("source_revision", recipe_dataset.get("source_revision")),
+        "evidence_levels": evidence,
+        "unresolved_semantics": unresolved,
+        "source_urdf_policy": {
+            "required_for_product": False,
+            "role": "optional_cross_check_only",
+            "present_and_parseable": source_urdf_evidence_present,
+            "absence_is_blocking": False,
+        },
         "checks": {
             **{
                 f"mapping_{key}": value
@@ -361,7 +616,14 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "recipe_semantics_unconfirmed": recipe_semantics_unconfirmed,
             "recipe_held_out_policy_preserved": recipe_policy_safe,
             "target_asset_ready": target_ready,
-            "source_urdf_evidence_present": source_evidence_present,
+            "source_urdf_evidence_present": source_urdf_evidence_present,
+            "source_urdf_optional_only": True,
+            "dataset_info_present": dataset_info["present"],
+            "dataset_info_parseable": dataset_info["parseable"],
+            "mapping_candidate_present": args.mapping_candidate.resolve().is_file(),
+            "mapping_candidate_parseable": True,
+            "semantics_record_present": semantics_record["present"],
+            "semantics_record_parseable": semantics_record["parseable"],
             "dataset_alias_matches_recipe": mapping.get("dataset_alias")
             == recipe_dataset.get("alias"),
             "source_revision_matches_recipe": source_revision_matches_recipe,
@@ -370,12 +632,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             key: value for key, value in target.items()
             if key not in {"urdf_sha256", "manifest_sha256"}
         },
+        "dataset_info": dataset_info,
+        "semantics_record": semantics_record,
         "source_urdf": source_urdf,
         "authorized_mapping": authorized_mapping,
         "blocking_reasons": blocking_reasons,
+        "data_only_calibration_required": bool(unresolved),
+        "formal_recipe_promotion_allowed": False,
         "inputs": {
             "recipe_sha256": sha256_file(args.recipe.resolve()),
             "mapping_candidate_sha256": sha256_file(args.mapping_candidate.resolve()),
+            "dataset_info_sha256": dataset_info.get("sha256"),
+            "semantics_record_sha256": semantics_record.get("sha256"),
             "target_urdf_sha256": target.get("urdf_sha256"),
             "target_manifest_sha256": target.get("manifest_sha256"),
         },
@@ -385,6 +653,8 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
             "held_out_read": False,
             "raw_source_paths_emitted": False,
             "absolute_paths_emitted": False,
+            "target_training_data_modified": False,
+            "target_training_data_exported": False,
         },
     }
 
@@ -394,6 +664,16 @@ def main() -> int:
     parser.add_argument("--recipe", type=Path, required=True)
     parser.add_argument("--mapping-candidate", type=Path, required=True)
     parser.add_argument("--asset-dir", type=Path, required=True)
+    parser.add_argument(
+        "--dataset-info",
+        type=Path,
+        help="optional source info.json; only schema declarations are inspected",
+    )
+    parser.add_argument(
+        "--semantics-record",
+        type=Path,
+        help="value-free MappingSpec/evidence record",
+    )
     parser.add_argument("--source-urdf", type=Path)
     parser.add_argument("--authorized-mapping", type=Path)
     parser.add_argument("--output", type=Path, required=True)

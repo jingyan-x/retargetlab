@@ -2594,3 +2594,70 @@ The aggregate report is retained under the gitignored
 `e036231036252e4ee2b8c54576f5530854b5a1bf8e9d8ea06888f7bcfaecfcc7`.
 This result is a semantic gate, not a new T2 recipe or a held-out/export
 result. No formal recipe, held-out split, or export data was changed.
+
+## 2026-09-04 follow-up: strict data-only OpenArm axis pre-screen
+
+The semantic handoff is now recorded in the tracked value-free
+`docs/openarm-mapping-spec.json`. The record separates facts from hypotheses:
+`observation.state` is explicitly `[gripper, qw, qx, qy, qz, x, y, z] x 2`,
+quaternions are explicitly `wxyz`, the slot-to-side binding is recorded as a
+derived `slot_0=left_arm` / `slot_1=right_arm` fact, and the trajectory is a
+data-derived `dual_eef_absolute_pose`. The source end links are explicitly
+`Larm08_link` / `Rarm08_link`; the source flange-to-TCP translation is recorded
+as `0.22855 m` along tool z with unchanged quaternion. Position units are
+`DATA_DERIVED` from an aggregate robot-scale calibration audit, with the
+evidence scope and current-sample limitation recorded. Only source world
+axes, source pose direction, and source-tool-to-OpenArm-tool axis alignment
+remain `UNRESOLVED`.
+
+`inspect_openarm_frame_lineage.py` now distinguishes a missing MappingSpec
+value from missing dataset information and emits one of
+`EXPLICIT` / `DERIVED` / `DATA_DERIVED` / `INFERRED_CANDIDATE` / `UNRESOLVED`
+for every semantic item. The source URDF is explicitly optional and only an
+optional cross-check; its absence is not a product or calibration blocker.
+The value-free preflight returns
+`READY_FOR_DATA_ONLY_CALIBRATION` with next action
+`RESOLVE_FRAME_SEMANTICS_FROM_SCHEMA_OR_DATA_ONLY_CALIBRATION`, while keeping
+formal recipe promotion disabled. The preflight report hash is
+`60dff9ae9e1dbb9b1d1cc3a1d1edac71ce0eada69df948cbd7106f0f234c9d93`.
+
+The strict candidate harness
+`harness/m_minus_1/diagnose_openarm_axis_rotation.py` replaces the former
+orientation-only diagnostic as the data-only screen. It applies one rigid
+candidate to position and orientation together, enumerates all 24 proper
+right-handed signed axis rotations, tests both full-pose directions, keeps
+direct slot-to-side mapping as the formal default, and compares `link7` with
+`hand_tcp`. Candidate IDs and candidate-set hashes are deterministic. The
+current base point is the existing `t2-023`; the fixed bounded solver budget
+is 120 outer iterations and one target seed for every result.
+
+Only the frozen 60-frame calibration prescreen was read. The merged report
+contains 96 candidates (48 per target frame), 192 single-arm aggregates, and
+no held-out values or raw poses/joints. No candidate passes the required 0.80
+nominal rate on both arms, so the bimanual shortlist is empty and no bimanual
+run is authorized. Top single-arm aggregates are:
+
+- `link7`: left `0.050` nominal / `0.050` relaxed; right `0.550` nominal /
+  `0.617` relaxed; neither side has a joint-limit violation.
+- `hand_tcp`: left `0.183` nominal / `0.283` relaxed; right `0.067` nominal /
+  `0.067` relaxed; neither side has a joint-limit violation.
+
+The aggregate candidate-set SHA-256 is
+`7e4f390f9cd41ba6821bf1b47330ccc6a74e20d1fe786882b5aaa3809c3d70d0`; the
+merged report hash is
+`165c17aec153150abce18b886f6889baabcfd4a38bb4a3467abf8cab0aa4cde0`.
+The result is a strict semantic/kinematic diagnostic, not a formal recipe
+promotion. The current status remains `OpenArm:
+semantic_status=UNRESOLVED, kinematic_status=RED`; the Panda checkpoint remains
+`semantic_status=UNCONFIRMED, kinematic_status=YELLOW` and is not evidence for
+OpenArm frame identity.
+
+Per the registered gate, stop the coordinate-rotation search here. The next
+development gate is an authorized or data-only calibration of pose direction,
+source base/world semantics, and the source-tool-to-OpenArm tool-frame
+correction; only after both independent arms reach `0.80` may a 60-frame
+bimanual validation run. Source URDF acquisition remains optional.
+
+Remote verification for this slice: focused axis/frame-lineage tests `6
+passed`; `ruff` passed on the new harnesses; no held-out split, target
+training export, or source absolute path was read or emitted.
