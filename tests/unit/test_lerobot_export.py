@@ -1007,6 +1007,11 @@ def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, ca
     assert training_config.root == cli_root.resolve().as_posix()
     assert training_config.episodes == (3, 4)
     assert training_config.runtime_dependency == "lerobot==0.6.1"
+    assert (
+        training_config.target_table_binding_manifest_path
+        == target_binding_path.resolve().as_posix()
+    )
+    assert training_config.target_table_binding_manifest_sha256 is not None
     training_config_path = tmp_path / "training-dataset-config.json"
     write_lerobot_training_dataset_config(training_config_path, training_config)
     assert (

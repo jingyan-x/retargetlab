@@ -2397,3 +2397,37 @@ Remote verification:
 - full dual-morphology regression with both assets enabled: 124 passed, 1 skipped;
 - `ruff check` on changed files and `mypy src`: passed;
 - CLI help exposes `run-lerobot-acceptance` and `verify-lerobot-acceptance`.
+
+### M1b.8: bind and execute the LeRobot FK semantic recheck
+
+The direct training dataset configuration now carries the verified
+target-table binding manifest path and file hash. The acceptance runner follows
+that binding through each selected replay bundle, both materialized streams,
+the replay manifest, RobotProfile, ExportProfile, and the canonical EEF
+trajectory. It rechecks the loader values against the bound state/action
+artifacts before expanding the exported arm-plus-gripper-driver layout into
+the complete Pinocchio model q order; mimic joints are reconstructed from the
+declared gripper semantics.
+
+Both `observation.state` and `action` are independently FK-checked against the
+same-frame canonical EEF poses, with position/orientation limits taken from
+the replay recipe thresholds and falling back to its solve options. The first
+supported mapping is intentionally narrow: the recipe must explicitly record
+`identity_dataset_native_hypothesis`; absent or unsupported frame mapping
+remains a blocking semantic result rather than an inferred pass. The report
+can now become `PASSED` only after all five checks, including this two-stream
+recheck, pass.
+
+This slice remains synthetic/public-only and does not read or modify private
+dataset rows, videos, or target dataset output. The remote environment still
+does not install the optional LeRobot runtime, so the loader-backed end-to-end
+acceptance remains environment-gated; the FK lineage resolver and Pinocchio
+two-stream check are covered independently with the fixture artifacts.
+
+Remote verification:
+
+- focused LeRobot export/replay/acceptance tests: 25 passed;
+- `ruff check src tests` and `mypy src`: passed;
+- verified the complete fixture binding chain resolves one FK context for a
+  selected episode;
+- no private dataset rows, video, or target dataset output was read or changed.

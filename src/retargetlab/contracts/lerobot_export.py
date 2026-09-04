@@ -600,6 +600,11 @@ class LeRobotTrainingDatasetConfig(BaseModel):
     plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
     preflight_path: str = Field(min_length=1)
     preflight_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    target_table_binding_manifest_path: str | None = Field(default=None, min_length=1)
+    target_table_binding_manifest_sha256: Hash | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     retarget_mask_path: str | None = Field(default=None, min_length=1)
     retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     blocking_reasons: tuple[str, ...] = ()
@@ -621,6 +626,12 @@ class LeRobotTrainingDatasetConfig(BaseModel):
             raise ValueError("training config warnings must be non-empty")
         if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
             raise ValueError("retarget mask path and hash must be supplied together")
+        if (self.target_table_binding_manifest_path is None) != (
+            self.target_table_binding_manifest_sha256 is None
+        ):
+            raise ValueError(
+                "target-table binding manifest path and hash must be supplied together"
+            )
         if (self.status == "BLOCKED") != bool(self.blocking_reasons):
             raise ValueError("training config status must match blocking reasons")
         if self.status == "READY" and not self.episodes:

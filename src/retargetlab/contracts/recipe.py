@@ -27,6 +27,7 @@ class Recipe(BaseModel):
     backend_version: str = Field(min_length=1)
     solve_coupling: str = Field(default="independent", min_length=1)
     solve_options: SolveOptions
+    target_pose_mapping: Literal["identity_dataset_native_hypothesis"] | None = None
     random_seed: int
     split_name: str = Field(default="synthetic", min_length=1)
     split_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")

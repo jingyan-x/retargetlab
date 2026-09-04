@@ -2461,6 +2461,12 @@ def build_lerobot_training_dataset_config(
         plan_sha256=preflight.plan_sha256,
         preflight_path=preflight_path.as_posix(),
         preflight_sha256=sha256_file(preflight_path),
+        target_table_binding_manifest_path=(
+            preflight.target_table_binding_manifest_path
+        ),
+        target_table_binding_manifest_sha256=(
+            preflight.target_table_binding_manifest_sha256
+        ),
         retarget_mask_path=preflight.retarget_mask_path,
         retarget_mask_sha256=preflight.retarget_mask_sha256,
         blocking_reasons=preflight.blocking_reasons,
