@@ -136,3 +136,26 @@ The next OpenArm gate is to obtain or reconstruct an authorized source-to-
 target frame mapping and validate it on calibration data, then isolate
 per-arm versus shared bimanual constraints. Do not rewrite the formal recipe,
 open held-out episodes, or export data until that semantic evidence exists.
+
+## 2026-09-04 follow-up: single-arm versus bimanual isolation
+
+The repository now carries `harness/m_minus_1/diagnose_single_arm.py`, a
+calibration-only diagnostic that removes the inactive EEF task and collision
+pairs while preserving target limits, mimic constraints, and the registered
+solver strategy. For candidate `t2-023` under the `link7 +
+viser_left_inverse` hypothesis, 60 calibration frames gave 40/60 nominal for
+the left arm and 34/60 for the right arm with a bounded 120-iteration/1-seed
+budget; neither side had joint-limit violations.
+
+A full-budget bimanual run with collision pairs removed gave 46/60 left-side,
+41/60 right-side, and 29/60 both-side nominal. The same bimanual run with the
+full collision model gave 28/60 both-side nominal and 0.117 penetration
+fraction. Collision therefore accounts for only one additional failed frame;
+the dominant issue is the conjunction of two imperfect single-arm semantic
+fits, not a structural collision barrier failure.
+
+This evidence does not authorize relaxing bimanual constraints or promoting
+the candidate frame/orientation mapping. The next gate remains an authorized
+source-to-target frame reconstruction, followed by independent per-arm
+validation and only then a new bimanual recipe. Held-out episodes and export
+data remain unopened.

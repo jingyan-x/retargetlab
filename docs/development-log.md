@@ -2545,3 +2545,27 @@ the source URDF and coordinate-frame declaration are unavailable. The next
 OpenArm action is therefore to obtain or reconstruct an authorized source-
 to-target frame mapping and validate it, followed by per-arm versus shared
 bimanual constraint isolation. No formal recipe or held-out access was changed.
+
+### 2026-09-04 · isolate single-arm reachability from bimanual coupling
+
+The disposable diagnostic was promoted to a reproducible harness at
+`harness/m_minus_1/diagnose_single_arm.py`. It solves one OpenArm EEF at a time
+with the other EEF task and all collision pairs removed, while retaining target
+joint limits, mimic constraints, the recipe's position-first strategy, and the
+same candidate/frame/orientation hypotheses. It emits aggregate metrics only.
+
+For candidate `t2-023`, `link7 + viser_left_inverse`, and 60 calibration frames
+under the bounded 120-iteration/1-seed budget, the left arm reached 40/60
+nominal (0.667) and the right arm 34/60 (0.567), with no joint-limit
+violations. A full-budget bimanual run with collision pairs removed reached
+46/60 left-side nominal, 41/60 right-side nominal, and 29/60 both-side nominal
+(0.483). Re-enabling the full collision model changed the bimanual result only
+to 28/60 (0.467) and introduced 0.117 penetration fraction.
+
+The evidence separates the failure modes: collision contributes only one
+additional failed frame, while the bimanual gate is primarily the conjunction
+of two imperfect single-arm semantic fits. The OpenArm arm model is not
+individually passing yet, so no bimanual constraint relaxation is justified.
+The next action remains source-to-target frame reconstruction/authorization,
+followed by rechecking each arm independently before another bimanual recipe.
+No formal recipe, held-out split, or export data was changed.
