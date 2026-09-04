@@ -861,6 +861,11 @@ def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, ca
     assert (
         verify_lerobot_training_dataset_config(training_config_path).status == "BLOCKED"
     )
+    with pytest.raises(ValueError, match="outside the dataset output root"):
+        write_lerobot_training_dataset_config(
+            cli_root / "invalid-training-dataset-config.json",
+            training_config,
+        )
 
     cli_training_config_path = tmp_path / "cli-training-dataset-config.json"
     assert (

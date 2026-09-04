@@ -2279,3 +2279,19 @@ Remote verification:
 - full regression with both OpenArm and Panda assets enabled: 121 passed;
 - `ruff check src tests` and `mypy src`: passed;
 - no private dataset rows, video, or target dataset output was read or changed.
+
+### M1b.3r: enforce external audit-artifact placement
+
+Loader preflight and training-dataset config writers now reject output paths
+inside the dataset root. These artifacts are audit/config references, not
+dataset members; placing either one under `data/` or `meta/` would invalidate
+the file inventory bound by the preflight and could make a later verifier
+report a false mismatch. The negative case is covered for the training config
+writer.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with both OpenArm and Panda assets enabled: 121 passed;
+- `ruff check src tests` and `mypy src`: passed;
+- no private dataset rows, video, or target dataset output was read or changed.

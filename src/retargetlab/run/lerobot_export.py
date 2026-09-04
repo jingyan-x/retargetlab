@@ -1913,12 +1913,26 @@ def build_lerobot_loader_preflight(
     )
 
 
+def _assert_external_artifact_path(
+    path: Path,
+    output_root: str,
+    *,
+    label: str,
+) -> None:
+    try:
+        path.resolve().relative_to(Path(output_root).resolve())
+    except ValueError:
+        return
+    raise ValueError(f"{label} must be outside the dataset output root")
+
+
 def write_lerobot_loader_preflight(
     path: Path,
     preflight: LeRobotLoaderPreflight,
 ) -> LeRobotLoaderPreflight:
     """Persist one exclusive loader-contract preflight outside the dataset root."""
 
+    _assert_external_artifact_path(path, preflight.output_root, label="loader preflight")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8", newline="") as handle:
         json.dump(preflight.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
@@ -1974,6 +1988,7 @@ def write_lerobot_training_dataset_config(
 ) -> LeRobotTrainingDatasetConfig:
     """Persist one exclusive dataset-loader configuration outside the dataset root."""
 
+    _assert_external_artifact_path(path, config.root, label="training dataset config")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8", newline="") as handle:
         json.dump(config.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
