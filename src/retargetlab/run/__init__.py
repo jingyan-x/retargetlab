@@ -21,6 +21,12 @@ from .lerobot_acceptance import (
     verify_lerobot_acceptance_report,
     write_lerobot_acceptance_report,
 )
+from .lerobot_compat import (
+    build_lerobot_loader_compatible_preflight,
+    verify_lerobot_loader_compatible_dataset,
+    write_lerobot_loader_compatible_dataset,
+    write_lerobot_loader_compatible_dataset_report,
+)
 from .lerobot_export import (
     build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
@@ -101,6 +107,7 @@ __all__ = [
     "map_target_grippers",
     "write_target_gripper_trajectory",
     "build_lerobot_loader_preflight",
+    "build_lerobot_loader_compatible_preflight",
     "run_lerobot_acceptance",
     "verify_lerobot_acceptance_report",
     "write_lerobot_acceptance_report",
@@ -114,6 +121,7 @@ __all__ = [
     "write_lerobot_partial_dataset_report",
     "verify_lerobot_partial_dataset",
     "verify_lerobot_loader_preflight",
+    "verify_lerobot_loader_compatible_dataset",
     "verify_lerobot_retarget_mask",
     "verify_lerobot_metadata_plan",
     "write_lerobot_metadata_skeleton",
@@ -130,6 +138,8 @@ __all__ = [
     "write_lerobot_statistics_report",
     "verify_lerobot_statistics",
     "write_lerobot_loader_preflight",
+    "write_lerobot_loader_compatible_dataset",
+    "write_lerobot_loader_compatible_dataset_report",
     "write_lerobot_retarget_mask",
     "verify_lerobot_training_dataset_config",
     "write_lerobot_training_dataset_config",

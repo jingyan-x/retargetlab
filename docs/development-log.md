@@ -2431,3 +2431,38 @@ Remote verification:
 - verified the complete fixture binding chain resolves one FK context for a
   selected episode;
 - no private dataset rows, video, or target dataset output was read or changed.
+
+### M1b.9: add an explicit zero-based LeRobot loader view
+
+The source-preserving export remains the audit source of truth, while a new
+opt-in compatibility materializer creates an independent loader view only from
+an already verified numeric/video-free dataset and its loader preflight. The
+view maps source episode ids to `0..N-1` in plan order, rewrites only the
+`episode_index` columns in data and episode metadata, and updates the
+`info.retargetlab` namespace with both id spaces, the source plan/preflight
+hashes, and the mapped training allowlist. Task metadata and statistics are
+copied unchanged and every source/output file is recorded with a SHA-256 hash
+in the external compatibility receipt.
+
+The output is built in a private staging root and published only after the
+file set is materialized; source and output roots must be disjoint and the
+source-preserving plan/binding/mask artifacts are not duplicated or rewritten.
+A compatibility preflight consumes the receipt, removes only the known
+source-index blocker, and exposes loader physical episode ids to the training
+config. FK acceptance maps those loader ids back to source ids before resolving
+replay/binding lineage, so the two namespaces cannot be silently conflated.
+
+CLI commands now cover compatibility write/verify and compatible-preflight
+creation. The default preserve-source path is unchanged, and this view still
+records `upstream_training_compatibility: NOT_CLAIMED`; the pinned
+`lerobot==0.6.1` runtime remains uninstalled on the remote host, so no real
+loader or training pass is claimed.
+
+Remote verification:
+
+- focused LeRobot export/acceptance tests: 20 passed;
+- full dual-morphology regression: 122 passed, 5 skipped;
+- `ruff check` and `mypy src`: passed;
+- compatibility receipt verification binds source/output hashes and mapped
+  Parquet values; no private dataset rows, video, or target dataset output was
+  read or changed.

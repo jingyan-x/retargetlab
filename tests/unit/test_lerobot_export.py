@@ -16,6 +16,7 @@ from retargetlab.export import (
     write_synthetic_target_table,
 )
 from retargetlab.run import (
+    build_lerobot_loader_compatible_preflight,
     build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
@@ -23,6 +24,7 @@ from retargetlab.run import (
     build_lerobot_target_table_binding_manifest,
     build_lerobot_training_dataset_config,
     build_synthetic_table_write_report,
+    verify_lerobot_loader_compatible_dataset,
     verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
@@ -824,6 +826,7 @@ def test_lerobot_retarget_mask_preserves_rows_and_filters_training_stats(
 
 def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, capsys) -> None:
     pytest.importorskip("pyarrow")
+    import pyarrow.parquet as parquet
 
     episode3_bundle = _write_bundle(tmp_path / "episode3")
     gate_path = _write_gate(
@@ -1050,6 +1053,103 @@ def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, ca
         == EXIT_QUALITY
     )
     assert json.loads(capsys.readouterr().out)["status"] == "BLOCKED"
+
+    compatible_root = tmp_path / "loader-compatible-dataset"
+    compatible_manifest_path = tmp_path / "loader-compatible-dataset.json"
+    assert (
+        app(
+            [
+                "write-lerobot-loader-compatible-dataset",
+                "--source-preflight",
+                str(cli_loader_preflight_path),
+                "--output-root",
+                str(compatible_root),
+                "--report",
+                str(compatible_manifest_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "PARTIAL"
+    compatible_data = parquet.read_table(
+        compatible_root / "data" / "chunk-000" / "file-000.parquet"
+    )
+    assert compatible_data["episode_index"].to_pylist() == [0, 0, 1, 1]
+    compatible_info = json.loads(
+        (compatible_root / "meta" / "info.json").read_text(encoding="utf-8")
+    )
+    assert compatible_info["retargetlab"]["training_episode_allowlist"] == [0, 1]
+    assert compatible_info["retargetlab"]["source_training_episode_allowlist"] == [3, 4]
+    assert compatible_info["retargetlab"]["loader_episode_index_policy"] == (
+        "zero_based_contiguous"
+    )
+    assert verify_lerobot_loader_compatible_dataset(compatible_manifest_path).status == (
+        "VERIFIED"
+    )
+    assert (
+        app(
+            [
+                "verify-lerobot-loader-compatible-dataset",
+                "--manifest",
+                str(compatible_manifest_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+    compatible_preflight_path = tmp_path / "loader-compatible-preflight.json"
+    compatible_preflight = build_lerobot_loader_compatible_preflight(
+        compatibility_manifest_path=compatible_manifest_path,
+    )
+    assert compatible_preflight.status == "READY"
+    assert compatible_preflight.episode_indices == (0, 1)
+    assert compatible_preflight.episode_index_mapping_path == (
+        compatible_manifest_path.resolve().as_posix()
+    )
+    write_lerobot_loader_preflight(compatible_preflight_path, compatible_preflight)
+    assert verify_lerobot_loader_preflight(compatible_preflight_path).status == "READY"
+    compatible_config = build_lerobot_training_dataset_config(
+        preflight_path=compatible_preflight_path,
+    )
+    assert compatible_config.status == "READY"
+    assert compatible_config.episodes == (0, 1)
+    assert compatible_config.episode_index_mapping_path == (
+        compatible_manifest_path.resolve().as_posix()
+    )
+
+    compatible_preflight_cli_path = tmp_path / "cli-loader-compatible-preflight.json"
+    assert (
+        app(
+            [
+                "build-lerobot-loader-compatible-preflight",
+                "--manifest",
+                str(compatible_manifest_path),
+                "--output",
+                str(compatible_preflight_cli_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "READY"
+    compatible_config_cli_path = tmp_path / "cli-loader-compatible-config.json"
+    assert (
+        app(
+            [
+                "build-lerobot-training-dataset-config",
+                "--preflight",
+                str(compatible_preflight_cli_path),
+                "--output",
+                str(compatible_config_cli_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["episodes"] == [0, 1]
 
     stats_path = cli_root / "meta" / "stats.json"
     stats_payload = json.loads(stats_path.read_text(encoding="utf-8"))

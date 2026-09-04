@@ -18,6 +18,7 @@ from retargetlab.contracts import (
     LeRobotAcceptanceCheck,
     LeRobotAcceptanceReport,
     LeRobotAcceptanceReportVerification,
+    LeRobotLoaderCompatibleDatasetWrite,
     LeRobotTargetTableBindingManifest,
     LeRobotTrainingDatasetConfig,
     RobotProfile,
@@ -274,6 +275,42 @@ def _threshold_limit(
     return float(value)
 
 
+def _loader_to_source_episode_map(
+    config: LeRobotTrainingDatasetConfig,
+) -> dict[int, int]:
+    """Resolve loader physical ids back to source-preserving ids."""
+
+    if config.episode_index_mapping_path is None:
+        return {episode_index: episode_index for episode_index in config.episodes}
+    mapping_path = Path(config.episode_index_mapping_path).resolve()
+    mapping_hash = config.episode_index_mapping_sha256
+    if mapping_hash is None or sha256_file(mapping_path).lower() != mapping_hash.lower():
+        raise ValueError("acceptance episode-index mapping hash does not match")
+    from retargetlab.run.lerobot_compat import verify_lerobot_loader_compatible_dataset
+
+    verify_lerobot_loader_compatible_dataset(mapping_path)
+    manifest = LeRobotLoaderCompatibleDatasetWrite.model_validate_json(
+        mapping_path.read_text(encoding="utf-8")
+    )
+    if manifest.output_root != config.root:
+        raise ValueError("acceptance episode-index mapping output root does not match config")
+    if manifest.source_plan_path != Path(config.plan_path).resolve().as_posix():
+        raise ValueError("acceptance episode-index mapping plan path does not match config")
+    if manifest.source_plan_sha256.lower() != config.plan_sha256.lower():
+        raise ValueError("acceptance episode-index mapping plan hash does not match config")
+    by_loader = {
+        item.loader_episode_index: item.source_episode_index
+        for item in manifest.episode_index_mapping
+    }
+    if not set(config.episodes).issubset(by_loader):
+        missing = tuple(sorted(set(config.episodes).difference(by_loader)))
+        raise ValueError(
+            "acceptance episode-index mapping is missing selected episodes: "
+            f"{missing}"
+        )
+    return {episode_index: by_loader[episode_index] for episode_index in config.episodes}
+
+
 def _load_fk_contexts(
     config: LeRobotTrainingDatasetConfig,
 ) -> dict[int, _FKEpisodeContext]:
@@ -296,12 +333,14 @@ def _load_fk_contexts(
         raise ValueError("acceptance FK binding plan path does not match training config")
     if binding_manifest.plan_sha256 != config.plan_sha256:
         raise ValueError("acceptance FK binding plan hash does not match training config")
+    loader_to_source = _loader_to_source_episode_map(config)
     selected = set(config.episodes)
+    selected_source = {loader_to_source[index] for index in selected}
     bindings = {
         binding.episode_index: binding for binding in binding_manifest.bindings
     }
-    if not selected.issubset(bindings):
-        missing = tuple(sorted(selected.difference(bindings)))
+    if not selected_source.issubset(bindings):
+        missing = tuple(sorted(selected_source.difference(bindings)))
         raise ValueError(f"acceptance FK binding is missing selected episodes: {missing}")
 
     from retargetlab.contracts import Recipe
@@ -309,7 +348,8 @@ def _load_fk_contexts(
 
     contexts: dict[int, _FKEpisodeContext] = {}
     backend_by_profile_hash: dict[str, Any] = {}
-    for episode_index in sorted(selected):
+    for loader_episode_index in sorted(selected):
+        episode_index = loader_to_source[loader_episode_index]
         binding = bindings[episode_index]
         bundle_path = Path(binding.target_replay_bundle_path).resolve()
         bundle_verification = verify_target_replay_bundle(bundle_path)
@@ -449,7 +489,7 @@ def _load_fk_contexts(
             "rad",
             recipe.solve_options.orientation_tolerance_rad,
         )
-        contexts[episode_index] = _FKEpisodeContext(
+        contexts[loader_episode_index] = _FKEpisodeContext(
             canonical=canonical,
             profile=profile,
             layout=state.layout,

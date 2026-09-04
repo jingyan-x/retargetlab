@@ -533,6 +533,11 @@ class LeRobotLoaderPreflight(BaseModel):
     output_root: str = Field(min_length=1)
     target_table_binding_manifest_path: str = Field(min_length=1)
     target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    episode_index_mapping_path: str | None = Field(default=None, min_length=1)
+    episode_index_mapping_sha256: Hash | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     retarget_mask_path: str | None = Field(default=None, min_length=1)
     retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     episode_indices: tuple[int, ...] = ()
@@ -569,10 +574,193 @@ class LeRobotLoaderPreflight(BaseModel):
             raise ValueError("loader preflight warnings must be unique")
         if (self.retarget_mask_path is None) != (self.retarget_mask_sha256 is None):
             raise ValueError("retarget mask path and hash must be supplied together")
+        if (self.episode_index_mapping_path is None) != (
+            self.episode_index_mapping_sha256 is None
+        ):
+            raise ValueError(
+                "episode-index mapping path and hash must be supplied together"
+            )
         if (self.status == "BLOCKED") != bool(self.blocking_reasons):
             raise ValueError("loader preflight status must match blocking reasons")
         if self.status == "READY" and not self.episode_indices:
             raise ValueError("ready loader preflight must select at least one episode")
+        return self
+
+
+class LeRobotFileHash(BaseModel):
+    """Hash of one relative file in a loader compatibility receipt."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    path: str = Field(min_length=1)
+    sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+
+    @model_validator(mode="after")
+    def validate_path(self) -> LeRobotFileHash:
+        if self.path.startswith("/"):
+            raise ValueError("loader compatibility file hash path must be relative")
+        return self
+
+
+class LeRobotEpisodeIndexMapping(BaseModel):
+    """One source-preserving episode id mapped to a loader id."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    source_episode_index: int = Field(ge=0)
+    loader_episode_index: int = Field(ge=0)
+    length: int = Field(gt=0)
+    dataset_from_index: int = Field(ge=0)
+    dataset_to_index: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_range(self) -> LeRobotEpisodeIndexMapping:
+        if self.dataset_to_index - self.dataset_from_index != self.length:
+            raise ValueError("episode index mapping range does not match length")
+        return self
+
+
+class LeRobotLoaderCompatibleDatasetWrite(BaseModel):
+    """Manifest for an explicit zero-based loader view of a source dataset."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_loader_compatible_dataset"] = (
+        "lerobot_loader_compatible_dataset"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["PARTIAL"] = "PARTIAL"
+    loader_contract: Literal["lerobot_v3_numeric_video_free_v0.1"] = (
+        "lerobot_v3_numeric_video_free_v0.1"
+    )
+    source_episode_index_policy: Literal["preserve_source"] = "preserve_source"
+    loader_episode_index_policy: Literal["zero_based_contiguous"] = (
+        "zero_based_contiguous"
+    )
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    source_plan_path: str = Field(min_length=1)
+    source_plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    source_preflight_path: str = Field(min_length=1)
+    source_preflight_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    source_output_root: str = Field(min_length=1)
+    output_root: str = Field(min_length=1)
+    episode_index_mapping: tuple[LeRobotEpisodeIndexMapping, ...] = Field(min_length=1)
+    source_training_episode_allowlist: tuple[int, ...] = ()
+    loader_training_episode_allowlist: tuple[int, ...] = ()
+    source_file_hashes: tuple[LeRobotFileHash, ...] = Field(min_length=1)
+    output_file_hashes: tuple[LeRobotFileHash, ...] = Field(min_length=1)
+    written_files: tuple[str, ...] = Field(min_length=1)
+    omitted_components: tuple[str, ...] = Field(min_length=1)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> LeRobotLoaderCompatibleDatasetWrite:
+        source_indices = tuple(
+            item.source_episode_index for item in self.episode_index_mapping
+        )
+        loader_indices = tuple(
+            item.loader_episode_index for item in self.episode_index_mapping
+        )
+        if source_indices != tuple(sorted(source_indices)):
+            raise ValueError("episode index mapping must be ordered by source episode")
+        if len(set(source_indices)) != len(source_indices):
+            raise ValueError("episode index mapping source ids must be unique")
+        if loader_indices != tuple(range(len(loader_indices))):
+            raise ValueError("episode index mapping loader ids must be zero-based")
+        if self.total_episodes != len(self.episode_index_mapping):
+            raise ValueError("episode index mapping count does not match total_episodes")
+        if self.total_frames != sum(
+            item.length for item in self.episode_index_mapping
+        ):
+            raise ValueError("episode index mapping lengths do not match total_frames")
+        if len(set(self.source_training_episode_allowlist)) != len(
+            self.source_training_episode_allowlist
+        ):
+            raise ValueError("source training episode allowlist must be unique")
+        if len(set(self.loader_training_episode_allowlist)) != len(
+            self.loader_training_episode_allowlist
+        ):
+            raise ValueError("loader training episode allowlist must be unique")
+        source_to_loader = {
+            item.source_episode_index: item.loader_episode_index
+            for item in self.episode_index_mapping
+        }
+        expected_loader_allowlist = tuple(
+            source_to_loader[index] for index in self.source_training_episode_allowlist
+        )
+        if self.loader_training_episode_allowlist != expected_loader_allowlist:
+            raise ValueError("loader training allowlist does not match episode mapping")
+        source_hash_paths = tuple(item.path for item in self.source_file_hashes)
+        output_hash_paths = tuple(item.path for item in self.output_file_hashes)
+        if len(set(source_hash_paths)) != len(source_hash_paths):
+            raise ValueError("loader-compatible source file hashes must be unique")
+        if len(set(output_hash_paths)) != len(output_hash_paths):
+            raise ValueError("loader-compatible output file hashes must be unique")
+        if output_hash_paths != self.written_files:
+            raise ValueError("loader-compatible output hashes must match written files")
+        if source_hash_paths != self.written_files:
+            raise ValueError("loader-compatible source hashes must match written files")
+        if len(set(self.written_files)) != len(self.written_files):
+            raise ValueError("loader-compatible written files must be unique")
+        if any(not path.strip() or path.startswith("/") for path in self.written_files):
+            raise ValueError("loader-compatible written files must be relative paths")
+        if len(set(self.omitted_components)) != len(self.omitted_components):
+            raise ValueError("loader-compatible omitted components must be unique")
+        if "video_shards" not in self.omitted_components:
+            raise ValueError("loader-compatible manifest must record video omission")
+        return self
+
+
+class LeRobotLoaderCompatibleDatasetVerification(BaseModel):
+    """Value-free result of rechecking a loader-compatible dataset view."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_loader_compatible_dataset_verification"] = (
+        "lerobot_loader_compatible_dataset_verification"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    loader_contract: Literal["lerobot_v3_numeric_video_free_v0.1"] = (
+        "lerobot_v3_numeric_video_free_v0.1"
+    )
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    source_plan_path: str = Field(min_length=1)
+    source_plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    source_preflight_path: str = Field(min_length=1)
+    source_preflight_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    source_output_root: str = Field(min_length=1)
+    output_root: str = Field(min_length=1)
+    compatibility_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    episode_index_mapping: tuple[LeRobotEpisodeIndexMapping, ...] = Field(min_length=1)
+    source_training_episode_allowlist: tuple[int, ...] = ()
+    loader_training_episode_allowlist: tuple[int, ...] = ()
+    source_file_hashes: tuple[LeRobotFileHash, ...] = Field(min_length=1)
+    output_file_hashes: tuple[LeRobotFileHash, ...] = Field(min_length=1)
+    written_files: tuple[str, ...] = Field(min_length=1)
+    omitted_components: tuple[str, ...] = Field(min_length=1)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_allowlists(self) -> LeRobotLoaderCompatibleDatasetVerification:
+        if len(set(self.source_training_episode_allowlist)) != len(
+            self.source_training_episode_allowlist
+        ):
+            raise ValueError("source training episode allowlist must be unique")
+        if len(set(self.loader_training_episode_allowlist)) != len(
+            self.loader_training_episode_allowlist
+        ):
+            raise ValueError("loader training episode allowlist must be unique")
         return self
 
 
@@ -605,6 +793,11 @@ class LeRobotTrainingDatasetConfig(BaseModel):
         default=None,
         pattern=r"^[0-9a-fA-F]{64}$",
     )
+    episode_index_mapping_path: str | None = Field(default=None, min_length=1)
+    episode_index_mapping_sha256: Hash | None = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{64}$",
+    )
     retarget_mask_path: str | None = Field(default=None, min_length=1)
     retarget_mask_sha256: Hash | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
     blocking_reasons: tuple[str, ...] = ()
@@ -631,6 +824,12 @@ class LeRobotTrainingDatasetConfig(BaseModel):
         ):
             raise ValueError(
                 "target-table binding manifest path and hash must be supplied together"
+            )
+        if (self.episode_index_mapping_path is None) != (
+            self.episode_index_mapping_sha256 is None
+        ):
+            raise ValueError(
+                "episode-index mapping path and hash must be supplied together"
             )
         if (self.status == "BLOCKED") != bool(self.blocking_reasons):
             raise ValueError("training config status must match blocking reasons")

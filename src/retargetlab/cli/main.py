@@ -50,6 +50,7 @@ from retargetlab.robot.assets import sha256_file
 from retargetlab.robot.openarm import load_openarm_bimanual_profile
 from retargetlab.run import (
     build_export_input_gate,
+    build_lerobot_loader_compatible_preflight,
     build_lerobot_loader_preflight,
     build_lerobot_metadata_plan,
     build_lerobot_replay_binding_manifest,
@@ -70,6 +71,7 @@ from retargetlab.run import (
     verify_calibration_run,
     verify_data_profile,
     verify_lerobot_acceptance_report,
+    verify_lerobot_loader_compatible_dataset,
     verify_lerobot_loader_preflight,
     verify_lerobot_metadata_plan,
     verify_lerobot_metadata_skeleton,
@@ -92,6 +94,8 @@ from retargetlab.run import (
     write_export_input_gate,
     write_export_profile,
     write_lerobot_acceptance_report,
+    write_lerobot_loader_compatible_dataset,
+    write_lerobot_loader_compatible_dataset_report,
     write_lerobot_loader_preflight,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
@@ -582,6 +586,40 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_lerobot_loader.add_argument("--preflight", required=True, type=Path)
     verify_lerobot_loader.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    write_lerobot_compat = subparsers.add_parser(
+        "write-lerobot-loader-compatible-dataset",
+        help="materialize an explicit zero-based LeRobot loader view",
+    )
+    write_lerobot_compat.add_argument("--source-preflight", required=True, type=Path)
+    write_lerobot_compat.add_argument("--output-root", required=True, type=Path)
+    write_lerobot_compat.add_argument(
+        "--report",
+        type=Path,
+        help="optional compatibility receipt; keep it outside --output-root",
+    )
+    write_lerobot_compat.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_compat = subparsers.add_parser(
+        "verify-lerobot-loader-compatible-dataset",
+        help="verify an explicit zero-based LeRobot loader view",
+    )
+    verify_lerobot_compat.add_argument("--manifest", required=True, type=Path)
+    verify_lerobot_compat.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    build_lerobot_compat_preflight = subparsers.add_parser(
+        "build-lerobot-loader-compatible-preflight",
+        help="build a loader preflight for a verified compatibility view",
+    )
+    build_lerobot_compat_preflight.add_argument("--manifest", required=True, type=Path)
+    build_lerobot_compat_preflight.add_argument("--output", required=True, type=Path)
+    build_lerobot_compat_preflight.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1676,6 +1714,52 @@ def _verify_lerobot_loader_preflight_payload(
         {
             "command": "verify-lerobot-loader-preflight",
             **preflight.model_dump(mode="json"),
+        },
+        EXIT_OK if preflight.status == "READY" else EXIT_QUALITY,
+    )
+
+
+def _write_lerobot_loader_compatible_payload(
+    *,
+    source_preflight_path: Path,
+    output_root: Path,
+    report_path: Path | None,
+) -> dict[str, Any]:
+    manifest = write_lerobot_loader_compatible_dataset(
+        source_preflight_path=source_preflight_path,
+        output_root=output_root,
+    )
+    if report_path is not None:
+        write_lerobot_loader_compatible_dataset_report(report_path, manifest)
+    return {
+        "command": "write-lerobot-loader-compatible-dataset",
+        **manifest.model_dump(mode="json"),
+        "report": str(report_path) if report_path is not None else None,
+    }
+
+
+def _verify_lerobot_loader_compatible_payload(manifest_path: Path) -> dict[str, Any]:
+    verification = verify_lerobot_loader_compatible_dataset(manifest_path)
+    return {
+        "command": "verify-lerobot-loader-compatible-dataset",
+        **verification.model_dump(mode="json"),
+    }
+
+
+def _build_lerobot_loader_compatible_preflight_payload(
+    *,
+    manifest_path: Path,
+    output_path: Path,
+) -> tuple[dict[str, Any], int]:
+    preflight = build_lerobot_loader_compatible_preflight(
+        compatibility_manifest_path=manifest_path,
+    )
+    write_lerobot_loader_preflight(output_path, preflight)
+    return (
+        {
+            "command": "build-lerobot-loader-compatible-preflight",
+            **preflight.model_dump(mode="json"),
+            "output": str(output_path),
         },
         EXIT_OK if preflight.status == "READY" else EXIT_QUALITY,
     )
@@ -3202,6 +3286,76 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-loader-preflight",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return exit_code
+    if args.command == "write-lerobot-loader-compatible-dataset":
+        try:
+            payload = _write_lerobot_loader_compatible_payload(
+                source_preflight_path=args.source_preflight,
+                output_root=args.output_root,
+                report_path=args.report,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "write-lerobot-loader-compatible-dataset",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "write-lerobot-loader-compatible-dataset",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-loader-compatible-dataset":
+        try:
+            payload = _verify_lerobot_loader_compatible_payload(args.manifest)
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-loader-compatible-dataset",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-loader-compatible-dataset",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "build-lerobot-loader-compatible-preflight":
+        try:
+            payload, exit_code = _build_lerobot_loader_compatible_preflight_payload(
+                manifest_path=args.manifest,
+                output_path=args.output,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "build-lerobot-loader-compatible-preflight",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "build-lerobot-loader-compatible-preflight",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

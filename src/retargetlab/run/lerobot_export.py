@@ -2426,18 +2426,25 @@ def verify_lerobot_loader_preflight(path: Path) -> LeRobotLoaderPreflight:
     preflight = LeRobotLoaderPreflight.model_validate_json(
         path.read_text(encoding="utf-8")
     )
-    expected = build_lerobot_loader_preflight(
-        plan_path=Path(preflight.plan_path),
-        output_root=Path(preflight.output_root),
-        target_table_binding_manifest_path=Path(
-            preflight.target_table_binding_manifest_path
-        ),
-        retarget_mask_path=(
-            Path(preflight.retarget_mask_path)
-            if preflight.retarget_mask_path is not None
-            else None
-        ),
-    )
+    if preflight.episode_index_mapping_path is not None:
+        from .lerobot_compat import build_lerobot_loader_compatible_preflight
+
+        expected = build_lerobot_loader_compatible_preflight(
+            compatibility_manifest_path=Path(preflight.episode_index_mapping_path),
+        )
+    else:
+        expected = build_lerobot_loader_preflight(
+            plan_path=Path(preflight.plan_path),
+            output_root=Path(preflight.output_root),
+            target_table_binding_manifest_path=Path(
+                preflight.target_table_binding_manifest_path
+            ),
+            retarget_mask_path=(
+                Path(preflight.retarget_mask_path)
+                if preflight.retarget_mask_path is not None
+                else None
+            ),
+        )
     if expected != preflight:
         raise ValueError("loader preflight does not match its bound dataset inputs")
     return preflight
@@ -2467,6 +2474,8 @@ def build_lerobot_training_dataset_config(
         target_table_binding_manifest_sha256=(
             preflight.target_table_binding_manifest_sha256
         ),
+        episode_index_mapping_path=preflight.episode_index_mapping_path,
+        episode_index_mapping_sha256=preflight.episode_index_mapping_sha256,
         retarget_mask_path=preflight.retarget_mask_path,
         retarget_mask_sha256=preflight.retarget_mask_sha256,
         blocking_reasons=preflight.blocking_reasons,
