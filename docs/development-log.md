@@ -2228,3 +2228,16 @@ Remote verification:
   verifiers continue to reject schema/value drift;
 - all coverage remains synthetic/public only; no private dataset rows, video,
   or target dataset output was read or changed.
+
+### M1b.3o: run the complete dual-morphology regression
+
+The full remote regression was rerun with both versioned target asset bundles
+enabled: the real OpenArm bimanual asset and the staged Panda bimanual asset.
+All 121 tests passed with no asset-related skip. The existing solver warnings
+remain limited to qpsolvers sparse-matrix conversion and the upstream OSQP
+deprecation notices; they do not change the pass/fail result.
+
+This verifies that the LeRobot metadata/export additions did not regress either
+target morphology's URDF/SRDF loading, collision policy, FK, or Pink solve
+smokes. It still does not authorize private source-row export or claim an
+upstream LeRobot training run.
