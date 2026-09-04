@@ -2295,3 +2295,23 @@ Remote verification:
 - full regression with both OpenArm and Panda assets enabled: 121 passed;
 - `ruff check src tests` and `mypy src`: passed;
 - no private dataset rows, video, or target dataset output was read or changed.
+
+### M1b.3s: pin the optional loader extra without polluting the core env
+
+The package metadata now exposes `lerobot==0.6.1` as an explicit optional
+`lerobot` extra, and `env/constraints.txt` records the same exact pin under
+the M1b acceptance-only section. The core package still has no LeRobot import,
+so M-1/M0 users do not pull in the upstream loader's large torch/vision stack.
+
+The remote retargetlab environment was not modified or installed from this
+extra. Its `doctor` result remains core `READY` with the optional loader stack
+reported as missing; the pin is now reproducible for a separately provisioned
+acceptance environment.
+
+Remote verification:
+
+- `pyproject.toml` parses and exposes `['lerobot==0.6.1']`;
+- constraints contain the exact same pin;
+- `ruff check src tests` and `mypy src`: passed;
+- full dual-morphology regression remains green at 121 passed;
+- no private dataset rows, video, or target dataset output was read or changed.

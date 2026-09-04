@@ -27,6 +27,9 @@ data = [
 viz = [
   "matplotlib>=3.8",
 ]
+lerobot = [
+  "lerobot==0.6.1",
+]
 dev = [
   "mypy>=1.11",
   "pytest>=8.0",

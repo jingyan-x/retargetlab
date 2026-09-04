@@ -22,3 +22,4 @@ ruff==0.16.5
 mypy==2.3.1
 
 # Optional M1b acceptance only; do not install for M-1/M0 core work.
+lerobot==0.6.1
