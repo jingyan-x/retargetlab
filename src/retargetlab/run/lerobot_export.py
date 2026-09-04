@@ -8,6 +8,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from retargetlab.contracts import (
     ExportInputGate,
     ExportProfile,
@@ -25,6 +27,8 @@ from retargetlab.contracts import (
     LeRobotPartialDatasetWrite,
     LeRobotReplayBindingManifest,
     LeRobotReplayBindingVerification,
+    LeRobotStatisticsVerification,
+    LeRobotStatisticsWrite,
     LeRobotTargetTableBindingManifest,
     LeRobotTargetTableBindingVerification,
     LeRobotTaskMetadata,
@@ -36,7 +40,19 @@ from retargetlab.run.fingerprint import canonical_json_bytes, sha256_bytes
 
 _SKELETON_OMISSIONS = ("data_shards", "video_shards", "meta/stats.json")
 _PARTIAL_DATASET_OMISSIONS = ("video_shards", "meta/stats.json")
+_STATS_DATASET_OMISSIONS = ("video_shards",)
 _DEFAULT_CHUNKS_SIZE = 1000
+_NUMERIC_STATISTICS_DTYPES = {
+    "float",
+    "float32",
+    "float64",
+    "double",
+    "int",
+    "int32",
+    "int64",
+    "uint8",
+    "uint64",
+}
 
 
 def build_lerobot_metadata_plan(
@@ -505,12 +521,24 @@ def _info_payload(
     *,
     plan_sha256: str,
     data_shards_written: bool = False,
+    stats_written: bool = False,
 ) -> dict[str, Any]:
+    if stats_written and not data_shards_written:
+        raise ValueError("statistics cannot be written before data shards")
     episode_indices = plan.training_episode_allowlist
     split_start = min(episode_indices)
     split_end = max(episode_indices) + 1
-    omissions = _PARTIAL_DATASET_OMISSIONS if data_shards_written else _SKELETON_OMISSIONS
-    written_components = ("metadata", "data_shards") if data_shards_written else ("metadata",)
+    omissions: tuple[str, ...]
+    written_components: tuple[str, ...]
+    if stats_written:
+        omissions = _STATS_DATASET_OMISSIONS
+        written_components = ("metadata", "data_shards", "stats")
+    elif data_shards_written:
+        omissions = _PARTIAL_DATASET_OMISSIONS
+        written_components = ("metadata", "data_shards")
+    else:
+        omissions = _SKELETON_OMISSIONS
+        written_components = ("metadata",)
     return {
         "codebase_version": plan.codebase_version,
         "dataset_name": plan.dataset_alias,
@@ -1390,13 +1418,22 @@ def write_lerobot_multi_episode_dataset_report(
     return manifest
 
 
-def verify_lerobot_multi_episode_dataset(
+def _verify_lerobot_multi_episode_dataset_files(
     *,
     plan_path: Path,
     output_root: Path,
     target_table_binding_manifest_path: Path,
-) -> LeRobotMultiEpisodeDatasetVerification:
-    """Verify grouped synthetic data shards against all bound episode reports."""
+    stats_written: bool,
+) -> tuple[
+    LeRobotMetadataPlan,
+    LeRobotMetadataPlanVerification,
+    tuple[str, ...],
+    dict[tuple[int, int], Any],
+    str,
+    Path,
+    dict[tuple[int, int], Path],
+]:
+    """Verify shared dataset files, optionally allowing a verified stats file."""
 
     plan_path = plan_path.resolve()
     output_root = output_root.resolve()
@@ -1406,23 +1443,24 @@ def verify_lerobot_multi_episode_dataset(
         raise ValueError("multi-episode dataset verifier currently supports video-free plans only")
     if not output_root.is_dir():
         raise FileNotFoundError(f"partial dataset output root does not exist: {output_root}")
-    info_path, tasks_path, _stats_path, episode_paths = _planned_paths(plan, output_root)
+    info_path, tasks_path, stats_path, episode_paths = _planned_paths(plan, output_root)
     data_paths = _data_shard_paths(plan, output_root)
     combined, binding_sha256 = _load_verified_multi_target_tables(
         plan=plan,
         plan_path=plan_path,
         target_table_binding_manifest_path=target_table_binding_manifest_path,
     )
-    expected_files = _relative_files(
-        output_root,
-        (info_path, tasks_path, *episode_paths.values(), *data_paths.values()),
-    )
+    expected_paths = (info_path, tasks_path, *episode_paths.values(), *data_paths.values())
+    if stats_written:
+        expected_paths = (*expected_paths, stats_path)
+    expected_files = _relative_files(output_root, expected_paths)
     if _actual_files(output_root) != expected_files:
         raise ValueError("multi-episode dataset output contains unexpected or missing files")
     expected_info = _info_payload(
         plan,
         plan_sha256=plan_verification.plan_sha256,
         data_shards_written=True,
+        stats_written=stats_written,
     )
     if _read_json_object(info_path, label="multi-episode dataset info") != expected_info:
         raise ValueError("multi-episode dataset info.json does not match the plan")
@@ -1446,6 +1484,7 @@ def verify_lerobot_multi_episode_dataset(
         b"retargetlab.target_table_binding_manifest_sha256",
         b"retargetlab.robot_id",
     )
+    actual_tables: dict[tuple[int, int], Any] = {}
     for key, expected_table in combined.items():
         expected_data = _multi_data_metadata(
             expected_table,
@@ -1463,17 +1502,277 @@ def verify_lerobot_multi_episode_dataset(
                     "multi-episode data metadata does not match: "
                     f"{metadata_key.decode()}"
                 )
+        actual_tables[key] = actual_data
+    return (
+        plan,
+        plan_verification,
+        expected_files,
+        actual_tables,
+        binding_sha256,
+        stats_path,
+        data_paths,
+    )
+
+
+def verify_lerobot_multi_episode_dataset(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+) -> LeRobotMultiEpisodeDatasetVerification:
+    """Verify grouped synthetic data shards against all bound episode reports."""
+
+    (
+        plan,
+        plan_verification,
+        expected_files,
+        _actual_tables,
+        binding_sha256,
+        _stats_path,
+        _data_paths,
+    ) = _verify_lerobot_multi_episode_dataset_files(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+        stats_written=False,
+    )
     return LeRobotMultiEpisodeDatasetVerification(
         dataset_alias=plan.dataset_alias,
         source_revision=plan.source_revision,
         robot_id=plan.robot_id,
+        plan_path=plan_path.resolve().as_posix(),
+        plan_sha256=plan_verification.plan_sha256,
+        output_root=output_root.resolve().as_posix(),
+        target_table_binding_manifest_path=target_table_binding_manifest_path.resolve().as_posix(),
+        target_table_binding_manifest_sha256=binding_sha256,
+        written_files=expected_files,
+        omitted_components=_PARTIAL_DATASET_OMISSIONS,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def _statistics_matrix(table: Any, plan: LeRobotMetadataPlan, feature_name: str) -> np.ndarray:
+    feature = plan.features[feature_name]
+    if feature.storage != "parquet":
+        raise ValueError(f"statistics feature must be stored in parquet: {feature_name}")
+    if feature.dtype.strip().lower() not in _NUMERIC_STATISTICS_DTYPES:
+        raise ValueError(f"statistics feature must be numeric: {feature_name}")
+    if feature.shape is None or len(feature.shape) > 1:
+        raise ValueError(
+            "statistics currently supports scalar and one-dimensional features only: "
+            f"{feature_name}"
+        )
+    if feature_name not in table.column_names:
+        raise ValueError(f"data shard is missing statistics feature: {feature_name}")
+    try:
+        matrix = np.asarray(table[feature_name].to_pylist(), dtype=np.float64)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"statistics feature cannot be converted to float: {feature_name}"
+        ) from exc
+    if feature.shape == ():
+        matrix = matrix.reshape(-1, 1)
+    else:
+        dimension = feature.shape[0]
+        if dimension <= 0 or matrix.shape != (table.num_rows, dimension):
+            raise ValueError(
+                "statistics feature shape does not match its declaration: "
+                f"{feature_name}"
+            )
+    if matrix.shape[0] == 0:
+        raise ValueError(f"statistics feature has no rows: {feature_name}")
+    if not np.isfinite(matrix).all():
+        raise ValueError(f"statistics feature contains non-finite values: {feature_name}")
+    return matrix
+
+
+def _compute_numeric_statistics(
+    *,
+    plan: LeRobotMetadataPlan,
+    data_tables: Mapping[tuple[int, int], Any],
+) -> dict[str, dict[str, list[float] | list[int]]]:
+    """Compute exact population statistics for declared numeric vector features."""
+
+    result: dict[str, dict[str, list[float] | list[int]]] = {}
+    for feature_name in plan.stats_features:
+        matrices = [
+            _statistics_matrix(table, plan, feature_name)
+            for _key, table in sorted(data_tables.items())
+        ]
+        matrix = np.concatenate(matrices, axis=0)
+        result[feature_name] = {
+            "min": np.min(matrix, axis=0).tolist(),
+            "max": np.max(matrix, axis=0).tolist(),
+            "mean": np.mean(matrix, axis=0).tolist(),
+            "std": np.std(matrix, axis=0).tolist(),
+            "count": [int(matrix.shape[0])],
+            "q01": np.quantile(matrix, 0.01, axis=0).tolist(),
+            "q10": np.quantile(matrix, 0.10, axis=0).tolist(),
+            "q50": np.quantile(matrix, 0.50, axis=0).tolist(),
+            "q90": np.quantile(matrix, 0.90, axis=0).tolist(),
+            "q99": np.quantile(matrix, 0.99, axis=0).tolist(),
+        }
+    return result
+
+
+def _statistics_manifest(
+    *,
+    plan: LeRobotMetadataPlan,
+    plan_path: Path,
+    plan_sha256: str,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+    target_table_binding_manifest_sha256: str,
+    stats_path: Path,
+    written_files: tuple[str, ...],
+) -> LeRobotStatisticsWrite:
+    return LeRobotStatisticsWrite(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
         plan_path=plan_path.as_posix(),
+        plan_sha256=plan_sha256,
+        output_root=output_root.as_posix(),
+        target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
+        target_table_binding_manifest_sha256=target_table_binding_manifest_sha256,
+        stats_path=stats_path.as_posix(),
+        stats_relative_path=stats_path.relative_to(output_root).as_posix(),
+        stats_sha256=sha256_file(stats_path),
+        stats_features=plan.stats_features,
+        written_files=written_files,
+        omitted_components=_STATS_DATASET_OMISSIONS,
+        total_episodes=plan.total_episodes,
+        total_frames=plan.total_frames,
+        total_tasks=plan.total_tasks,
+    )
+
+
+def write_lerobot_statistics(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+) -> LeRobotStatisticsWrite:
+    """Write exact numeric stats after verifying the grouped partial dataset."""
+
+    plan_path = plan_path.resolve()
+    output_root = output_root.resolve()
+    target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    plan, plan_verification = _load_verified_plan(plan_path)
+    if plan.video_keys:
+        raise ValueError("statistics writer currently supports video-free plans only")
+    if not output_root.is_dir():
+        raise FileNotFoundError(f"partial dataset output root does not exist: {output_root}")
+    if not target_table_binding_manifest_path.is_file():
+        raise FileNotFoundError(
+            "target-table binding manifest does not exist: "
+            f"{target_table_binding_manifest_path}"
+        )
+    verify_lerobot_multi_episode_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+    )
+    info_path, _tasks_path, stats_path, _episode_paths = _planned_paths(plan, output_root)
+    data_paths = _data_shard_paths(plan, output_root)
+    parquet = _load_pyarrow()[1]
+    data_tables = {key: parquet.read_table(path) for key, path in data_paths.items()}
+    stats_payload = _compute_numeric_statistics(plan=plan, data_tables=data_tables)
+    _write_json_exclusive(stats_path, stats_payload)
+    _replace_json(
+        info_path,
+        _info_payload(
+            plan,
+            plan_sha256=plan_verification.plan_sha256,
+            data_shards_written=True,
+            stats_written=True,
+        ),
+    )
+    verification = verify_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+    )
+    return LeRobotStatisticsWrite(
+        dataset_alias=verification.dataset_alias,
+        source_revision=verification.source_revision,
+        robot_id=verification.robot_id,
+        plan_path=verification.plan_path,
+        plan_sha256=verification.plan_sha256,
+        output_root=verification.output_root,
+        target_table_binding_manifest_path=verification.target_table_binding_manifest_path,
+        target_table_binding_manifest_sha256=verification.target_table_binding_manifest_sha256,
+        stats_path=verification.stats_path,
+        stats_relative_path=verification.stats_relative_path,
+        stats_sha256=verification.stats_sha256,
+        stats_features=verification.stats_features,
+        written_files=verification.written_files,
+        omitted_components=verification.omitted_components,
+        total_episodes=verification.total_episodes,
+        total_frames=verification.total_frames,
+        total_tasks=verification.total_tasks,
+    )
+
+
+def write_lerobot_statistics_report(
+    path: Path,
+    manifest: LeRobotStatisticsWrite,
+) -> LeRobotStatisticsWrite:
+    """Persist one exclusive statistics write manifest."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8", newline="") as handle:
+        json.dump(manifest.model_dump(mode="json"), handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
+    return manifest
+
+
+def verify_lerobot_statistics(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_binding_manifest_path: Path,
+) -> LeRobotStatisticsVerification:
+    """Verify exact numeric stats and the complete video-free partial dataset."""
+
+    (
+        plan,
+        plan_verification,
+        expected_files,
+        actual_tables,
+        binding_sha256,
+        stats_path,
+        _data_paths,
+    ) = _verify_lerobot_multi_episode_dataset_files(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_binding_manifest_path,
+        stats_written=True,
+    )
+    actual_stats = _read_json_object(stats_path, label="LeRobot stats")
+    expected_stats = _compute_numeric_statistics(plan=plan, data_tables=actual_tables)
+    if actual_stats != expected_stats:
+        raise ValueError("LeRobot stats.json does not match the written data shards")
+    output_root = output_root.resolve()
+    stats_path = stats_path.resolve()
+    target_table_binding_manifest_path = target_table_binding_manifest_path.resolve()
+    return LeRobotStatisticsVerification(
+        dataset_alias=plan.dataset_alias,
+        source_revision=plan.source_revision,
+        robot_id=plan.robot_id,
+        plan_path=plan_path.resolve().as_posix(),
         plan_sha256=plan_verification.plan_sha256,
         output_root=output_root.as_posix(),
         target_table_binding_manifest_path=target_table_binding_manifest_path.as_posix(),
         target_table_binding_manifest_sha256=binding_sha256,
+        stats_path=stats_path.as_posix(),
+        stats_relative_path=stats_path.relative_to(output_root).as_posix(),
+        stats_sha256=sha256_file(stats_path),
+        stats_features=plan.stats_features,
         written_files=expected_files,
-        omitted_components=_PARTIAL_DATASET_OMISSIONS,
+        omitted_components=_STATS_DATASET_OMISSIONS,
         total_episodes=plan.total_episodes,
         total_frames=plan.total_frames,
         total_tasks=plan.total_tasks,

@@ -25,6 +25,7 @@ from retargetlab.run import (
     verify_lerobot_multi_episode_dataset,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
+    verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
     verify_target_replay_bundle,
     write_lerobot_metadata_plan,
@@ -33,6 +34,7 @@ from retargetlab.run import (
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
+    write_lerobot_statistics,
     write_lerobot_target_table_binding_manifest,
     write_synthetic_table_write_report,
 )
@@ -657,10 +659,163 @@ def test_lerobot_multi_episode_dataset_groups_verified_shards(
                 str(target_binding_path),
                 "--json",
             ]
+    )
+    == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+
+def test_lerobot_statistics_writes_and_verifies_numeric_stats(tmp_path: Path, capsys) -> None:
+    pytest.importorskip("pyarrow")
+
+    episode3_bundle = _write_bundle(tmp_path / "episode3")
+    gate_path = _write_gate(
+        tmp_path,
+        episode3_bundle,
+        source_frame_count=4,
+        target_replay_frame_count=4,
+        training_episode_allowlist=(3, 4),
+    )
+    plan = build_lerobot_metadata_plan(
+        export_input_gate_path=gate_path,
+        export_profile_path=tmp_path / "episode3" / "export-profile.json",
+        fps=30.0,
+        features=_features(),
+        tasks=_multi_tasks(),
+        episodes=_multi_episodes(),
+    )
+    plan_path = tmp_path / "multi-metadata-plan.json"
+    write_lerobot_metadata_plan(plan_path, plan)
+    replay_path = tmp_path / "multi-replay-bindings.json"
+    write_lerobot_replay_binding_manifest(
+        replay_path,
+        build_lerobot_replay_binding_manifest(
+            plan_path=plan_path,
+            target_replay_bundle_paths={3: episode3_bundle, 4: episode3_bundle},
+        ),
+    )
+    report3 = _write_target_table_report(tmp_path, episode3_bundle, episode_index=3)
+    report4 = _write_target_table_report(
+        tmp_path,
+        episode3_bundle,
+        episode_index=4,
+        task_index=1,
+    )
+    target_binding_path = tmp_path / "multi-target-table-bindings.json"
+    write_lerobot_target_table_binding_manifest(
+        target_binding_path,
+        build_lerobot_target_table_binding_manifest(
+            plan_path=plan_path,
+            replay_binding_manifest_path=replay_path,
+            target_table_report_paths={3: report3, 4: report4},
+        ),
+    )
+    output_root = tmp_path / "multi-dataset"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=output_root)
+    write_lerobot_multi_episode_dataset(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+
+    manifest = write_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+    assert manifest.status == "PARTIAL"
+    assert manifest.statistics_algorithm == "numpy_exact_v0.1"
+    assert manifest.stats_relative_path == "meta/stats.json"
+    assert manifest.omitted_components == ("video_shards",)
+    stats = json.loads((output_root / "meta" / "stats.json").read_text(encoding="utf-8"))
+    assert set(stats) == {"observation.state", "action"}
+    assert stats["observation.state"]["count"] == [4]
+    assert stats["observation.state"]["min"] == [0.0, 0.0]
+    assert stats["observation.state"]["max"] == pytest.approx([0.1, 0.044])
+    assert stats["observation.state"]["mean"] == pytest.approx([0.05, 0.022])
+    assert stats["action"]["count"] == [4]
+    assert stats["action"]["mean"] == pytest.approx([0.05, 0.022])
+    info = json.loads((output_root / "meta" / "info.json").read_text(encoding="utf-8"))
+    assert info["retargetlab"]["written_components"] == [
+        "metadata",
+        "data_shards",
+        "stats",
+    ]
+    assert info["retargetlab"]["omitted_components"] == ["video_shards"]
+
+    verification = verify_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+    assert verification.status == "VERIFIED"
+    assert verification.stats_sha256 == manifest.stats_sha256
+    assert verification.written_files == manifest.written_files
+
+    cli_root = tmp_path / "multi-dataset-cli"
+    write_lerobot_metadata_skeleton(plan_path=plan_path, output_root=cli_root)
+    write_lerobot_multi_episode_dataset(
+        plan_path=plan_path,
+        output_root=cli_root,
+        target_table_binding_manifest_path=target_binding_path,
+    )
+    report_path = tmp_path / "statistics-write-report.json"
+    assert (
+        app(
+            [
+                "write-lerobot-statistics",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(cli_root),
+                "--target-table-bindings",
+                str(target_binding_path),
+                "--report",
+                str(report_path),
+                "--json",
+            ]
+        )
+        == EXIT_OK
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "PARTIAL"
+    assert json.loads(report_path.read_text(encoding="utf-8"))["status"] == "PARTIAL"
+    assert (
+        app(
+            [
+                "verify-lerobot-statistics",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(cli_root),
+                "--target-table-bindings",
+                str(target_binding_path),
+                "--json",
+            ]
         )
         == EXIT_OK
     )
     assert json.loads(capsys.readouterr().out)["status"] == "VERIFIED"
+
+    stats_path = cli_root / "meta" / "stats.json"
+    stats_payload = json.loads(stats_path.read_text(encoding="utf-8"))
+    stats_payload["action"]["mean"][0] = 999.0
+    stats_path.write_text(json.dumps(stats_payload), encoding="utf-8")
+    assert (
+        app(
+            [
+                "verify-lerobot-statistics",
+                "--plan",
+                str(plan_path),
+                "--output-root",
+                str(cli_root),
+                "--target-table-bindings",
+                str(target_binding_path),
+                "--json",
+            ]
+        )
+        == EXIT_SEMANTIC
+    )
+    assert json.loads(capsys.readouterr().out)["status"] == "INVALID_INPUT"
 
 
 def test_lerobot_metadata_skeleton_writes_only_verified_metadata(tmp_path: Path) -> None:

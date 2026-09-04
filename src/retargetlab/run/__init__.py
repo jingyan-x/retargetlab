@@ -25,6 +25,7 @@ from .lerobot_export import (
     verify_lerobot_multi_episode_dataset,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
+    verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
     write_lerobot_metadata_plan,
     write_lerobot_metadata_skeleton,
@@ -34,6 +35,8 @@ from .lerobot_export import (
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
+    write_lerobot_statistics,
+    write_lerobot_statistics_report,
     write_lerobot_target_table_binding_manifest,
 )
 from .preflight import verify_review_package_preflight, write_review_package_preflight
@@ -101,6 +104,9 @@ __all__ = [
     "verify_lerobot_multi_episode_dataset",
     "write_lerobot_multi_episode_dataset",
     "write_lerobot_multi_episode_dataset_report",
+    "write_lerobot_statistics",
+    "write_lerobot_statistics_report",
+    "verify_lerobot_statistics",
     "build_target_replay_manifest",
     "build_target_replay_bundle",
     "build_target_replay_trajectory",

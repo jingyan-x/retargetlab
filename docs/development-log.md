@@ -2084,3 +2084,29 @@ Remote verification:
 The next implementation boundary is statistics handling or an explicit
 statistics preflight. It must retain the current partial-export boundary and
 must not silently imply compatibility with the upstream training loader.
+
+### M1b.3i: write and verify numeric statistics
+
+The partial grouped dataset can now receive a separate, exclusive
+`meta/stats.json` stage. After re-verifying the plan, target-table binding
+chain, metadata, and every grouped data shard, the writer computes exact
+population statistics for the declared scalar/one-dimensional numeric
+features using the explicit `numpy_exact_v0.1` algorithm. It writes the
+LeRobot basic statistics plus q01/q10/q50/q90/q99 and updates `info.json` to
+record `stats` as written while retaining `video_shards` as the only omitted
+component. The verifier recomputes statistics from the materialized data
+shards and rejects changed values, types, metadata, lineage, or file inventory.
+The dataset remains `PARTIAL` because no video shards are synthesized.
+
+Remote verification:
+
+- focused LeRobot export tests: 15 passed;
+- full regression with the real OpenArm asset smoke enabled: 120 passed, 1
+  Panda asset smoke skipped;
+- `ruff check src tests` and `mypy src`: passed;
+- statistics coverage is synthetic/public only; no private dataset rows or
+  video output was read or changed.
+
+The next implementation boundary is a loader-compatibility preflight for the
+video-free numeric dataset, while preserving the explicit partial status and
+not claiming upstream training compatibility without direct loader evidence.

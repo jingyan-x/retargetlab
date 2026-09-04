@@ -70,6 +70,7 @@ from retargetlab.run import (
     verify_lerobot_multi_episode_dataset,
     verify_lerobot_partial_dataset,
     verify_lerobot_replay_binding_manifest,
+    verify_lerobot_statistics,
     verify_lerobot_target_table_binding_manifest,
     verify_review_decision_artifact,
     verify_review_package_preflight,
@@ -90,6 +91,8 @@ from retargetlab.run import (
     write_lerobot_partial_dataset,
     write_lerobot_partial_dataset_report,
     write_lerobot_replay_binding_manifest,
+    write_lerobot_statistics,
+    write_lerobot_statistics_report,
     write_lerobot_target_table_binding_manifest,
     write_review_decision_artifact,
     write_review_package_preflight,
@@ -454,6 +457,43 @@ def _parser() -> argparse.ArgumentParser:
         help="verified per-episode target-table binding manifest",
     )
     verify_lerobot_multi.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    write_lerobot_statistics = subparsers.add_parser(
+        "write-lerobot-statistics",
+        help="write exact numeric stats for a verified grouped partial dataset",
+    )
+    write_lerobot_statistics.add_argument("--plan", required=True, type=Path)
+    write_lerobot_statistics.add_argument("--output-root", required=True, type=Path)
+    write_lerobot_statistics.add_argument(
+        "--target-table-bindings",
+        required=True,
+        type=Path,
+        help="verified per-episode target-table binding manifest",
+    )
+    write_lerobot_statistics.add_argument(
+        "--report",
+        type=Path,
+        help="optional statistics write manifest; keep it outside --output-root",
+    )
+    write_lerobot_statistics.add_argument(
+        "--json", action="store_true", help="emit JSON to stdout"
+    )
+
+    verify_lerobot_statistics = subparsers.add_parser(
+        "verify-lerobot-statistics",
+        help="verify exact numeric stats and the grouped partial dataset",
+    )
+    verify_lerobot_statistics.add_argument("--plan", required=True, type=Path)
+    verify_lerobot_statistics.add_argument("--output-root", required=True, type=Path)
+    verify_lerobot_statistics.add_argument(
+        "--target-table-bindings",
+        required=True,
+        type=Path,
+        help="verified per-episode target-table binding manifest",
+    )
+    verify_lerobot_statistics.add_argument(
         "--json", action="store_true", help="emit JSON to stdout"
     )
 
@@ -1370,6 +1410,53 @@ def _verify_lerobot_multi_payload(
     )
     return {
         "command": "verify-lerobot-multi-episode-dataset",
+        **verification.model_dump(mode="json"),
+    }
+
+
+def _write_lerobot_statistics_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_bindings_path: Path,
+    report_path: Path | None,
+) -> dict[str, Any]:
+    if report_path is not None:
+        try:
+            report_path.resolve().relative_to(output_root.resolve())
+        except ValueError:
+            pass
+        else:
+            raise ValueError("statistics report must be outside the output root")
+    manifest = write_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_bindings_path,
+    )
+    if report_path is not None:
+        write_lerobot_statistics_report(report_path, manifest)
+    payload = {
+        "command": "write-lerobot-statistics",
+        **manifest.model_dump(mode="json"),
+    }
+    if report_path is not None:
+        payload["report"] = str(report_path)
+    return payload
+
+
+def _verify_lerobot_statistics_payload(
+    *,
+    plan_path: Path,
+    output_root: Path,
+    target_table_bindings_path: Path,
+) -> dict[str, Any]:
+    verification = verify_lerobot_statistics(
+        plan_path=plan_path,
+        output_root=output_root,
+        target_table_binding_manifest_path=target_table_bindings_path,
+    )
+    return {
+        "command": "verify-lerobot-statistics",
         **verification.model_dump(mode="json"),
     }
 
@@ -2694,6 +2781,57 @@ def app(argv: list[str] | None = None) -> int:
         except (OSError, TypeError, ValueError, ValidationError) as exc:
             error = {
                 "command": "verify-lerobot-multi-episode-dataset",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "write-lerobot-statistics":
+        try:
+            payload = _write_lerobot_statistics_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+                target_table_bindings_path=args.target_table_bindings,
+                report_path=args.report,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "write-lerobot-statistics",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "write-lerobot-statistics",
+                "status": "INVALID_INPUT",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "verify-lerobot-statistics":
+        try:
+            payload = _verify_lerobot_statistics_payload(
+                plan_path=args.plan,
+                output_root=args.output_root,
+                target_table_bindings_path=args.target_table_bindings,
+            )
+        except RuntimeError as exc:
+            error = {
+                "command": "verify-lerobot-statistics",
+                "status": "ENVIRONMENT_ERROR",
+                "error": str(exc),
+            }
+            _emit(error, args.json, sys.stdout)
+            return EXIT_ENVIRONMENT
+        except (OSError, TypeError, ValueError, ValidationError) as exc:
+            error = {
+                "command": "verify-lerobot-statistics",
                 "status": "INVALID_INPUT",
                 "error": str(exc),
             }

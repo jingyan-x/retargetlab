@@ -286,6 +286,88 @@ class LeRobotMultiEpisodeDatasetVerification(BaseModel):
     total_episodes: int = Field(gt=0)
     total_frames: int = Field(gt=0)
     total_tasks: int = Field(gt=0)
+
+
+class LeRobotStatisticsWrite(BaseModel):
+    """Manifest for exact numeric stats with video output still absent."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_statistics_write"] = "lerobot_statistics_write"
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["PARTIAL"] = "PARTIAL"
+    statistics_algorithm: Literal["numpy_exact_v0.1"] = "numpy_exact_v0.1"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    output_root: str = Field(min_length=1)
+    target_table_binding_manifest_path: str = Field(min_length=1)
+    target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    stats_path: str = Field(min_length=1)
+    stats_relative_path: str = Field(min_length=1)
+    stats_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    stats_features: tuple[str, ...] = Field(min_length=1)
+    written_files: tuple[str, ...] = Field(min_length=1)
+    omitted_components: tuple[str, ...] = Field(min_length=1)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_manifest(self) -> LeRobotStatisticsWrite:
+        if len(set(self.stats_features)) != len(self.stats_features):
+            raise ValueError("statistics features must be unique")
+        if any(not feature.strip() for feature in self.stats_features):
+            raise ValueError("statistics features must be non-empty")
+        if len(set(self.written_files)) != len(self.written_files):
+            raise ValueError("statistics written files must be unique")
+        if any(not path.strip() or path.startswith("/") for path in self.written_files):
+            raise ValueError("statistics written files must be relative paths")
+        if len(set(self.omitted_components)) != len(self.omitted_components):
+            raise ValueError("statistics omitted components must be unique")
+        if any(not component.strip() for component in self.omitted_components):
+            raise ValueError("statistics omitted components must be non-empty")
+        if "video_shards" not in self.omitted_components:
+            raise ValueError("statistics manifest must record video omission")
+        if "meta/stats.json" in self.omitted_components:
+            raise ValueError("statistics manifest must not omit its written stats file")
+        return self
+
+
+class LeRobotStatisticsVerification(BaseModel):
+    """Verification result for exact numeric stats on a partial dataset."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    schema_version: str = Field(default="0.1", pattern=r"^0\.1$")
+    artifact_type: Literal["lerobot_statistics_verification"] = (
+        "lerobot_statistics_verification"
+    )
+    source_scope: Literal["synthetic_public_only"] = "synthetic_public_only"
+    status: Literal["VERIFIED"] = "VERIFIED"
+    statistics_algorithm: Literal["numpy_exact_v0.1"] = "numpy_exact_v0.1"
+    dataset_alias: str = Field(min_length=1)
+    source_revision: str = Field(min_length=1)
+    robot_id: str = Field(min_length=1)
+    plan_path: str = Field(min_length=1)
+    plan_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    output_root: str = Field(min_length=1)
+    target_table_binding_manifest_path: str = Field(min_length=1)
+    target_table_binding_manifest_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    stats_path: str = Field(min_length=1)
+    stats_relative_path: str = Field(min_length=1)
+    stats_sha256: Hash = Field(pattern=r"^[0-9a-fA-F]{64}$")
+    stats_features: tuple[str, ...] = Field(min_length=1)
+    written_files: tuple[str, ...] = Field(min_length=1)
+    omitted_components: tuple[str, ...] = Field(min_length=1)
+    total_episodes: int = Field(gt=0)
+    total_frames: int = Field(gt=0)
+    total_tasks: int = Field(gt=0)
+
+
 class LeRobotMetadataPlan(BaseModel):
     """Value-free plan for a complete, video-free LeRobot v3 metadata set."""
 
