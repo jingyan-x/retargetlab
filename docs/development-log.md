@@ -2522,7 +2522,7 @@ unconfirmed target frame and orientation hypotheses on the same 60 calibration
 frames. Under an identical diagnostic budget (120 outer iterations, one target
 seed), the four combinations were:
 
-- identity + `hand_tcp`: 1/60 nominal, 0.017 penetration fraction;
+- identity + `hand_tcp`: 1/60 nominal, 0.583 penetration fraction;
 - identity + `link7`: 2/60 nominal, 0.450 penetration fraction;
 - `viser_left_inverse` + `hand_tcp`: 3/60 nominal, 0.750 penetration fraction;
 - `viser_left_inverse` + `link7`: 25/60 nominal, 26/60 relaxed, 0.117
