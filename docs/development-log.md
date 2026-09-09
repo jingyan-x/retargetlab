@@ -2661,3 +2661,16 @@ bimanual validation run. Source URDF acquisition remains optional.
 Remote verification for this slice: focused axis/frame-lineage tests `6
 passed`; `ruff` passed on the new harnesses; no held-out split, target
 training export, or source absolute path was read or emitted.
+
+
+## 2026-09-09 · verify the MQ03 source frame and separate world/tool transforms
+
+The newly supplied MQ03 source package closes the source-side semantic questions without changing the OpenArm-first target. The source URDF is recorded by alias `mq03-source-urdf-20260522` with SHA-256 `2dc5ccf35391b0dacaafdafc7370cbe1af16edcd87e4780e300e855200cead11`; no private absolute source path is committed. MQ03 is evidence for interpreting the input data only. OpenArm remains the sole current retargeting and IK target.
+
+A remote Pinocchio cross-check evaluated the frozen 600 calibration frames for both state/action streams and both arms. With the metadata waist values and `Larm08_link`/`Rarm08_link`, the stored quaternion agrees with MQ03 FK to approximately `2e-6 deg`. Applying the source-link local `+z` offset `0.22855 m` reproduces the stored TCP positions to approximately `3e-8 m`; using the later declared `0.23116 m` produces a stable `2.610 mm` residual. Therefore this dataset revision numerically used `0.22855 m`. The stored EEF is already TCP and neither offset is reapplied during OpenArm retargeting. The `0.23116 m` declaration is retained separately rather than rewriting historical data. Held-out values were not read.
+
+This evidence fixes the source pose as forward `base_link_T_tcp`, with MQ03 base axes `x=front, y=left, z=up` and source TCP axes `x=left, y=up, z=front`. It also reveals a limitation in the previous 96-candidate diagnostic: `openarm_axis_candidates.apply_rigid_candidate` interpreted the signed-axis matrix only as a world-frame rotation, left-multiplying both position and orientation. It did not independently represent the right-multiplied source-TCP-to-OpenArm-TCP correction. The previous RED result therefore remains valid for its legacy candidate family but does not reject the newly declared source semantics.
+
+A review-only remote diagnostic kept old base candidate `t2-023`, used an identity FLU world mapping, and tested one inferred right-multiplied tool correction against OpenArm `link7` and `hand_tcp`. The best left result was `hand_tcp` at `0.450` nominal; the best right result was `link7` at `0.4833` nominal. Neither arm cleared the `0.80` gate under one target-frame convention, so no bimanual solve was authorized. The gitignored report is `20260909-openarm-source-semantics-001/tool-frame-prescreen.json`, SHA-256 `cc9490c9ddf31cc16a18c7102b0b3ec7fa205d1382526f7687856dc828e105ce`. This is not a formal recipe promotion: `t2-023` was selected under the legacy mapping and OpenArm left/right TCP physical-axis/mirror semantics remain to be verified.
+
+Next gate: implement separated world/tool transforms, verify one OpenArm TCP convention for both sides, rerun the frozen 60-frame independent-arm T2 prescreen under a new recipe, and authorize bimanual evaluation only when both arms reach `0.80`.

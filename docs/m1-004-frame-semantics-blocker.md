@@ -213,3 +213,10 @@ tool-frame alignment, then repeat the independent-arm gate with the corrected
 semantic transform. The merged report is retained outside Git under the
 calibration-only run workspace; its SHA-256 is
 `165c17aec153150abce18b886f6889baabcfd4a38bb4a3467abf8cab0aa4cde0`.
+
+
+## 2026-09-09 update: MQ03 source semantics verified
+
+The earlier source-side blocker is retired for this dataset revision. MQ03 is the source robot and OpenArm remains the target. The supplied declaration plus a 600-frame remote FK cross-check establish forward `base_link_T_tcp`, a front-left-up MQ03 base, a left-up-front MQ03 TCP, direct left/right source slots, and an already-baked TCP reference. The current dataset numerically matches `0.22855 m`; the separately declared `0.23116 m` is not retroactively applied.
+
+The remaining blocker is target-side mapping, not source reconstruction. The legacy signed-axis screen left-multiplied one matrix into both position and orientation and therefore did not test an independent right-multiplied tool-frame correction. The next implementation must represent `T_openarm_base_from_mq03_base` separately from per-side `T_mq03_tcp_to_openarm_tcp`, verify the OpenArm TCP frame/mirror convention, and rerun T2 selection. Until one target-frame convention reaches `0.80` on both independent arms, OpenArm stays `kinematic_status=RED`, bimanual evaluation remains unauthorized, and held-out stays sealed.

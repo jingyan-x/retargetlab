@@ -1,13 +1,16 @@
 {
-  "schema_version": "m_minus_1.openarm_mapping_spec.v1",
+  "schema_version": "m_minus_1.openarm_mapping_spec.v2",
   "dataset_alias": "private-sample-20",
   "source_revision": "info.json@sha256:5447be7ef21b29fb03e04871ee6b908e3013051217b757fd9a3f30c8d3555a40",
   "status": "REVIEW_REQUIRED",
-  "semantic_status": "UNRESOLVED",
+  "semantic_status": "SOURCE_FRAME_VERIFIED_TARGET_ALIGNMENT_UNRESOLVED",
   "source_urdf": {
     "required_for_product": false,
     "role": "optional_cross_check_only",
-    "absence_effect": "does_not_block_data_only_calibration"
+    "absence_effect": "does_not_block_data_only_calibration",
+    "available_for_this_revision": true,
+    "asset_alias": "mq03-source-urdf-20260522",
+    "sha256": "2dc5ccf35391b0dacaafdafc7370cbe1af16edcd87e4780e300e855200cead11"
   },
   "known": {
     "observation_state_layout": {
@@ -29,18 +32,15 @@
       "provenance": "info.json schema and existing review material",
       "evidence_scope": "private-sample-20 metadata and calibration-only review",
       "limitations": [
-        "source world-axis orientation remains unresolved",
         "target side mapping remains diagnostic until a candidate passes the gate"
       ]
     },
     "eef_trajectory_semantics": {
       "value": "dual_eef_absolute_pose",
       "evidence": "DATA_DERIVED",
-      "provenance": "existing calibration semantic review and state/action consistency checks",
+      "provenance": "source metadata plus MQ03 FK cross-check",
       "evidence_scope": "private-sample-20 calibration and metadata",
-      "limitations": [
-        "source pose direction is not identified"
-      ]
+      "verification": "600 calibration frames across state/action and both arms"
     },
     "source_end_links": {
       "value": [
@@ -53,19 +53,26 @@
     },
     "source_tcp": {
       "value": {
-        "flange_to_tcp_translation_m": [
+        "dataset_generation_flange_to_tcp_translation_m": [
           0.0,
           0.0,
           0.22855
         ],
+        "later_declared_flange_to_tcp_translation_m": [
+          0.0,
+          0.0,
+          0.23116
+        ],
         "quaternion": "unchanged",
-        "reference_point": "TCP"
+        "reference_point": "TCP",
+        "retargeting_rule": "stored EEF is already TCP; do not apply either offset again"
       },
       "evidence": "DATA_DERIVED",
-      "provenance": "existing source EEF/TCP review material",
-      "evidence_scope": "private-sample-20 metadata and calibration review",
+      "provenance": "dataset metadata and MQ03 FK cross-check",
+      "evidence_scope": "600 calibration frames across state/action and both arms",
       "limitations": [
-        "the offset is recorded as source metadata; the source-to-OpenArm tool-axis alignment remains unresolved"
+        "0.23116 m is retained as a later declaration and does not describe the numeric generation of this dataset revision",
+        "source-to-OpenArm tool-axis alignment remains unresolved"
       ]
     },
     "position_unit": {
@@ -77,27 +84,62 @@
       "limitations": [
         "unit evidence is scoped to the current private sample revision"
       ]
+    },
+    "source_world_axes": {
+      "value": {
+        "x": "front",
+        "y": "left",
+        "z": "up"
+      },
+      "evidence": "EXPLICIT",
+      "provenance": "source-system declaration supplied with MQ03 assets",
+      "evidence_scope": "MQ03 source frame"
+    },
+    "source_pose_direction": {
+      "value": "base_link_T_tcp",
+      "evidence": "EXPLICIT",
+      "provenance": "source-system declaration; independently verified by MQ03 FK",
+      "evidence_scope": "600 calibration frames across state/action and both arms"
+    },
+    "source_tcp_axes": {
+      "value": {
+        "x": "left",
+        "y": "up",
+        "z": "front"
+      },
+      "evidence": "EXPLICIT",
+      "provenance": "source-system declaration supplied with MQ03 assets",
+      "evidence_scope": "MQ03 TCP frame"
+    },
+    "source_fk_cross_check": {
+      "value": {
+        "sample_frames": 600,
+        "streams": [
+          "state",
+          "action"
+        ],
+        "arms": [
+          "left",
+          "right"
+        ],
+        "orientation_mean_error_deg_approx": 2e-06,
+        "position_mean_error_m_with_0_22855_approx": 3e-08,
+        "position_error_m_with_0_23116": 0.00261,
+        "held_out_values_read": false
+      },
+      "evidence": "DATA_DERIVED",
+      "provenance": "Pinocchio FK from MQ03 source joints and source URDF",
+      "evidence_scope": "frozen calibration sample only"
     }
   },
   "unresolved": {
-    "source_world_axes": {
-      "value": null,
-      "evidence": "UNRESOLVED",
-      "provenance": "not declared by the available schema or review artifacts"
-    },
-    "source_pose_direction": {
-      "value": null,
-      "evidence": "UNRESOLVED",
-      "provenance": "forward versus inverse pose convention is not declared"
-    },
     "source_tool_axis_alignment_to_openarm_tool_axis": {
       "value": null,
       "evidence": "UNRESOLVED",
-      "provenance": "no authorized source-to-target tool-frame declaration"
+      "provenance": "OpenArm left/right TCP physical-axis and mirror mapping are not yet verified"
     }
   },
   "calibration_policy": {
-    "candidate_family": "24 proper right_handed axis rotations x forward_or_inverse_pose",
     "side_mapping_default": "direct",
     "swapped_side_mapping": "negative_control_only",
     "target_frames": [
@@ -105,7 +147,11 @@
       "hand_tcp"
     ],
     "held_out_access": "forbidden_before_m1c",
-    "formal_recipe_promotion": "disallowed_until_both_single_arms_reach_0.80"
+    "formal_recipe_promotion": "disallowed until both single arms reach 0.80 under one verified target-frame convention",
+    "legacy_candidate_family": "24 proper right_handed world-axis rotations x forward_or_inverse_pose",
+    "legacy_candidate_limitation": "world-frame rotations were left-multiplied into position and orientation; source-to-target tool correction was not independently represented",
+    "next_candidate_family": "verified forward source pose with separate world-frame left multiplication and per-side tool-frame right multiplication",
+    "current_target_mapping_status": "diagnostic candidate only"
   },
   "privacy": {
     "raw_pose_values_emitted": false,
