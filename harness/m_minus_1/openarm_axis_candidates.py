@@ -150,6 +150,70 @@ def apply_rigid_candidate(
     return mapped_position, mapped_rotation
 
 
+def _proper_rotation_matrix(
+    value: AxisRotation | Iterable[Iterable[float]],
+    *,
+    name: str,
+) -> np.ndarray:
+    """Return one finite, orthonormal, right-handed rotation matrix."""
+
+    matrix = np.asarray(
+        value.matrix if isinstance(value, AxisRotation) else tuple(tuple(row) for row in value),
+        dtype=float,
+    )
+    if matrix.shape != (3, 3):
+        raise ValueError(f"{name} must have shape (3, 3)")
+    if not np.all(np.isfinite(matrix)):
+        raise ValueError(f"{name} must be finite")
+    if not np.allclose(matrix.T @ matrix, np.eye(3), atol=1e-8):
+        raise ValueError(f"{name} must be orthonormal")
+    if not np.isclose(np.linalg.det(matrix), 1.0, atol=1e-8):
+        raise ValueError(f"{name} must be right-handed")
+    return matrix
+
+
+def apply_separated_frame_candidate(
+    position: Iterable[float],
+    rotation: Iterable[Iterable[float]],
+    *,
+    base_rotation: Iterable[Iterable[float]],
+    base_translation: Iterable[float],
+    world_rotation: AxisRotation | Iterable[Iterable[float]],
+    tool_rotation: AxisRotation | Iterable[Iterable[float]],
+    pose_direction: PoseDirection,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Map one source pose with independent world and tool rotations.
+
+    ``world_rotation`` changes the source coordinate basis and therefore
+    left-multiplies both position and orientation. ``tool_rotation`` changes
+    only the source-TCP to target-TCP convention and therefore right-multiplies
+    orientation without rotating the already-recorded TCP reference point.
+    The target-base transform is applied last.
+    """
+
+    if pose_direction not in ("forward", "inverse"):
+        raise ValueError(f"unknown pose direction: {pose_direction}")
+    source_position, source_rotation = pose_components(position, rotation)
+    target_base_rotation = _proper_rotation_matrix(
+        base_rotation, name="base_rotation"
+    )
+    target_base_translation = np.asarray(tuple(base_translation), dtype=float)
+    if target_base_translation.shape != (3,) or not np.all(
+        np.isfinite(target_base_translation)
+    ):
+        raise ValueError("base_translation must be a finite shape-(3,) vector")
+    world = _proper_rotation_matrix(world_rotation, name="world_rotation")
+    tool = _proper_rotation_matrix(tool_rotation, name="tool_rotation")
+    if pose_direction == "inverse":
+        source_position = -source_rotation.T @ source_position
+        source_rotation = source_rotation.T
+    mapped_position = (
+        target_base_rotation @ (world @ source_position) + target_base_translation
+    )
+    mapped_rotation = target_base_rotation @ world @ source_rotation @ tool
+    return mapped_position, mapped_rotation
+
+
 def make_candidate(
     *,
     axis_rotation: AxisRotation,

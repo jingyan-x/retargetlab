@@ -86,3 +86,63 @@ def test_candidate_ids_and_hashes_are_deterministic() -> None:
     assert len(first) == 96
     assert [item.candidate_id for item in first] == [item.candidate_id for item in second]
     assert MODULE.candidate_set_hash(first) == MODULE.candidate_set_hash(second)
+
+
+def test_separated_tool_rotation_changes_orientation_not_position() -> None:
+    source_position = np.array([0.4, -0.2, 0.7])
+    source_rotation = np.eye(3)
+    tool_rotation = np.array(
+        [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]
+    )
+
+    mapped_position, mapped_rotation = MODULE.apply_separated_frame_candidate(
+        source_position,
+        source_rotation,
+        base_rotation=np.eye(3),
+        base_translation=np.zeros(3),
+        world_rotation=np.eye(3),
+        tool_rotation=tool_rotation,
+        pose_direction="forward",
+    )
+
+    assert np.allclose(mapped_position, source_position)
+    assert np.allclose(mapped_rotation, tool_rotation)
+
+
+def test_separated_world_rotation_changes_position_and_orientation() -> None:
+    world_rotation = np.array(
+        [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]
+    )
+    source_position = np.array([1.0, 2.0, 3.0])
+    source_rotation = np.eye(3)
+
+    mapped_position, mapped_rotation = MODULE.apply_separated_frame_candidate(
+        source_position,
+        source_rotation,
+        base_rotation=np.eye(3),
+        base_translation=np.zeros(3),
+        world_rotation=world_rotation,
+        tool_rotation=np.eye(3),
+        pose_direction="forward",
+    )
+
+    assert np.allclose(mapped_position, world_rotation @ source_position)
+    assert np.allclose(mapped_rotation, world_rotation @ source_rotation)
+
+
+def test_separated_candidate_rejects_reflection_as_tool_rotation() -> None:
+    reflection = np.diag([1.0, 1.0, -1.0])
+    try:
+        MODULE.apply_separated_frame_candidate(
+            np.zeros(3),
+            np.eye(3),
+            base_rotation=np.eye(3),
+            base_translation=np.zeros(3),
+            world_rotation=np.eye(3),
+            tool_rotation=reflection,
+            pose_direction="forward",
+        )
+    except ValueError as exc:
+        assert "right-handed" in str(exc)
+    else:
+        raise AssertionError("reflection must not be accepted as a rotation")
