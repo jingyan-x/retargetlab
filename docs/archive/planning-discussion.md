@@ -1,6 +1,6 @@
 # 项目规划讨论归档
 
-> 本文件记录阶段性讨论状态，用于保留决策过程，不再作为当前范围清单。2026-08-12 已将首个正式版本重新定义为完整的运动学数据处理产品，SAPIEN、ManiSkill、RoboTwin仿真与A2/A3验证移入后续版本。现行范围以 [product-plan-v2.md](product-plan-v2.md) 为准，实际进度看 [current-status.md](current-status.md)；下文与其冲突的内容属于历史方案。
+> 本文件记录阶段性讨论状态，用于保留决策过程，不再作为当前范围清单。2026-08-12 已将首个正式版本重新定义为完整的运动学数据处理产品，SAPIEN、ManiSkill、RoboTwin仿真与A2/A3验证移入后续版本。现行范围以 [product-plan-v2.md](../product-plan-v2.md) 为准，实际进度看 [current-status.md](../current-status.md)；下文与其冲突的内容属于历史方案。
 
 ## 2026-08-12：产品范围重构——v1.0 聚焦 IK/FK 运动学
 

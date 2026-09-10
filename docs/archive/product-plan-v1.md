@@ -2,7 +2,7 @@
 
 > **⚠️ 历史归档，2026-08-27 卸任。本文已不是现行基线，不得作为实现依据。**
 >
-> 现行基线为 [`product-plan-v2.md`](./product-plan-v2.md)，施工按 [`build-checklist.md`](./build-checklist.md)。
+> 现行基线为 [`product-plan-v2.md`](../product-plan-v2.md)，施工按 [`build-checklist.md`](../build-checklist.md)。
 >
 > **保留价值是追溯：** 本文记录 2026-08-14 时点的范围认定。其中五机器人正式支持、九工作区完整前端、Tauri 桌面壳、认证等级与审批门禁、Agent 自动修复等，**已在 v2 中移出首版**，理由见 v2 §13。与 v2 冲突处一律以 v2 为准。
 >

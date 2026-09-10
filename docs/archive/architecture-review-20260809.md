@@ -1,6 +1,6 @@
 # EEF 末端轨迹本体化工具：全工作流、架构与技术选型评审
 
-> **文档状态：历史架构评审（早期基线）。** 本文保留早期调研、技术比较与设计依据，其中版本、Agent、前端和仿真范围已不再代表当前规划。现行产品范围以 [product-plan-v2.md](product-plan-v2.md) 为准，实际进度看 [current-status.md](current-status.md)；阶段性讨论过程见 [`planning-discussion-archive.md`](./planning-discussion-archive.md)。
+> **文档状态：历史架构评审（早期基线）。** 本文保留早期调研、技术比较与设计依据，其中版本、Agent、前端和仿真范围已不再代表当前规划。现行产品范围以 [product-plan-v2.md](../product-plan-v2.md) 为准，实际进度看 [current-status.md](../current-status.md)；阶段性讨论过程见 [`planning-discussion-archive.md`](planning-discussion.md)。
 >
 > **使用限制：** 本文不能作为实现需求清单。特别是“v0.1单机器人”“Viser主界面”“内置Agent/Copilot”以及首版物理仿真等早期建议均已被后续决策覆盖；保留相关段落仅用于追溯技术选择。
 

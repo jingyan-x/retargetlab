@@ -1,6 +1,6 @@
 # 当前施工清单（2026-09-10 整理版）
 
-本页仅表示当前执行状态。设计依据：[产品规划](product-plan-v2.md)、[工程规划](engineering-plan-v1.md)。事实与证据：[当前状态](current-status.md)、[报告索引](report-index.md)。原 v0.4 清单保留于 [历史快照](archive/build-checklist-before-20260910.md)。
+本页仅表示当前执行状态。设计依据：[产品规划](product-plan-v2.md)、[工程规划](engineering-plan-v1.md)。事实与证据：[当前状态](current-status.md)、[报告索引](report-index.md)。旧清单全文从 [Git历史](archive/README.md) 追溯，不保留重复快照。
 
 **当前：用户要求暂停实验。以下未完成项只作计划，不是自动运行指令。**
 
@@ -24,7 +24,7 @@
 - [x] 将 interrupted / partial 与 completed report 分开登记。
 - [x] 建立全部已有 run 的文件、日志、recipe 和 SHA-256 清单。
 - [x] 补登 9 月 9 日 source-semantics-002–008 的结论与报告引用。
-- [x] 明确唯一状态页；历史日志和 blocker 不再承担当前任务路由。
+- [x] 明确唯一状态页；主线日志与历史档案不承担当前任务路由。
 - [x] 把旧规划/旧施工表的角色标清，修正指向卸任产品规划的导航。
 - [x] 区分“脚本 PASS”“单臂 gate”“完整双臂 M-1”“M1c 验收”。
 

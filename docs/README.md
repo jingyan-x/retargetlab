@@ -1,39 +1,24 @@
 # 项目文档入口
 
-当前执行状态：**2026-09-10，按用户要求暂停实验，先完成资料整理。**
+**当前暂停实验，仅整理资料。** 先读 [当前状态](current-status.md)，再按需查看 [报告索引](report-index.md)、[开发主线](development-log.md) 和 [施工清单](build-checklist.md)。
 
-先看 [当前状态](current-status.md)，再看 [报告索引](report-index.md) 和 [施工清单](build-checklist.md)。不要按最新文件名、最高百分比或日志末尾的旧“下一步”猜测项目进度。
+| 文档 | 唯一职责 |
+|---|---|
+| [current-status.md](current-status.md) | 当前已完成项、关键结果口径、未通过的出口 |
+| [report-index.md](report-index.md) | 全部run、候选引用、完成/中断状态和证据导航 |
+| [development-log.md](development-log.md) | 里程碑、关键实现约束、决策演变、失败教训 |
+| [build-checklist.md](build-checklist.md) | 当前待办与恢复后顺序；暂停期间不自动执行 |
+| [product-plan-v2.md](product-plan-v2.md) | 产品范围与验收定义 |
+| [engineering-plan-v1.md](engineering-plan-v1.md) | 接口、代码责任与工程设计 |
+| [openarm-mapping-spec.json](openarm-mapping-spec.json) | 已知语义、目标约定、未确认的映射候选 |
+| [文件级证据清单](evidence/run-report-inventory-20260910.json) | 26个run、366个文件的路径、大小与哈希 |
+| [历史材料与全文追溯](archive/README.md) | 早期技术/决策资料及精简前Git版本 |
 
-## 文档职责
+## 使用规则
 
-| 文件 | 角色 | 回答的问题 |
-|---|---|---|
-| [current-status.md](current-status.md) | **唯一当前事实入口** | 已完成什么，哪条证据适用，当前卡在哪里 |
-| [report-index.md](report-index.md) | **运行证据导航** | 每个 run 的含义、口径、完成状态和证据 ID |
-| [evidence/run-report-inventory-20260910.json](evidence/run-report-inventory-20260910.json) | 文件级清单 | 已有报告、日志、recipe 的相对位置、大小、SHA-256 |
-| [build-checklist.md](build-checklist.md) | 当前施工表 | 已有基础、暂停状态、恢复后顺序、未通过出口 |
-| [product-plan-v2.md](product-plan-v2.md) | 唯一产品基线 | 做什么、为什么、首版范围与验收定义 |
-| [engineering-plan-v1.md](engineering-plan-v1.md) | 唯一工程设计基线 | 接口、契约、代码责任、设计任务；不是完成率报表 |
-| [openarm-mapping-spec.json](openarm-mapping-spec.json) | 语义事实与候选 | 源事实、目标资产约定、仍未确认的跨机器人映射 |
-| [development-log.md](development-log.md) | 追加式历史日志 | 当时做过什么；日期较早的“下一步”不是当前指令 |
-| [m1-004-frame-semantics-blocker.md](m1-004-frame-semantics-blocker.md) | 历史 blocker 档案 | 9 月 2–9 日阻塞演变；当前停止点看 current-status |
-| [archive/build-checklist-before-20260910.md](archive/build-checklist-before-20260910.md) | 历史施工表 | 保留整理前版本，不再勾选推进 |
-| [current-product-plan.md](current-product-plan.md) | 已卸任产品规划 | 名称有 current，但自 8 月 27 日起是归档 |
-| [planning-discussion-archive.md](planning-discussion-archive.md) | 历史讨论 | 被覆盖的方案与决策理由 |
-| [eef-trajectory-tool-architecture-review.md](eef-trajectory-tool-architecture-review.md) | 历史技术评审 | 早期调查，不能作为现行实现需求 |
-| [weekly-meeting-plan-brief-2026-08-26.md](weekly-meeting-plan-brief-2026-08-26.md) | 历史周会材料 | 当时的汇报，不能作为今日进度 |
-
-## 阅读与冲突规则
-
-1. 用户最新指示优先。当前只整理，不运行实验。
-2. 产品范围由产品基线决定，接口设计由工程基线决定；两者不表示实现已完成。
-3. 当前状态页必须引用实际报告或已验证代码。若它与报告冲突，先核对报告、约束和样本并修正文档。
-4. 历史日志保留，不回填成“当时已知”；遗漏结果用当前日期补登，并标注原实验日期。
-5. OpenArm 是当前目标，MQ03 是源数据解释材料，Panda 是历史重选证据与回归夹具。
-6. 私有数据、运行产物与源路径不进 Git。本目录只记录别名、相对产物位置、聚合结果与哈希。
-
-## 运行位置
-
-源码、环境、资产和完整 runs 以实验室远端唯一工作树为准。Windows 文档只作查看镜像。运行目录与真实机器路径的关系在本地配置中维护；报告索引使用仓库相对路径。
-
-9 月 9 日后半段实验报告曾未同步进开发日志，导致本轮接续选错基线。已将这段断层显式记录；今后接续必须同时检查报告索引与相关完整报告，不能只看 Git HEAD 或旧日志。
+1. 用户最新指示优先；当前不运行实验。
+2. OpenArm是当前目标，MQ03是源数据解释材料，Panda是历史对照和回归夹具。
+3. 规划不是完成度报表，代码测试不是私有数据验收；有冲突先核对具体报告的约束、样本和版本。
+4. 日志可合并精简，但保留改变结论的证据与失败原因；逐提交细节从Git追溯，不再反复追加过期“下一步”。
+5. 恢复工作必须核对相关完整报告，不能只看Git HEAD或最高百分比。9月9日后续报告漏归档造成的接续错误已在主线中记录。
+6. 源码、环境和完整runs以远端唯一工作树为准，Windows仅为文档查看镜像。私有数据/源路径不进Git，文档只保留别名、聚合结果和引用。

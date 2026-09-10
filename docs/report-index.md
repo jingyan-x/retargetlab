@@ -75,7 +75,7 @@ source-semantics-001 共用工具初探 → 002 在旧点位枚举 tool 右乘 �
 | 结构/映射 review | projects/private-sample-openarm/reviews/private-sample-20/ | 结构比较与 review-only mapping candidate，不是认证出口 |
 | 目标资产 | projects/private-sample-openarm/robots/openarm_bimanual/ | manifest、URDF、SRDF、Profile；与轨迹通过率分开 |
 | 私有 DataProfile | 20260903-m1-005/data-profile-review-required-with-coverage.json | 落盘版本仍为 REVIEW_REQUIRED，未自动升级 |
-| 历史工程记录 | development-log.md | 追加式历史；代码切片编号不等于里程碑通过 |
+| 历史工程记录 | development-log.md | 已合并为里程碑主线；代码切片不等于阶段验收 |
 | 本轮代码 WIP | harness/m_minus_1/diagnose_openarm_separated_frames.py；tests/unit/test_openarm_separated_frames.py | 停止前已新增但未提交，本次仅登记哈希，不继续改实现 |
 
 ## 证据缺口与下一次接续规则
