@@ -50,3 +50,16 @@ def test_no_false_limit_attribution_for_successful_frame_or_position_failure():
     assert report["position_stage"].get("position_reached_then_full_pose_failed", 0) == 0
     assert report["failed_frames_near_arm_limit_counts"]["left_joint"] == 1
     assert report["final_failure_counts"]["residual_sides_neither"] == 1
+
+
+def test_position_pull_keeps_sign_and_excludes_successful_side():
+    audit = ResidualAudit({"left_joint": (0, 0, 1), "right_joint": (1, 0, 1)})
+    audit.add(
+        sample(),
+        0.005,
+        0.035,
+        {"left": np.array([0.02, -0.03, 0.01]), "right": np.array([0.4, 0.5, 0.6])},
+    )
+    pulls = audit.report()["failed_side_mean_target_position_pull_m"]
+    assert np.allclose(pulls["left"], [0.02, -0.03, 0.01])
+    assert pulls["right"] is None

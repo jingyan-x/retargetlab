@@ -152,6 +152,7 @@ def evaluate_bimanual(
                 model.upperPositionLimit[index],
             )
     residual_audit = residual_diagnostics.ResidualAudit(joint_specs)
+    diagnostic_data = model.createData()
     for episode, frame in indices:
         targets = {
             side: mapped_target(
@@ -173,7 +174,13 @@ def evaluate_bimanual(
             relaxed,
             additional_seeds=seeds[1:],
         )
-        residual_audit.add(result, pos_tol, rot_tol)
+        pin.framesForwardKinematics(model, diagnostic_data, result["q"])
+        position_pulls = {
+            side: diagnostic_data.oMf[model.getFrameId(harness.TCP_FRAMES[side])].translation
+            - targets[side].translation
+            for side in ("left", "right")
+        }
+        residual_audit.add(result, pos_tol, rot_tol, position_pulls)
         harness.add_result(
             aggregate,
             result,

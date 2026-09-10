@@ -16,8 +16,10 @@ class ResidualAudit:
         self.failures = Counter()
         self.near_limits = Counter()
         self.failed_min_margins = []
+        self.position_pull_sums = {side: np.zeros(3) for side in ("left", "right")}
+        self.position_pull_counts = Counter()
 
-    def add(self, result, position_tolerance, orientation_tolerance):
+    def add(self, result, position_tolerance, orientation_tolerance, position_pulls=None):
         self.frames += 1
         final = result["metrics"]
         bad_sides = []
@@ -50,6 +52,10 @@ class ResidualAudit:
             self.failures["hard_limit_violation"] += 1
         if not bad_sides:
             return
+        if position_pulls is not None:
+            for side in bad_sides:
+                self.position_pull_sums[side] += position_pulls[side]
+                self.position_pull_counts[side] += 1
         margins = []
         for name, (index, lower, upper) in self.joint_specs.items():
             # Only arm joints enter this view: a closed gripper is normally
@@ -69,6 +75,14 @@ class ResidualAudit:
             "final_failure_counts": dict(sorted(self.failures.items())),
             "failed_frames_near_arm_limit_counts": dict(sorted(self.near_limits.items())),
             "near_limit_threshold_fraction": self.near_limit_fraction,
+            "failed_side_mean_target_position_pull_m": {
+                side: (self.position_pull_sums[side] / self.position_pull_counts[side]).tolist()
+                if self.position_pull_counts[side]
+                else None
+                for side in ("left", "right")
+            },
+            "target_position_pull_definition": "reached_world_position_minus_target_world_position",
+            "target_position_pull_scope": "mean over residual-failed sides only; not raw poses",
             "failed_frames_min_arm_margin": (
                 {
                     "min": float(margins.min()),
