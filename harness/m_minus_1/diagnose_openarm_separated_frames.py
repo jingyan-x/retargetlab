@@ -12,6 +12,7 @@ import diagnose_openarm_axis_rotation as metrics
 import diagnose_single_arm as single_arm
 import numpy as np
 import openarm_axis_candidates as transforms
+import openarm_residual_diagnostics as residual_diagnostics
 import pinocchio as pin
 import probe_openarm_reachability as harness
 
@@ -140,6 +141,17 @@ def evaluate_bimanual(
         full_geometry, int(options["self_collision_barrier_pair_budget"])
     )
     aggregate = harness.new_aggregate()
+    joint_specs = {}
+    for side in ("left", "right"):
+        for number in range(1, 8):
+            name = f"openarm_{side}_joint{number}"
+            index = harness.joint_value_index(model, name)
+            joint_specs[name] = (
+                index,
+                model.lowerPositionLimit[index],
+                model.upperPositionLimit[index],
+            )
+    residual_audit = residual_diagnostics.ResidualAudit(joint_specs)
     for episode, frame in indices:
         targets = {
             side: mapped_target(
@@ -161,6 +173,7 @@ def evaluate_bimanual(
             relaxed,
             additional_seeds=seeds[1:],
         )
+        residual_audit.add(result, pos_tol, rot_tol)
         harness.add_result(
             aggregate,
             result,
@@ -172,6 +185,7 @@ def evaluate_bimanual(
     # Isolated frames do not evaluate continuity even though the legacy
     # aggregate has an always-zero delta field.
     finalized.pop("delta_violation_fraction", None)
+    finalized["residual_audit"] = residual_audit.report()
     return finalized
 
 
@@ -291,7 +305,7 @@ def main() -> int:
                 "harness_sha256": metrics.sha256_file(Path(__file__)),
                 "helper_sha256": {
                     module.__name__: metrics.sha256_file(Path(module.__file__))
-                    for module in (metrics, single_arm, transforms, harness)
+                    for module in (metrics, single_arm, transforms, residual_diagnostics, harness)
                 },
                 "frame_mapping": frame_mapping,
                 "target_tcp_audit": audit,
@@ -364,7 +378,7 @@ def main() -> int:
             "input_sha256": input_hashes,
             "helper_sha256": {
                 module.__name__: metrics.sha256_file(Path(module.__file__))
-                for module in (metrics, single_arm, transforms, harness)
+                for module in (metrics, single_arm, transforms, residual_diagnostics, harness)
             },
             "same_frame_independent_both_nominal_rate": sum(
                 left and right
