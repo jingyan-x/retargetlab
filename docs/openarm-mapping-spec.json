@@ -173,6 +173,11 @@
       "value": null,
       "evidence": "UNRESOLVED",
       "provenance": "Target local hand/TCP chains are verified; source-to-target functional axis pairing remains data-derived candidates, not an established physical frame identity."
+    },
+    "source_gripper_opening_axis": {
+      "value": null,
+      "evidence": "UNCONFIRMED",
+      "provenance": "User states unknown; MQ03 URDF gripper joints are fixed with no dynamic jaw axis."
     }
   },
   "calibration_policy": {
@@ -188,7 +193,7 @@
     "legacy_candidate_limitation": "world-frame rotations were left-multiplied into position and orientation; source-to-target tool correction was not independently represented",
     "next_candidate_family": "verified forward source pose with separate world-frame left multiplication and per-side tool-frame right multiplication",
     "current_target_mapping_status": "diagnostic candidate only",
-    "execution_state": "FIXED_CANDIDATE_RESIDUAL_AUDIT_COMPLETE_BIMANUAL_RED",
+    "execution_state": "CAPABILITY_BOUNDS_AND_Z_PRESERVING_PROBES_COMPLETE_BIMANUAL_RED",
     "current_status_reference": "docs/current-status.md",
     "report_index_reference": "docs/report-index.md",
     "recovered_diagnostic_checkpoints": {
@@ -249,6 +254,56 @@
         "directed_30mm_independent_intersection_improved": false,
         "bimanual_baseline_changed": false,
         "physical_tool_alignment_confirmed": false
+      },
+      "capability_boundary": {
+        "runs": [
+          "20260910-openarm-capability-bounds-012",
+          "20260910-openarm-capability-bounds-013",
+          "20260910-openarm-z-preserving-placement-014",
+          "20260910-openarm-z-preserving-placement-015"
+        ],
+        "sample_frames": 60,
+        "old_numerical_tools_extension_deviation_deg": [
+          90,
+          90
+        ],
+        "fixed_placement_certified_impossible_frames": {
+          "data_derived": 5,
+          "positive_z_preserving_any_roll": 6
+        },
+        "any_placement_global_incompatibility_proven": false,
+        "common_translation_outer_bound_fit_is_ik_pass": false,
+        "positive_z_roll_probe_counts": {
+          "0": [
+            3,
+            12,
+            0
+          ],
+          "90": [
+            9,
+            18,
+            0
+          ],
+          "180": [
+            9,
+            12,
+            2
+          ],
+          "270": [
+            3,
+            8,
+            0
+          ]
+        },
+        "count_order": [
+          "left",
+          "right",
+          "independent_both"
+        ],
+        "run014_status": "FAILED_PARTIAL_THREE_COMPLETE_REPORTS",
+        "run015_status": "COMPLETED_ROLL_270_AFTER_QP_EXCEPTION_FIX",
+        "functional_alignment_confirmed": false,
+        "bimanual_evaluated_for_new_probes": false
       }
     }
   },

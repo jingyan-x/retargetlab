@@ -1,14 +1,14 @@
 {
   "schema_version": "documentation.run_report_inventory.v1",
   "as_of": "2026-09-10",
-  "execution_status": "RESIDUAL_ATTRIBUTION_AND_BOUNDED_CONTROLS_COMPLETED",
-  "implementation_baseline_commit": "c76c076cd5a8334f591e4297bad22d5fa821efaf",
+  "execution_status": "CAPABILITY_BOUNDS_AND_Z_PRESERVING_PROBES_COMPLETED",
+  "implementation_baseline_commit": "3393bc611244c9d2ef5fede54de7335227bf443b",
   "scope": "All existing files under projects/*/runs in the canonical remote repository; metadata-only inventory; original artifacts unchanged",
   "source_dataset_reopened": false,
   "private_values_in_inventory": false,
   "inventory_is_not_a_gate_report": true,
-  "run_count": 33,
-  "file_count": 403,
+  "run_count": 37,
+  "file_count": 429,
   "runs": [
     {
       "project_alias": "private-sample-openarm",
@@ -1110,6 +1110,96 @@
     },
     {
       "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-capability-bounds-012",
+      "target": "OpenArm",
+      "purpose": "工具轴审计与固定摆位保守腕点界",
+      "interpretation": "完成；数值族5/60、保持+z族6/60帧固定摆位不可达；不证明任意摆位无解",
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-012/bounds.json",
+          "size_bytes": 5980,
+          "sha256": "6bd48866eae5b3ad044539bdb875f14257c78810946ec4366304ea3a288f67eb",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-012/bounds.log",
+          "size_bytes": 466,
+          "sha256": "fdc20fae094164b7545714c193477da4eb2be60defb806cdafe20fd68eef9476",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-012/execution.json",
+          "size_bytes": 321,
+          "sha256": "78530dfdda994932ea7e406e4767b4262ee1abc0c55ad26fc34f637743f0dd4c",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-012/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "efee4f62979fef8b5f5e69a1234557c27d54d6453c1511f499a5b96e5d490d5b",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-012/recipe.yaml",
+          "size_bytes": 7556,
+          "sha256": "b7aab51dcb77f5a53f2a4a654013dd19149f1b87568b1546ce6359bebcee6366",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-012/tool-axis-audit.json",
+          "size_bytes": 1233,
+          "sha256": "e69aae06f75647c9af748ababb8b0c2a7a3b463a99a6fc87675aaffca3cb71d1",
+          "category": "json_artifact"
+        }
+      ],
+      "own_recipe_present": true,
+      "file_count": 6,
+      "log_count": 1
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-capability-bounds-013",
+      "target": "OpenArm",
+      "purpose": "共同平移最小包围球上下界",
+      "interpretation": "完成；两族均可容纳于外包界；仅必要条件，不是IK通过",
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-013/bounds.json",
+          "size_bytes": 7516,
+          "sha256": "bb3bcc3ba95010616c1d0340078188c77d021030b6a13506cfb11b036c106199",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-013/bounds.log",
+          "size_bytes": 1902,
+          "sha256": "caf3f99a1a67ffee9c5cf697d1ca874cf65896f269ff82fd2ca74eb4f8994aa1",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-013/execution.json",
+          "size_bytes": 321,
+          "sha256": "b734ab919152ac2c5260e12c00d2fbb0dfcad311fb3ab60d0f8f6d7333228fb7",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-013/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "65dc63383e248aa1c1847e1b77c8b59af70056b570bdf96301f31a3dca0e726e",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-capability-bounds-013/recipe.yaml",
+          "size_bytes": 7682,
+          "sha256": "08f1b522f5e5449f3785ae5a1799280d19e91425ac26e4376564f3df36689347",
+          "category": "recipe"
+        }
+      ],
+      "own_recipe_present": true,
+      "file_count": 5,
+      "log_count": 1
+    },
+    {
+      "project_alias": "private-sample-openarm",
       "run_id": "20260910-openarm-separated-frames-001",
       "target": "OpenArm",
       "purpose": "错误接续后居中七点 / 共用工具对照",
@@ -1242,7 +1332,7 @@
           "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/target-only-fk-recovery-script.py",
           "size_bytes": 1831,
           "sha256": "365ad698dd6a6b964f200fd689eb090210c7e9535a1c24bbcd76ff978d72b54e",
-          "category": "saved_executed_script"
+          "category": "other"
         },
         {
           "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/target-only-fk-recovery.json",
@@ -1314,7 +1404,7 @@
           "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-004/stop-receipt.json",
           "size_bytes": 818,
           "sha256": "13e1c92c52538b79d95aeec51a2a0a1f2a0d2281480f138f3762f166fc7a6d47",
-          "category": "retrospective_stop_receipt"
+          "category": "json_artifact"
         }
       ]
     },
@@ -1413,7 +1503,7 @@
       "run_id": "20260910-openarm-separated-frames-007",
       "target": "OpenArm",
       "purpose": "固定候选残差归因",
-      "interpretation": "复现40/60；9帧位置阶段失败、11帧位置达标后full-pose失败；近限位活动已汇总",
+      "interpretation": "完成；9帧位置阶段失败，11帧位置达标后full-pose失败",
       "own_recipe_present": true,
       "log_count": 1,
       "file_count": 5,
@@ -1455,7 +1545,7 @@
       "run_id": "20260910-openarm-separated-frames-008",
       "target": "OpenArm",
       "purpose": "直接full-pose策略对照",
-      "interpretation": "完成；49/60、50/60，独立相交40/60；无改善",
+      "interpretation": "完成；49/60、50/60、独立相交40/60；无改善",
       "own_recipe_present": true,
       "log_count": 1,
       "file_count": 5,
@@ -1623,6 +1713,120 @@
           "category": "log"
         }
       ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-z-preserving-placement-014",
+      "target": "OpenArm",
+      "purpose": "保持+z的共同摆位及四roll探针",
+      "interpretation": "FAILED/PARTIAL；0/90/180完整，270遭QP异常；不得标4/4完成",
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/execution.json",
+          "size_bytes": 457,
+          "sha256": "2ce54c58c8a4040d57096a82cc44200ec1cd4042eb331ea2a54c3924a478d86e",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "bb719e19598abd8765f6b788b83e9cba28bb4377354561d6224d4b423b2b1142",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/recipe.yaml",
+          "size_bytes": 8463,
+          "sha256": "0a40e5f8f948415abbd0ef8f14b50e6f7461adfa6080f25ea7512b8009dfa2b4",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/results/z-preserving-roll-000.json",
+          "size_bytes": 6715,
+          "sha256": "b33c90bd8ee48bcce691adc288d4869cfbc07512bf761dfdcaf55d5a037dcdb7",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/results/z-preserving-roll-090.json",
+          "size_bytes": 6706,
+          "sha256": "40b99fde21c6f85109bf4dc86da27462a5444c046148906945711741be2efaeb",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/results/z-preserving-roll-180.json",
+          "size_bytes": 6717,
+          "sha256": "ee9770c6cd3576d04fda3776fd2684c36d594d5e456b0772b400f5c7156fb1a6",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-014/solver.log",
+          "size_bytes": 2470,
+          "sha256": "c988f7ca822f332f4221190d716b58c58615280e6e24eac058c023ad8080c72f",
+          "category": "log"
+        }
+      ],
+      "own_recipe_present": true,
+      "file_count": 7,
+      "log_count": 1
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-z-preserving-placement-015",
+      "target": "OpenArm",
+      "purpose": "QP异常修复后独立续跑270度",
+      "interpretation": "完成；3/60、8/60、相交0/60；完整回归155通过1跳过",
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/dispatch.log",
+          "size_bytes": 149,
+          "sha256": "3a2aaaaa7e3a5a268cd2883b8102286ba68b1b3a4695f2019fc119050afce5ff",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/execution-driver.py",
+          "size_bytes": 1939,
+          "sha256": "b1cae05727b7baae1a5cecf23c3c52d57cf45f6b8dec52c7209c703ca61863e8",
+          "category": "other"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/execution.json",
+          "size_bytes": 373,
+          "sha256": "4a460509fe4b233043f09360cf3c1041f932e6f84b9c9ac18216963b235f4039",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "7d5a6b89385f55f46508f197f88335dfd87ad41c1df4562d5c3d11f1df21372b",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/recipe.yaml",
+          "size_bytes": 7859,
+          "sha256": "159a5076a0c4bbafcfd5a48937aa8ae1779b6de37e41eb92eef29901e841ae56",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/regression.log",
+          "size_bytes": 2630,
+          "sha256": "17969206236c910d182ea58545ab90167555e92179c97b20d2b5ec7189a36ef6",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/results/z-preserving-roll-270.json",
+          "size_bytes": 6747,
+          "sha256": "2076834cad1699fec1f169d02ed97c239a1efc1e70e7b30fda64add4c1e7d995",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-z-preserving-placement-015/solver.log",
+          "size_bytes": 1288,
+          "sha256": "7241d7ddbc5d3e5095ca5166a4643107f187b772d66081d920d4d3928edf8368",
+          "category": "log"
+        }
+      ],
+      "own_recipe_present": true,
+      "file_count": 8,
+      "log_count": 3
     },
     {
       "project_alias": "target-reselection-panda",
@@ -2829,7 +3033,17 @@
   "code_snapshot": [
     {
       "path": "harness/m_minus_1/diagnose_openarm_separated_frames.py",
-      "sha256": "89653943a0087bef9c2225b163cb0ebadcaa3fc31f194efc783b24d18bed9007",
+      "sha256": "c4409706521ea6c8ab976d869ad14072ced8052d85a926ab847a3311e03ec9cf",
+      "git_state": "committed"
+    },
+    {
+      "path": "harness/m_minus_1/diagnose_single_arm.py",
+      "sha256": "dc436e05f2f19d8fa9e458f2f0f5fd9f14547786adac94ce626cd05c590e1ed6",
+      "git_state": "committed"
+    },
+    {
+      "path": "harness/m_minus_1/inspect_openarm_reachability_bounds.py",
+      "sha256": "dd94f4f231dd1c2a3495594a77bdfef8e3337360b257280eedf84e551052e376",
       "git_state": "committed"
     },
     {
@@ -2838,13 +3052,23 @@
       "git_state": "committed"
     },
     {
-      "path": "tests/unit/test_openarm_separated_frames.py",
-      "sha256": "fc9db1d1670e66c469d0249c592e6a82807b75062b31a64cd54675700ee41585",
+      "path": "tests/integration/test_openarm_profile.py",
+      "sha256": "a73b7e2a4a2dfc5c2ae07042e2bd22bc7ca241d6a35c72f9508f69099bf7a667",
+      "git_state": "committed"
+    },
+    {
+      "path": "tests/unit/test_openarm_reachability_bounds.py",
+      "sha256": "12f60569972f5f8a3b6d6ec508f9bb4a3e6acf19314410037178e8458f8cdbfd",
       "git_state": "committed"
     },
     {
       "path": "tests/unit/test_openarm_residual_diagnostics.py",
       "sha256": "1bc12eda2576e59faf4e281eb2a492076ab354d9ad544a9b8185060ea40e9e68",
+      "git_state": "committed"
+    },
+    {
+      "path": "tests/unit/test_openarm_separated_frames.py",
+      "sha256": "3e34b1242928479f83aeb8d029a6a18d320b458e764e5a553eb43a3c5201df62",
       "git_state": "committed"
     }
   ]
