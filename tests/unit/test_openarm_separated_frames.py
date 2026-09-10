@@ -139,3 +139,21 @@ def test_bimanual_gate_cannot_borrow_a_pass_from_changed_recipe():
     report["single_arm_results"][0]["aggregate"]["nominal_rate"] = 0.79
     with pytest.raises(ValueError, match="must pass"):
         validate_bimanual_prerequisite(report, recipe, recipe)
+
+
+def test_candidate_tool_roll_preserves_tcp_position_and_positive_z_axis():
+    import numpy as np
+    import pinocchio as pin
+    from diagnose_openarm_separated_frames import mapped_target
+    from probe_openarm_reachability import rotation_z
+
+    source = pin.SE3(rotation_z(20.0), np.array([0.1, 0.2, 0.3]))
+    mapping = {"world_rotation": np.eye(3), "tool_rotation_by_side": {"left": rotation_z(-90.0)}}
+    candidate = {"translation_offset_m": [0, 0.1, 0], "yaw_deg": 5.0}
+    first = mapped_target(source, candidate, np.zeros(3), mapping, "left")
+    rolled = mapped_target(
+        source, {**candidate, "tool_roll_deg": 90.0}, np.zeros(3), mapping, "left"
+    )
+    assert np.allclose(first.translation, rolled.translation)
+    assert np.allclose(first.rotation[:, 2], rolled.rotation[:, 2])
+    assert np.allclose(rolled.rotation, first.rotation @ rotation_z(90.0))

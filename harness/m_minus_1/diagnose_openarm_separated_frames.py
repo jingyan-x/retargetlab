@@ -109,13 +109,16 @@ def validate_bimanual_prerequisite(report: dict, prior_recipe: dict, recipe: dic
 
 
 def mapped_target(source, candidate, anchor, mapping, side):
+    tool_rotation = np.asarray(mapping["tool_rotation_by_side"][side])
+    if candidate.get("tool_roll_deg", 0):
+        tool_rotation = tool_rotation @ harness.rotation_z(candidate["tool_roll_deg"])
     position, rotation = transforms.apply_separated_frame_candidate(
         source.translation,
         source.rotation,
         base_rotation=harness.rotation_z(candidate["yaw_deg"]),
         base_translation=anchor + np.array(candidate["translation_offset_m"]),
         world_rotation=mapping["world_rotation"],
-        tool_rotation=mapping["tool_rotation_by_side"][side],
+        tool_rotation=tool_rotation,
         pose_direction="forward",
     )
     return pin.SE3(rotation, position)
