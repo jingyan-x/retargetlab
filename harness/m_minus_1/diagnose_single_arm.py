@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import pinocchio as pin
 from pink import Configuration, FrameTask, JointCouplingTask, PostureTask, solve_ik
+from pink.exceptions import NoSolutionFound
 from pink.limits import ConfigurationLimit, VelocityLimit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -76,8 +77,10 @@ def solve_once(
             target.rotation,
         )
         position_reached = position_error <= position_tolerance
-        reached = position_reached if goal_mode == "position_only" else (
-            position_reached and orientation_error <= orientation_tolerance
+        reached = (
+            position_reached
+            if goal_mode == "position_only"
+            else (position_reached and orientation_error <= orientation_tolerance)
         )
         if reached:
             status = "CONVERGED"
@@ -93,20 +96,24 @@ def solve_once(
         if no_progress >= int(solve_options["no_progress_window"]):
             status = "RESIDUAL_TOO_HIGH"
             break
-        velocity = solve_ik(
-            configuration,
-            [task, posture],
-            float(solve_options["integration_dt_s"]),
-            solver=str(solve_options["qp_solver"]),
-            damping=float(solve_options["damping"]),
-            limits=limits,
-            constraints=coupling_tasks,
-            safety_break=False,
-            eps_abs=float(solve_options["qp_eps_abs"]),
-            eps_rel=float(solve_options["qp_eps_rel"]),
-            max_iter=int(solve_options["qp_max_iterations"]),
-            polish=bool(solve_options["qp_polish"]),
-        )
+        try:
+            velocity = solve_ik(
+                configuration,
+                [task, posture],
+                float(solve_options["integration_dt_s"]),
+                solver=str(solve_options["qp_solver"]),
+                damping=float(solve_options["damping"]),
+                limits=limits,
+                constraints=coupling_tasks,
+                safety_break=False,
+                eps_abs=float(solve_options["qp_eps_abs"]),
+                eps_rel=float(solve_options["qp_eps_rel"]),
+                max_iter=int(solve_options["qp_max_iterations"]),
+                polish=bool(solve_options["qp_polish"]),
+            )
+        except NoSolutionFound:
+            status = "QP_FAILED"
+            break
         if not np.all(np.isfinite(velocity)):
             status = "NUMERICAL_FAILURE"
             break
@@ -125,9 +132,8 @@ def solve_once(
         configuration.get_transform_frame_to_world(harness.TCP_FRAMES[side]).rotation,
         target.rotation,
     )
-    if (
-        position_error <= position_tolerance
-        and (goal_mode == "position_only" or orientation_error <= orientation_tolerance)
+    if position_error <= position_tolerance and (
+        goal_mode == "position_only" or orientation_error <= orientation_tolerance
     ):
         status = "CONVERGED"
     limit_violation, limit_margin = harness.joint_limit_metrics(model, configuration.q)

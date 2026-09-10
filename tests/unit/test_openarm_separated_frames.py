@@ -157,3 +157,37 @@ def test_candidate_tool_roll_preserves_tcp_position_and_positive_z_axis():
     assert np.allclose(first.translation, rolled.translation)
     assert np.allclose(first.rotation[:, 2], rolled.rotation[:, 2])
     assert np.allclose(rolled.rotation, first.rotation @ rotation_z(90.0))
+
+
+def test_single_arm_retries_after_qp_failed_seed(monkeypatch):
+    import diagnose_single_arm as single
+    import numpy as np
+
+    calls = []
+
+    def attempt(*args):
+        calls.append(args[4])
+        success = len(calls) == 2
+        return {
+            "status": "CONVERGED" if success else "QP_FAILED",
+            "iterations": 1,
+            "position_error_m": 0.0 if success else 0.1,
+            "orientation_error_rad": 0.0 if success else 0.5,
+            "joint_limit_violation": False,
+            "joint_limit_margin": 0.1,
+            "q": args[4].copy(),
+        }
+
+    monkeypatch.setattr(single, "solve_once", attempt)
+    result = single.solve_pose(
+        None,
+        None,
+        "left",
+        None,
+        [np.zeros(1), np.ones(1)],
+        {"solver_strategy": "full_pose", "retry_seed_count": 2},
+        0.005,
+        0.035,
+    )
+    assert result["status"] == "CONVERGED"
+    assert len(calls) == 2

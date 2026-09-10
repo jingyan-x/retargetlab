@@ -179,3 +179,57 @@ def test_geometric_outer_bound_never_rejects_target_fk_poses():
     report = summarize_bounds(wrists, centers, radii, 0.0)
     assert report["fixed_current_placement"]["any_arm_certified_impossible_frames"] == 0
     assert report["any_common_rigid_placement"]["bimanual_span_certified_impossible_frames"] == 0
+
+
+def test_single_arm_qp_exception_returns_finite_failure(monkeypatch):
+    import sys
+
+    import pinocchio as pin
+    from pink.exceptions import NoSolutionFound
+
+    raw_asset_dir = os.environ.get("RETARGETLAB_OPENARM_ASSET_DIR")
+    if not raw_asset_dir:
+        pytest.skip("set RETARGETLAB_OPENARM_ASSET_DIR for the QP failure check")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "harness/m_minus_1"))
+    import diagnose_single_arm as single
+    import probe_openarm_reachability as harness
+
+    asset = Path(raw_asset_dir)
+    model, geometry, _ = harness.prepare_geometry(
+        asset, harness.discover_manifest_srdf(asset, None)
+    )
+    geometry.removeAllCollisionPairs()
+    seed = harness.clamp_configuration(model, pin.neutral(model))
+    goal_q = seed.copy()
+    goal_q[harness.joint_value_index(model, "openarm_left_joint1")] += 0.2
+    data = model.createData()
+    pin.framesForwardKinematics(model, data, goal_q)
+    target = data.oMf[model.getFrameId(harness.TCP_FRAMES["left"])].copy()
+
+    def no_solution(*args, **kwargs):
+        raise NoSolutionFound(None, None)
+
+    monkeypatch.setattr(single, "solve_ik", no_solution)
+    options = {
+        "position_cost": 1.0,
+        "orientation_cost": 1.0,
+        "posture_cost": 0.01,
+        "mimic_constraint_cost": 1.0,
+        "max_iterations": 2,
+        "no_progress_min_delta": 1e-6,
+        "no_progress_window": 20,
+        "integration_dt_s": 0.01,
+        "qp_solver": "osqp",
+        "damping": 1e-12,
+        "qp_eps_abs": 1e-5,
+        "qp_eps_rel": 1e-5,
+        "qp_max_iterations": 4000,
+        "qp_polish": True,
+    }
+    result = single.solve_once(
+        model, geometry, "left", target, seed, options, 0.005, 0.035, "full_pose"
+    )
+    assert result["status"] == "QP_FAILED"
+    assert np.isfinite(result["position_error_m"])
+    assert np.isfinite(result["orientation_error_rad"])
+    assert np.allclose(result["q"], seed)
