@@ -102,3 +102,40 @@ def test_changed_input_cannot_reuse_frozen_recipe(tmp_path):
 def test_absent_input_cannot_match_missing_fingerprint(tmp_path):
     with pytest.raises(ValueError, match="dataset differs from frozen recipe"):
         check_fingerprint(tmp_path / "missing", None, "dataset")
+
+
+def test_bimanual_gate_cannot_borrow_a_pass_from_changed_recipe():
+    from copy import deepcopy
+
+    from diagnose_openarm_separated_frames import validate_bimanual_prerequisite
+
+    candidate = {"candidate_id": "same-id", "translation_offset_m": [0.25, -0.15, -0.15]}
+    recipe = {
+        "frame_mapping": {"tool": "data-derived"},
+        "solve_options": {"max_iterations": 300},
+        "reachability": {"position_tolerance": 0.005},
+        "dataset": {"revision": "frozen"},
+        "robot": {"manifest_hash": "frozen"},
+        "t2": {
+            "separated_candidates": [candidate],
+            "anchor": {"seed": 1},
+            "budget": {"fractions": [0, 0.25, 0.5, 0.75, 1]},
+        },
+    }
+    report = {
+        "candidate": candidate,
+        "single_arm_results": [result("left"), result("right")],
+        "sampling": {"split": "calibration", "frame_count": 60, "held_out_read": False},
+    }
+    validate_bimanual_prerequisite(report, recipe, recipe)
+    changed = deepcopy(recipe)
+    changed["t2"]["separated_candidates"][0]["translation_offset_m"][0] = 0.30
+    with pytest.raises(ValueError, match="candidate differs"):
+        validate_bimanual_prerequisite(report, recipe, changed)
+    changed = deepcopy(recipe)
+    changed["reachability"]["position_tolerance"] = 0.01
+    with pytest.raises(ValueError, match="reachability differs"):
+        validate_bimanual_prerequisite(report, recipe, changed)
+    report["single_arm_results"][0]["aggregate"]["nominal_rate"] = 0.79
+    with pytest.raises(ValueError, match="must pass"):
+        validate_bimanual_prerequisite(report, recipe, recipe)

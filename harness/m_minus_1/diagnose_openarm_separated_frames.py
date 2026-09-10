@@ -91,6 +91,90 @@ def check_fingerprint(path: Path, expected: str, label: str) -> str:
     return actual
 
 
+def validate_bimanual_prerequisite(report: dict, prior_recipe: dict, recipe: dict) -> None:
+    """A different candidate or task cannot borrow another single-arm pass."""
+    if not gate(report["single_arm_results"], report["sampling"]["frame_count"]):
+        raise ValueError("both independent full-pose arms must pass before bimanual evaluation")
+    if report["sampling"] != {"split": "calibration", "frame_count": 60, "held_out_read": False}:
+        raise ValueError("prerequisite must use the frozen calibration prescreen")
+    if recipe["t2"]["separated_candidates"] != [report["candidate"]]:
+        raise ValueError("bimanual candidate differs from passing prerequisite")
+    for key in ("frame_mapping", "solve_options", "reachability", "dataset", "robot"):
+        if prior_recipe[key] != recipe[key]:
+            raise ValueError(f"bimanual {key} differs from passing prerequisite")
+    for key in ("anchor", "budget"):
+        if prior_recipe["t2"][key] != recipe["t2"][key]:
+            raise ValueError(f"bimanual T2 {key} differs from passing prerequisite")
+
+
+def mapped_target(source, candidate, anchor, mapping, side):
+    position, rotation = transforms.apply_separated_frame_candidate(
+        source.translation,
+        source.rotation,
+        base_rotation=harness.rotation_z(candidate["yaw_deg"]),
+        base_translation=anchor + np.array(candidate["translation_offset_m"]),
+        world_rotation=mapping["world_rotation"],
+        tool_rotation=mapping["tool_rotation_by_side"][side],
+        pose_direction="forward",
+    )
+    return pin.SE3(rotation, position)
+
+
+def evaluate_bimanual(
+    candidate,
+    mapping,
+    anchor,
+    indices,
+    rows,
+    model,
+    full_geometry,
+    seeds,
+    options,
+    pos_tol,
+    rot_tol,
+    relaxed,
+):
+    solver_geometry = full_geometry.copy()
+    solver_geometry.removeAllCollisionPairs()
+    barrier_geometry = harness.reduced_barrier_geometry(
+        full_geometry, int(options["self_collision_barrier_pair_budget"])
+    )
+    aggregate = harness.new_aggregate()
+    for episode, frame in indices:
+        targets = {
+            side: mapped_target(
+                harness.state_pose(rows[(episode, frame)], side), candidate, anchor, mapping, side
+            )
+            for side in ("left", "right")
+        }
+        result = harness.solve_with_collision_fallback(
+            model,
+            solver_geometry,
+            barrier_geometry,
+            full_geometry,
+            seeds[0],
+            targets["left"],
+            targets["right"],
+            options,
+            pos_tol,
+            rot_tol,
+            relaxed,
+            additional_seeds=seeds[1:],
+        )
+        harness.add_result(
+            aggregate,
+            result,
+            pos_tol,
+            rot_tol,
+            collision_barrier_fallback=bool(result["collision_barrier_fallback"]),
+        )
+    finalized = harness.finalize_aggregate(aggregate)
+    # Isolated frames do not evaluate continuity even though the legacy
+    # aggregate has an always-zero delta field.
+    finalized.pop("delta_violation_fraction", None)
+    return finalized
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--recipe", type=Path, required=True)
@@ -98,6 +182,7 @@ def main() -> int:
     parser.add_argument("--asset-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--candidate-id")
+    parser.add_argument("--mode", choices=("single_arm", "bimanual"), default="single_arm")
     args = parser.parse_args()
     recipe = harness.load_recipe(args.recipe)
     frame_mapping = recipe["frame_mapping"]
@@ -134,6 +219,18 @@ def main() -> int:
     input_hashes["splits"] = check_fingerprint(
         splits_path, recipe["dataset"]["splits_sha256"], "calibration split"
     )
+    prior_report = None
+    if args.mode == "bimanual":
+        prerequisite = recipe["bimanual_prerequisite"]
+        prior_path = repo / prerequisite["report_path"]
+        check_fingerprint(prior_path, prerequisite["report_sha256"], "single-arm prerequisite")
+        prior_report = json.loads(prior_path.read_text())
+        prior_recipe_path = repo / prerequisite["recipe_path"]
+        check_fingerprint(prior_recipe_path, prior_report["recipe_sha256"], "prior recipe")
+        prior_recipe = harness.load_recipe(prior_recipe_path)
+        validate_bimanual_prerequisite(prior_report, prior_recipe, recipe)
+        if prior_report["input_sha256"] != input_hashes:
+            raise ValueError("bimanual inputs differ from passing prerequisite")
     splits = harness.load_splits(splits_path)
     rows, lengths = harness.load_calibration_rows(args.dataset_root, splits["calibration"])
     indices = harness.pre_screen_indices(
@@ -145,6 +242,7 @@ def main() -> int:
     model, geometry, _ = harness.prepare_geometry(
         args.asset_dir, harness.discover_manifest_srdf(args.asset_dir, None)
     )
+    full_geometry = geometry.copy()
     geometry.removeAllCollisionPairs()
     anchor = harness.reachable_cloud_median(
         model,
@@ -168,6 +266,61 @@ def main() -> int:
         output = args.output_dir / (candidate["candidate_id"] + ".json")
         if output.exists():
             raise FileExistsError("refusing to overwrite a candidate report")
+        if prior_report is not None:
+            aggregate = evaluate_bimanual(
+                candidate,
+                frame_mapping,
+                anchor,
+                indices,
+                rows,
+                model,
+                full_geometry,
+                seeds,
+                options,
+                pos_tol,
+                rot_tol,
+                relaxed,
+            )
+            report = {
+                "schema_version": "m_minus_1.openarm_separated_bimanual.v1",
+                "recipe_id": recipe["recipe_id"],
+                "candidate": candidate,
+                "recipe_sha256": metrics.sha256_file(args.recipe),
+                "input_sha256": input_hashes,
+                "target_urdf_sha256": metrics.sha256_file(urdf),
+                "harness_sha256": metrics.sha256_file(Path(__file__)),
+                "helper_sha256": {
+                    module.__name__: metrics.sha256_file(Path(module.__file__))
+                    for module in (metrics, single_arm, transforms, harness)
+                },
+                "frame_mapping": frame_mapping,
+                "target_tcp_audit": audit,
+                "prerequisite": recipe["bimanual_prerequisite"],
+                "sampling": {"split": "calibration", "frame_count": 60, "held_out_read": False},
+                "ik_budget": options,
+                "aggregate": aggregate,
+                "collision_evaluation": "full_geometry_postcheck_with_barrier_fallback",
+                "bimanual_evaluated": True,
+                "continuity_evaluated": False,
+                "formal_recipe_promoted": False,
+                "privacy": {
+                    "raw_values_emitted": False,
+                    "held_out_values_read": False,
+                    "training_data_exported": False,
+                },
+            }
+            output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
+            print(
+                json.dumps(
+                    {
+                        "candidate": candidate["candidate_id"],
+                        "bimanual_nominal_rate": aggregate["nominal_rate"],
+                        "penetration_fraction": aggregate["penetration_fraction"],
+                    }
+                ),
+                flush=True,
+            )
+            continue
         results = []
         success_by_side = {}
         for side in ("left", "right"):
@@ -175,20 +328,12 @@ def main() -> int:
             success_by_side[side] = []
             for episode, frame in indices:
                 source = harness.state_pose(rows[(episode, frame)], side)
-                position, rotation = transforms.apply_separated_frame_candidate(
-                    source.translation,
-                    source.rotation,
-                    base_rotation=harness.rotation_z(candidate["yaw_deg"]),
-                    base_translation=anchor + np.array(candidate["translation_offset_m"]),
-                    world_rotation=frame_mapping["world_rotation"],
-                    tool_rotation=frame_mapping["tool_rotation_by_side"][side],
-                    pose_direction="forward",
-                )
+                target = mapped_target(source, candidate, anchor, frame_mapping, side)
                 result = single_arm.solve_pose(
                     model,
                     geometry,
                     side,
-                    pin.SE3(rotation, position),
+                    target,
                     seeds,
                     options,
                     pos_tol,
