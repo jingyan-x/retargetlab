@@ -2,7 +2,7 @@
 
 整理日期：2026-09-10。当前状态见 [current-status.md](current-status.md)。包含整理记录及用户授权恢复后的新增实验。
 
-本次覆盖远端仓库 projects/*/runs 的 **28 个 run、377 个文件**。完整相对路径、大小和 SHA-256 见 [文件级清单](evidence/run-report-inventory-20260910.json)。
+本次覆盖远端仓库 projects/*/runs 的 **33 个 run、403 个文件**。完整相对路径、大小和 SHA-256 见 [文件级清单](evidence/run-report-inventory-20260910.json)。
 
 ## 当前采用的证据
 
@@ -17,6 +17,12 @@
 
 | OA-POSE-PASS | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/results/refined-t2-020.json` | `2181fd1f24c6bcbab6367fca1ed34ddba8a453f871cfd63f316a2838a8b53a42` |
 | OA-BIMANUAL | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/results/refined-t2-020.json` | `29b08b9cec7bc978004c702e206e69980c9bf5ffc0c235d9188e639fab04cda2` |
+
+| OA-RESIDUAL-AUDIT | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-010/results/refined-t2-020.json` | `ec764c4d7e5e0a9b91c35750ce5fc8bb24765597cd4689878ad0e8ce25b2381a` |
+| OA-DIRECT-POSE | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-008/results/refined-t2-020.json` | `e50d346791f0a0c859e6d66977a1711c8e2dda20359666ef97dd2cf44de79cad` |
+| OA-SEED16 | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-009/results/refined-t2-020.json` | `6cdaa54c7c89aff8a148e3c506d4af24625e4553bbcf4b9a7a800b406920668a` |
+| OA-T2-TOWARD | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-011/results/toward-residual-30mm.json` | `feba88ed569d84b901fa851470e40bc77326d96d4907fc1b9692d15b3cd781e9` |
+| OA-T2-AWAY | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-011/results/away-residual-30mm.json` | `5a14072c16461da31a7cd6727df33d0d301aedea5882f9427a2d1e8e93f27a65` |
 
 85% 是 OA-POS-BEST 的 **position-only、未检查碰撞、同帧两侧分别求解成功**；完整位姿基线是 OA-POSE-BASE 的 78.33% / 88.33%，且已由 OA-POSE-REPRO 复现。两种口径不得互相替代。恢复后OA-POSE-PASS达到81.67%/83.33%；OA-BIMANUAL联合成功40/60（66.67%），碰撞0、越界0，仍未过双臂门槛。
 
@@ -52,6 +58,11 @@ OpenArm 行的路径前缀为 projects/private-sample-openarm/runs/，Panda 行�
 | `20260910-openarm-separated-frames-004` | OpenArm / 恢复旧最佳与细化点 full-pose | 用户暂停，1/2 完成；旧最佳复现 78.33% / 88.33%，细化点无完整报告 | 有 | 0 / 4 |
 | `20260910-openarm-separated-frames-005` | OpenArm / 续跑细化full-pose单臂 | 完成；49/60、50/60，首次双侧过80%；独立相交40/60 | 有 | 1 / 5 |
 | `20260910-openarm-separated-frames-006` | OpenArm / 联合full-pose与碰撞后检 | 完成；40/60，碰撞0、越界0，20帧残差失败；双臂RED | 有 | 1 / 6 |
+| `20260909-openarm-source-semantics-007` | OpenArm / 固定候选残差归因 | 复现40/60；9帧位置阶段失败、11帧位置达标后full-pose失败；近限位活动已汇总 | 有 | 1 / 1 |
+| `20260909-openarm-source-semantics-008` | OpenArm / 直接full-pose策略对照 | 完成；49/60、50/60，独立相交40/60；无改善 | 有 | 1 / 1 |
+| `20260910-openarm-separated-frames-009` | OpenArm / 16初值敏感性对照 | 完成；49/60、50/60，独立相交40/60；停止扩大初值 | 有 | 1 / 5 |
+| `20260910-openarm-separated-frames-010` | OpenArm / 带方向的位置残差测量 | 复现40/60；两侧失败残差均主要沿−x/+y，作为小步T2依据 | 有 | 1 / 5 |
+| `20260910-openarm-separated-frames-011` | OpenArm / 沿/逆残差方向30mm局部T2对照 | 2/2完成；沿向51/60、49/60、相交40/60；反向48/60、50/60、相交39/60；未继续放大或替换基线 | 有 | 1 / 6 |
 | `20260903-m1-panda-001` | Panda / 早期反向 side mapping | 已废弃方向，不能选作 Panda 或 OpenArm 基线 | 有 | 27 / 59 |
 | `20260904-m1-panda-002` | Panda / 修正 side mapping 的独立目标重选 | 历史 YELLOW；600 帧 nominal 99.17%，不代表 OpenArm | 有 | 65 / 137 |
 
@@ -89,3 +100,7 @@ source-semantics-001 共用工具初探 → 002 在旧点位枚举 tool 右乘 �
 2. 早期全 20 ep 数值分析与后设 12/8 split 的关系需审计。各 run 的 held_out=false 只覆盖该次运行，不证明历史完全未见过。
 3. 接续从current-status、OA-POSE-PASS / OA-BIMANUAL开始，历史对照为OA-POSE-REPRO / OA-POS-BEST；候选必须附 run ID 与参数，不能仅说 t2-020。
 4. 改映射、目标帧、位置网格或 solver budget 时新建 recipe；完成、失败、中断都记录，不能只保存高分。
+
+## 固定候选诊断结论
+
+007/010将20帧失败拆为9帧位置阶段失败与11帧姿态阶段损失，并记录限位活动和聚合残差方向。008直接full-pose、009初值扩至16均不改善49/60、50/60与相交40/60。011沿/逆方向30mm分别得到相交40/60、39/60，未满足继续放大条件；两个新T2不替代联合基线，也没有新的双臂联合报告。下一步见施工清单。

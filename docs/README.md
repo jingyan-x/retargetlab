@@ -11,7 +11,7 @@
 | [product-plan-v2.md](product-plan-v2.md) | 产品范围与验收定义 |
 | [engineering-plan-v1.md](engineering-plan-v1.md) | 接口、代码责任与工程设计 |
 | [openarm-mapping-spec.json](openarm-mapping-spec.json) | 已知语义、目标约定、未确认的映射候选 |
-| [文件级证据清单](evidence/run-report-inventory-20260910.json) | 28个run、377个文件的路径、大小与哈希 |
+| [文件级证据清单](evidence/run-report-inventory-20260910.json) | 33个run、403个文件的路径、大小与哈希 |
 | [历史材料与全文追溯](archive/README.md) | 早期技术/决策资料及精简前Git版本 |
 
 ## 使用规则

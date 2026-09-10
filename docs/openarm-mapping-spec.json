@@ -188,7 +188,7 @@
     "legacy_candidate_limitation": "world-frame rotations were left-multiplied into position and orientation; source-to-target tool correction was not independently represented",
     "next_candidate_family": "verified forward source pose with separate world-frame left multiplication and per-side tool-frame right multiplication",
     "current_target_mapping_status": "diagnostic candidate only",
-    "execution_state": "DEVELOPMENT_RESUMED_BIMANUAL_RESIDUAL_GATE",
+    "execution_state": "FIXED_CANDIDATE_RESIDUAL_AUDIT_COMPLETE_BIMANUAL_RED",
     "current_status_reference": "docs/current-status.md",
     "report_index_reference": "docs/report-index.md",
     "recovered_diagnostic_checkpoints": {
@@ -233,6 +233,22 @@
         "residual_failure_frames": 20,
         "continuity_evaluated": false,
         "gate_passed": false
+      },
+      "residual_controls": {
+        "runs": [
+          "20260910-openarm-separated-frames-007",
+          "20260910-openarm-separated-frames-008",
+          "20260910-openarm-separated-frames-009",
+          "20260910-openarm-separated-frames-010",
+          "20260910-openarm-separated-frames-011"
+        ],
+        "position_stage_failed_frames": 9,
+        "position_reached_then_full_pose_failed_frames": 11,
+        "direct_full_pose_improved": false,
+        "sixteen_seeds_improved": false,
+        "directed_30mm_independent_intersection_improved": false,
+        "bimanual_baseline_changed": false,
+        "physical_tool_alignment_confirmed": false
       }
     }
   },
