@@ -1,3 +1,5 @@
+> **历史 blocker 档案（2026-09-10 标记）。** 下文按时间保留当时的判断，其中多处“下一步”已过期。现行停止点只看 [current-status.md](current-status.md)，完整结果见 [report-index.md](report-index.md)。9 月 9 日后续遗漏报告已补登，本文不再继续追加当前状态。
+
 # M-1.7 frame-semantics checkpoint
 
 ## Confirmed
@@ -99,7 +101,7 @@ cross-checking, but is not silently assumed as a prerequisite:
 - the source URDF and source TCP/frame convention; or
 - an authorized source-to-target pose mapping with its evidence and validation set.
 
-Held-out episodes remain unread before M-1c, and no raw private poses or source paths belong in reports.
+Held-out episodes remain unread before M1c, and no raw private poses or source paths belong in reports.
 
 ## 2026-09-04 follow-up: OpenArm-first semantic isolation
 

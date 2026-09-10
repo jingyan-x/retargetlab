@@ -1,5 +1,7 @@
 # RetargetLab development log
 
+> Current execution state is maintained in [current-status.md](current-status.md); report identities and scopes are in [report-index.md](report-index.md). Entries below are historical. Their next-action statements are not current instructions.
+
 This is an append-only engineering record for the remote-first development
 workflow. It records decisions, evidence, discarded attempts, and stopping
 points. It must not contain raw private poses, private dataset values, source
@@ -2674,3 +2676,126 @@ This evidence fixes the source pose as forward `base_link_T_tcp`, with MQ03 base
 A review-only remote diagnostic kept old base candidate `t2-023`, used an identity FLU world mapping, and tested one inferred right-multiplied tool correction against OpenArm `link7` and `hand_tcp`. The best left result was `hand_tcp` at `0.450` nominal; the best right result was `link7` at `0.4833` nominal. Neither arm cleared the `0.80` gate under one target-frame convention, so no bimanual solve was authorized. The gitignored report is `20260909-openarm-source-semantics-001/tool-frame-prescreen.json`, SHA-256 `cc9490c9ddf31cc16a18c7102b0b3ec7fa205d1382526f7687856dc828e105ce`. This is not a formal recipe promotion: `t2-023` was selected under the legacy mapping and OpenArm left/right TCP physical-axis/mirror semantics remain to be verified.
 
 Next gate: implement separated world/tool transforms, verify one OpenArm TCP convention for both sides, rerun the frozen 60-frame independent-arm T2 prescreen under a new recipe, and authorize bimanual evaluation only when both arms reach `0.80`.
+
+
+## 2026-09-10 · reconcile all reports, logs and plans; pause experiments
+
+The user requested stopping experimental work and reconciling the record. No
+new IK, grid search, source-data read, export, or held-out evaluation is part
+of this documentation phase. Original reports and logs are retained unchanged.
+The active read order is now current-status.md -> report-index.md ->
+build-checklist.md. Product/engineering documents remain design references;
+this append-only log and m1-004-frame-semantics-blocker.md retain history.
+
+### Recovered September 9 reports that were not appended successfully
+
+The previous September 9 entry covered only source-semantics-001. Actual
+remote runs 002 through 008 also existed, but the later append/archive attempt
+did not complete. The omission made the checked-in log an incomplete account
+of the experiments. The original reports were located and read during this
+reconciliation, rather than inferred from remembered percentages.
+
+- source-semantics-002: 24 right-multiplied tool rotations at old t2-023,
+  hand_tcp; best independent sides were 46.67% and 70%, under different tools.
+- source-semantics-003: position-only old-grid prescreen; t2-047 at offsets
+  [0.30, -0.20, -0.10] m / yaw 0 deg gave 56/60 left, 54/60 right and 50/60
+  same-frame independent-side intersection.
+- source-semantics-004: tool search at t2-047 gave left axis-13 and right
+  axis-17 as separate data-derived candidates, at 47/60 and 53/60 nominal.
+- source-semantics-005: the same per-side candidates were checked with
+  300 iterations / 4 seeds, remaining 47/60 and 53/60. Left is below 0.80.
+- source-semantics-006: ten T2 candidates with these tools did not produce a
+  same-candidate bilateral single-arm gate pass. The field joint_nominal_rate
+  is the minimum of the two side rates, not an observed bimanual intersection.
+- source-semantics-007: targeted tool checks at three candidate/side pairs did
+  not clear that gate.
+- source-semantics-008: position-only 81-point local refinement reached
+  57/60 left (95%), 54/60 right (90%), and 51/60 same-frame independent-side
+  intersection (85%) at refined-grid t2-020, offsets [0.25, -0.15, -0.15] m,
+  yaw +5 deg. This did not constrain orientation or evaluate collisions.
+
+Key original report hashes:
+
+- refined-position-t2.json:
+  759a473211dc2a139d9e405ad9514c63d1befdce3ba2616ceaedb0b2b14d30ff
+- per-side-tool-full-budget.json:
+  28891b328d79255afe888e790b991490e5fdcd7b6fb3002278a2db152e7b61eb
+
+The 85% result is real and remains the position-only baseline. It is not a
+full-pose, collision-checked, continuous bimanual acceptance result. The source
+FK check remains recorded in the earlier log/MappingSpec and task execution
+record; no independent source FK numeric report was found among the run files.
+
+### September 10 continuation and its correction
+
+Before this reconciliation the current session checked committed documentation
+but missed the unarchived September 9 follow-up reports. It consequently
+started from old t2-023 / a common-tool hypothesis and then centered T2 probes.
+Those experiments are preserved as side diagnostics, not as a replacement for
+the stronger prior baselines. The user's reminder of the 90%/80% results led
+to recovering the missing report chain.
+
+A separated-frame diagnostic runner and six regression cases were added to
+the worktree before the pause. It verifies the target hand_tcp fixed chain,
+uses forward source poses with independent world/tool rotations, evaluates
+only the frozen 60 calibration frames and emits aggregates. It does not
+promote a formal recipe or evaluate bimanual results automatically.
+The new runner/tests were untracked at the start of documentation cleanup;
+their hashes are recorded in the inventory. Cleanup does not change this
+implementation or silently treat it as committed.
+
+The completed diagnostic runs were:
+
+- separated-frames-001: seven centered translation probes with one common
+  tool correction, 120 iterations / one seed; no single-arm bilateral gate.
+- separated-frames-002: centered full budget, 15%/15%; a separate target-only
+  FK positive control with 12 configurations recovered 11/12 left and 12/12
+  right. The latter uses no private input and evaluates no collision, so it
+  is only solver-chain evidence.
+- separated-frames-003: old t2-023 location with the common tool and full
+  budget, 63.33% left / 38.33% right; not the current best tool family.
+- separated-frames-004: restored the September 9 per-side tool candidates.
+  restored-t2-047 completed at 47/60 left and 53/60 right, reproducing the
+  earlier full-pose baseline exactly. The next candidate, refined-t2-020,
+  was interrupted by SIGINT at the user's request and has no complete report.
+
+A retrospective stop-receipt.json records that run 004 completed one of two
+candidates; it is explicitly not an original solver log. No complete metric
+is inferred for the interrupted candidate, and existing results are not
+overwritten.
+
+Before the pause, focused world/tool and gate checks passed 13 tests. The full
+suite passed 137 with 5 skipped; a separate asset-enabled OpenArm integration
+invocation passed 3. These are separate invocations, not an additive total.
+Optional LeRobot runtime checks remain unavailable in this environment.
+
+### Reconciled interpretation and follow-up boundary
+
+Target URDF inspection confirms the same local hand convention on both sides:
+link7 -> hand_tcp is +z 0.1801 m with zero fixed rotation, and fingers translate
+along +/-y. This retires the claim that the target local hand chains themselves
+are still unknown. It does not establish the functional source-to-target
+axis pairing. The source EEF is already a TCP; using the same target position
+for link7 without the target fixed-offset conversion changes the task point.
+
+The stale unchecked build checklist has been archived and replaced by a
+current operational checklist. Product/engineering references now distinguish
+existing generic code and synthetic fixtures from unpassed OpenArm private-data
+exits. Old architecture/meeting documents are explicitly historical.
+
+A further evidence limitation is retained: early planning records analysis of
+all 20 episodes before the later 12/8 split. Per-run held_out=false statements
+are not a proof that those episodes have never been observed in earlier work.
+M1c independence requires an audit of existing records; this cleanup neither
+reads held-out values nor declares contamination resolved.
+
+The report inventory covers all 26 existing run directories and 366 files,
+including 127 logs, using relative paths, sizes and SHA-256. It is an inventory,
+not a new result or acceptance report. Raw datasets and private source paths
+remain outside the documentation.
+
+Current execution is PAUSED_BY_USER. If work is later resumed, use the restored
+full-pose baseline and the position-only refined best as separate references.
+Do not resume centered probes, promote a tool rotation from its IK score, or
+claim the interrupted refined point passed. Full-pose single-arm, bimanual,
+collision/continuity, M1a, M1b and M1c remain separate gates.

@@ -130,13 +130,49 @@
       "evidence": "DATA_DERIVED",
       "provenance": "Pinocchio FK from MQ03 source joints and source URDF",
       "evidence_scope": "frozen calibration sample only"
+    },
+    "openarm_target_tcp_local_convention": {
+      "value": {
+        "target_frame": "hand_tcp",
+        "same_local_convention_both_sides": true,
+        "link7_to_hand_tcp_translation_m": [
+          0.0,
+          0.0,
+          0.1801
+        ],
+        "link7_to_hand_tcp_rotation": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            1
+          ]
+        ],
+        "opening_axis": "plus_minus_y",
+        "tcp_extension_axis": "plus_z"
+      },
+      "evidence": "DERIVED",
+      "provenance": "generated target URDF fixed chains and finger prismatic axes",
+      "evidence_scope": "openarm_description@6148297241fb0402eafe2c6eed455ae4e90d4552",
+      "limitations": [
+        "same local target hand structure does not establish source-to-target functional axis correspondence"
+      ]
     }
   },
   "unresolved": {
     "source_tool_axis_alignment_to_openarm_tool_axis": {
       "value": null,
       "evidence": "UNRESOLVED",
-      "provenance": "OpenArm left/right TCP physical-axis and mirror mapping are not yet verified"
+      "provenance": "Target local hand/TCP chains are verified; source-to-target functional axis pairing remains data-derived candidates, not an established physical frame identity."
     }
   },
   "calibration_policy": {
@@ -151,7 +187,36 @@
     "legacy_candidate_family": "24 proper right_handed world-axis rotations x forward_or_inverse_pose",
     "legacy_candidate_limitation": "world-frame rotations were left-multiplied into position and orientation; source-to-target tool correction was not independently represented",
     "next_candidate_family": "verified forward source pose with separate world-frame left multiplication and per-side tool-frame right multiplication",
-    "current_target_mapping_status": "diagnostic candidate only"
+    "current_target_mapping_status": "diagnostic candidate only",
+    "execution_state": "PAUSED_BY_USER_FOR_DOCUMENTATION_RECONCILIATION",
+    "current_status_reference": "docs/current-status.md",
+    "report_index_reference": "docs/report-index.md",
+    "recovered_diagnostic_checkpoints": {
+      "position_only": {
+        "run_id": "20260909-openarm-source-semantics-008",
+        "candidate_id": "t2-020",
+        "left_rate": 0.95,
+        "right_rate": 0.9,
+        "same_frame_independent_both_rate": 0.85,
+        "orientation_constrained": false,
+        "collision_evaluated": false,
+        "formal_gate_passed": false
+      },
+      "full_pose_independent_arms": {
+        "run_id": "20260909-openarm-source-semantics-005",
+        "candidate_id": "t2-047",
+        "left_rate": 0.7833333333333333,
+        "right_rate": 0.8833333333333333,
+        "both_arms_pass_0_80": false,
+        "bimanual_evaluated": false,
+        "reproduced_by": "20260910-openarm-separated-frames-004/restored-t2-047"
+      },
+      "interrupted_candidate": {
+        "run_id": "20260910-openarm-separated-frames-004",
+        "candidate_id": "refined-t2-020",
+        "status": "STOPPED_BY_USER_NO_COMPLETE_REPORT"
+      }
+    }
   },
   "privacy": {
     "raw_pose_values_emitted": false,

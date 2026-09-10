@@ -1,162 +1,56 @@
-# 施工清单（v0.4，2026-09-02）
+# 当前施工清单（2026-09-10 整理版）
 
-> 唯一用途：照着做。产品理由、设计权衡、被否掉的方案一律见 [`product-plan-v2.md`](./product-plan-v2.md)；代码结构、接口、任务分解见 [`engineering-plan-v1.md`](./engineering-plan-v1.md)。本页不重复。
->
-> 规则：**闸门未过不得进入下一段。** 每段结束写一条 `runs/` 记录。
->
-> **v0.4 变更：** 主开发环境改为实验室远程 Linux；补齐 M-1 可达定义、`SolveOptions`、T2 的 81→9 确定性预算和 harness 资产断言落点。
+本页仅表示当前执行状态。设计依据：[产品规划](product-plan-v2.md)、[工程规划](engineering-plan-v1.md)。事实与证据：[当前状态](current-status.md)、[报告索引](report-index.md)。原 v0.4 清单保留于 [历史快照](archive/build-checklist-before-20260910.md)。
 
-> **当前执行覆盖（2026-09-04）：OpenArm-first。** 用户已确认先完成
-> OpenArm 的语义、单臂和双臂数值闭环；下方历史 M0 Panda 施工项不能把
-> Panda 当成当前目标。Panda 只作回归夹具/历史重选证据。OpenArm 的
-> `BLOCKED_SEMANTICS` 停止点以 `docs/development-log.md` 为准；在源到
-> 目标 frame 证据到位前，不打开 held-out、不放宽正式约束、不导出数据。
+**当前：用户要求暂停实验。以下未完成项只作计划，不是自动运行指令。**
 
----
+## 已有基础
 
-## 开工前必须先完成的五件事
+- [x] 远端唯一开发工作树、Python 3.12 环境与依赖约束已有。
+- [x] 私有数据与 runs 被 Git 忽略；固定 calibration / held_out split 已落盘。
+- [x] OpenArm 可移植真实碰撞资产、动态 finger/mimic、正式 Profile 与夹爪映射已实现。
+- [x] 通用 Pinocchio/Pink、契约、合成往返/负例、CLI、run 溯源已有代码与测试。
+- [x] MQ03 源语义与 600 帧 FK 结论已有记录，源 URDF 仍是产品可选材料。
+- [x] 分离 world 左乘 / tool 右乘 API 已提交。
+- [x] 位置基线 95% / 90% / 同帧 85% 已恢复并索引。
+- [x] 完整位姿单臂 78.33% / 88.33% 已恢复并于 9 月 10 日复现。
+- [x] M1a/M1b 接入、回放、导出和验收契约的代码切片已存在；仅作为实现进度记录。
 
-在写第一行求解代码之前完成，否则后面无法证明结论没有被事后调整过。
+这些勾选不表示 OpenArm M-1 或私有数据 M1a/M1b 出口通过。
 
-- [ ] **M-1 判据写进 `runs/` recipe** —— 抽样规模、红黄绿阈值、T2 排名规则（照抄规划 §12 M-1，不得临场改）
-- [ ] **数据划分固定** —— `calibration=[0,1,3,5,6,8,10,11,13,15,16,18]`；`held_out=[2,4,7,9,12,14,17,19]`。写进 recipe；**M1c 前不得读取 held_out 的 parquet、视频或统计**
-- [ ] **依赖版本钉死** —— `lerobot==0.6.1`（可选 extra）、`pin==4.1.0`、`pin-pink==4.3.0`、`qpsolvers==4.13.0`、`osqp==1.1.3` 进 constraints；安装写 `qpsolvers[osqp]`
-- [ ] **私有数据边界落地** —— 本地配置只写别名 `private-sample-20` 与外部路径；`.gitignore` 覆盖数据、run 产物与本地配置；CI 只用 synthetic/public fixtures
-- [ ] **远端唯一工作树** —— 当前规划提交后，用 Git bundle/私有 remote 在实验室数据盘 clone；Windows 本地副本转只读，不维护双份活跃代码
+## 当前整理事项
 
-## 远端环境与素材
+- [x] 停止正在运行的完整位姿细化点复核，保存已完成候选。
+- [x] 将 interrupted / partial 与 completed report 分开登记。
+- [x] 建立全部已有 run 的文件、日志、recipe 和 SHA-256 清单。
+- [x] 补登 9 月 9 日 source-semantics-002–008 的结论与报告引用。
+- [x] 明确唯一状态页；历史日志和 blocker 不再承担当前任务路由。
+- [x] 把旧规划/旧施工表的角色标清，修正指向卸任产品规划的导航。
+- [x] 区分“脚本 PASS”“单臂 gate”“完整双臂 M-1”“M1c 验收”。
 
-- [ ] **实验室 Linux + Python 3.12 env** —— 远端已核实 Ubuntu 20.04.6、64 CPU、双 4090、miniconda 可用；不用系统 Python 3.8
-- [ ] **存储落盘** —— 项目、输入、run 使用经确认的数据盘目录；不落只余约 206 GB 的根 overlay。真实根路径只进本地配置
-- [ ] **数据授权/挂载** —— 若远端尚无 `private-sample-20`，先确认该公司样本允许进入实验室主机，再单独复制；代码迁移不等于数据迁移授权
-- [ ] **环境检查脚本** —— `harness/m_minus_1/doctor_env.py` 检查版本、可写空间、数据 alias、资产可读，不回显 SSH 地址和绝对数据路径
-- [ ] **素材清点** —— 确认本地 OpenArm xacro、`origin` URDF、SRDF 与 collision mesh 可读；源机器人 URDF 仅为未来可选交叉校验，拿不到不阻塞
+## 恢复后第一段：完整位姿与工具语义
 
----
+- [ ] 审阅本轮未提交的 separated-frame runner / tests；不能当作已合入正式管线。
+- [ ] 以已复现的旧网格 t2-047 为对照，核对 frame mapping、target asset、60 帧和 solver budget。
+- [ ] 决定是否续跑已登记的 refined-t2-020；当前只有中断记录，禁止引用不存在的完整结果。
+- [ ] 保留工具旋转的 DATA_DERIVED 候选身份；明确功能轴配对依据，不以最高成功率宣称物理 frame 恢复。
+- [ ] 同一 recipe 的两侧 full-pose 均 ≥80%，再安排双臂同构型与真实碰撞验证。
+- [ ] 通过双臂预筛后，再按登记预算做完整单帧和连续片段评估，并记录 M-1 条件。
 
-## M-1 可行性闸门 · OpenArm · 一次性 harness
+**停止条件：** 没有通过候选则回到具体失败诊断，不盲目扩网格，不静默改成 position-only，不以左右独立比例或二者较小值冒充双臂成功率。
 
-**允许写得难看。裸调 Pinocchio + Pink，不建 `RobotProfile`，不进 CLI，用完即弃。**
+## 后续出口
 
-### 先修资产的三个坑（不修则闸门失效）
+- [ ] M1a：更新并审核可执行 DataProfile，完成 OpenArm calibration 12 ep 的 state/action 双流 IK/FK、夹爪与连续性报告。
+- [ ] M1b：在数值闭环通过后，完成私有数据格式重写和五步真实 LeRobot 读取端验收；合成样例测试不代替它。
+- [ ] M1c 前：审计划分前全 20 ep 分析对留出独立性的影响，明确可支持的验证声明，不为审计重新读取留出数值。
+- [ ] M1c：前置条件全部完成后，才执行留出验收与结构冻结；sample_validated 只对当前样本 revision 生效。
+- [ ] M2 及以后：到阶段后另行安排，不以 UI、GPU 或新机器人替代当前 OpenArm 适配。
 
-本地资产快照已有 xacro、生成 URDF、`origin` URDF、`openarm.srdf` 和完整 collision STL。但：
+## 每次接续的最小记录
 
-- [ ] **修 collision 占位球** —— 生成的 URDF 里每个 link 的 collision 是 `<sphere radius="0.0003"/>`，真 mesh 那行被注释掉了。**不修的话「自碰撞 0 穿透」是恒真判据，比没有闸门更糟**
-- [ ] **修绝对 mesh 路径** —— 输出只允许相对路径或可移植 package URI
-- [ ] **恢复动态 finger** —— `finger_joint1` 为 `prismatic [0,0.044] m`，`finger_joint2` 恢复 mimic；不得沿用固定 finger 的旧生成物
-- [ ] 在 `harness/m_minus_1/assert_openarm_assets.py` 写断言：Pinocchio 加载成功；无 <1 mm collision 球；mesh 全可解析且无绝对路径；finger 类型/限位/mimic 正确；开闭端点改变指间距；固化产物计入哈希
+先读当前状态和报告索引，再看具体报告。每次只登记一个明确问题：
 
-### 版本与资产
+`run + candidate + 数据/资产/代码指纹 + 约束 + 样本 + 求解预算 → 结果 → gate → 下一步`
 
-- [ ] 锁定 OpenArm v1.0 本地资产快照：记录上游 revision、源哈希与完整 diff；已知 4 处 xacro diff 都是路径替换，不等待口头确认
-- [ ] 以 xacro 为运动学权威、`origin` URDF 为碰撞参照生成产物；目标夹爪导出采用物理 `finger_joint1` 位移，不采用未确认的控制器电机角
-- [ ] 核对全部关节限位与 TCP；canonical 夹爪固定为 `aperture_fraction`（0=闭，1=开）
-- [ ] 复用 `openarm.srdf` 屏蔽表，但**补检 body ↔ 两臂 link0** 是否也需屏蔽（SRDF 里没有）
-
-### 预检
-
-- [ ] **可达定义冻结** —— 双臂同一联合构型；位置 ≤5 mm、姿态 ≤2°、硬限位内、无穿透才计 nominal；姿态 `(2°,5°]` 只计黄灯 relaxed
-- [ ] **SolveOptions 冻结** —— `dt=0.01 s`、外层 `max_iter=300`、OSQP 容差/上限、cost、damping、no-progress 与三种子预算全部写进 recipe
-- [ ] **T2 候选冻结** —— calibration/robot 点云中位数生成 anchor；`dx/dy/dz=±0.10/0 m`、`yaw=±10/0°` 共 81 个；先 60 帧筛前 9
-- [ ] **完整抽样预检** —— 前 9 候选跑 **600 单帧（12×50）+ 20 段×60 帧**，全部只从 calibration 取
-- [ ] 按预先登记的排名规则选出 T2；全红则当前 recipe 判红，扩网格必须新建 recipe
-
-**闸门 →** 全绿进 M0｜黄灯记录条件后进 M0，M1 复检｜红灯：扩 T2 范围 → 放宽姿态 ≤5° → 暂停 OpenArm 并进入目标重选 spike
-
-**Panda 双臂只是重选时的第一候选，不是现成退路。** 必须先建立双臂 root、base 相对变换、双夹爪/TCP 与臂间碰撞对，再重新执行 M-1 全套抽样和红黄绿判据；没有候选通过前不得进入 M1。
-
----
-
-## M0 骨架与合成闭环 · Panda · 纯 CPU
-
-**机器人是 Panda，不是 OpenArm。**
-
-- [ ] Pinocchio：URDF 加载、FK、Jacobian
-- [ ] **Panda** 的 `RobotProfile` + `GeometryModel` + 碰撞对屏蔽表（有工作量，别漏估）
-- [ ] `CanonicalTrajectory v0.1`（provisional）
-- [ ] 合成往返测试台 + 10 项负向样例（§10.1）
-- [ ] Pink 后端 + 自碰撞 barrier
-- [ ] Pink 迭代器 + 状态契约：`CONVERGED/MAX_ITER/QP_FAILED/LIMIT_VIOLATION/NUMERICAL_FAILURE/RESIDUAL_TOO_HIGH`；不得由单次局部失败输出 `INFEASIBLE`
-- [ ] QP 固定 OSQP，recipe 记录容差、最大迭代数、warm-start 与实际 solver
-- [ ] §5.3.1 内部约定一致性测试
-- [ ] **§5.3.2 独立 golden cases** —— M0 唯一的外部参照，含「打乱 joint-name」元测试
-- [ ] CLI：`doctor` `inspect` `normalize` `solve` `diagnose` `export`
-- [ ] 静态图确认数值（先别做界面）
-
-**出口 →** 合成轨迹往返误差达标无分支跳变；10 项负例全检出；golden cases 全过且元测试确实报错
-
----
-
-## M1a 真实数值闭环 · OpenArm · 不导出数据集
-
-- [ ] parquet `Prober`
-- [ ] `MappingSpec` schema（按流声明）+ 首个 `DataProfile`（钉 dataset revision + `lerobot==0.6.1`）
-   - slice 映射已与 `info.json` 的 `names` 逐位核对过，**索引 0 = 左臂是 `EXPLICIT`**，不必再推断
-   - 别漏 `action.position/.velocity/.effort` 和逐帧 `control_mode` 列
-- [ ] `command_timing` 落档：**同行配对，`shift_policy: none`**（延迟 4–5 帧是物理跟踪延迟，**不是**移位依据）
-- [ ] **可访问 20 ep 完整结构扫描**，生成 `private-sample-20@<manifest-hash>` 与 `validation_scope`；不访问、不等待公司全量
-- [ ] 纯关节空间扫 `action.position[t]` vs `observation.state.position[t+k]`，复核延迟仍在 `k=4~5`；冲突则使 `DataProfile` 失效
-- [ ] 双臂 + 双夹爪多运动组；夹爪按 `aperture=(state+3)/5` / action 原值 → `finger_joint1∈[0,0.044] m`，`finger_joint2` 由 mimic 得到
-- [ ] 双流 IK + **`warm_start_from_state`**（`interleaved_sequence` 已被实测否掉，别用）
-- [ ] 输入坐标显式命名 `dataset_native`；T2 用 M-1 结果并写进 recipe，不等待真实场地 frame 身份
-- [ ] 诊断 + 批量报告，含跨流一致性**三层**判据（比值 → 速度可行性 → 联合判定）
-- [ ] 在 `calibration` 上标 `provisional` 阈值
-
-**出口 →** 12 个 calibration ep 跑通出报告；**两条流**的 FK 都回到各自源 EEF 目标且误差达标
-
-> 这里已经形成第一个可审阅产物：一份覆盖私有样本 calibration 子集的批量诊断报告。
-
----
-
-## M1b 数据集闭环
-
-- [ ] 保持格式重写：新 parquet + 视频 `hardlink→copy` 降级 + `info.json` + **`meta/episodes/*`** + **`meta/tasks.parquet`**；manifest 记录 materialization method
-   - 一律走 `meta/episodes/*` 偏移定位，**不得靠文件名推断 episode**
-- [ ] 坏帧掩码（保留行、carry-forward、首帧失败要有规则）+ episode 白名单
-- [ ] `stats.json` 重算，口径 = 训练白名单
-- [ ] 产出可直接运行的训练配置：`DatasetConfig(repo_id=..., root=..., episodes=allowlist)`
-   - **`exclude_episodes` 在 0.6.1 里不存在**，别照旧文档写
-- [ ] 五步验收的实现
-
-**出口 →** calibration 集导出物通过五步：按白名单加载 → **断言白名单生效** → 时间窗 → 归一化 batch → 两条流 FK 回验
-
----
-
-## M1c 留出集验收与结构冻结
-
-- [ ] 打开 `held_out` 8 ep，端到端跑一次
-- [ ] 若已拿到源 URDF：§10.2 交叉校验（**同侧同行配对**；错配会看到 2.10 mm 系统残差，那是跟踪延迟不是 bug）
-
-**出口 →** held_out **一次通过**，不回头调参 → 冻结 `CanonicalTrajectory v0.1` + `ExportProfile v0.1` 的**结构**；阈值升为 `sample_validated`
-
-**范围限制：** `sample_validated` 只对 `private-sample-20@<manifest-hash>` 有效；不代表公司全分布，换数据必须重新校准
-
----
-
-## M2 可视化
-
-- [ ] 薄 React + R3F 单页：3D 回放 + 时间轴 + 误差曲线
-- [ ] 问题区间定位跳转、参数调整局部重算
-
-> M1c 是第一个完整交付点；M2 是其后的增量，不绑定未经估算的日期。
-
----
-
-## 随时可以做、不阻塞任何人的
-
-- [ ] AI 生成 `MappingSpec` 草稿（stretch，**不是任何一段的出口条件**）
-- [ ] 若将来取得精确生产 recorder revision，将当前 `LOCAL_CODE_CORROBORATED` provenance 升级；**不是 M1c 阻塞项**
-- [ ] CuRobo 现成机器人配置清单、对双臂的支持程度
-
----
-
-## 七条最容易犯的错（都是评审里真实出现过的）
-
-1. **把跟踪延迟当成标签移位** —— 4–5 帧是机器人追不上命令，不是数据错位。配对保持同行。
-2. **用同帧 `action` 填 `observation.state` 的夹爪** —— 标签泄漏 + 4–5 帧系统偏差。state 必须从自己的数值换算。
-3. **拿 `‖q_action − q_state‖` 大就判 IK 分支冲突** —— 两者本来就该有差距。必须走三层判据。
-4. **在 `calibration` 上反复调参后拿同一批数据验收** —— `held_out` 只能开一次，**M-1 抽样也不许碰**。
-5. **先做界面再验数值** —— 会对着假数据调交互。
-6. **信一个恒真的检查** —— OpenArm URDF 的 collision 是 0.3 mm 占位球，碰撞检查会「全部通过」。**判据要先证明它抓得住东西**（这正是 golden cases 里那条打乱 joint-name 元测试存在的理由）。
-7. **把私有数据路径或样本提交进开源仓库** —— 代码、测试、日志和文档只认 `private-sample-20` 别名；CI 只用 synthetic/public fixtures。
+改变映射、T2、约束或预算就创建新 recipe；保留旧结果。运行结束、中断或失败都写明，完成率与通过率分开。

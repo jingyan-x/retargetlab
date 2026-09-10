@@ -1,5 +1,7 @@
 # retargetlab 细化工程规划 v1.2
 
+> **2026-09-10 状态整理：** 本文是工程设计，不是完成度清单。当前已实现的代码、未通过的私有数据出口和暂停指示，以 [当前状态](current-status.md) 与 [施工清单](build-checklist.md) 为准；本次不改变接口契约和验收阈值。
+
 > **本文定位：** 把 [`product-plan-v2.md`](./product-plan-v2.md)（**产品基线，管「做什么、为什么」**）翻译成可以直接开写的代码结构、接口契约和任务清单（**管「怎么写、写在哪、写完怎么算过」**）。
 >
 > **本文不改变产品范围。** 与基线冲突处一律以基线为准；本文新定的实现决策集中在 §9，凡涉及对外语义的都要回写基线 §14.1。
@@ -14,8 +16,7 @@
 > 顺序：先完成 OpenArm 的 M-1 语义/约束闸门与正式数值闭环；Panda 仅作
 > 历史重选证据和后续回归夹具。文中原有的 “M0 Panda → M1 OpenArm”
 > 分层是设计演进记录，不能覆盖当前工作区的目标选择。当前停止点和证据
-> 以 `docs/development-log.md` 及 `docs/m1-004-frame-semantics-blocker.md`
-> 为准。
+> 以 [current-status.md](current-status.md) 和 [report-index.md](report-index.md) 为准；开发日志和旧 blocker 只作历史追溯。
 
 ---
 
@@ -34,7 +35,7 @@
 
 ### 1.1.1 一次性迁移规则
 
-当前仓库没有 Git remote，且有尚未提交的规划改动。进入代码开发前只做一次迁移：
+以下是 2026-09-02 迁移前的操作记录。远端唯一工作树和 Git remote 已建立，不重复执行迁移；实际状态见 current-status。原一次性步骤保留如下：
 
 1. 本地补 `.gitignore` / `.gitattributes`，提交现行规划基线；
 2. 用 **Git bundle 或后续明确选定的私有 Git remote** 把已提交历史送到远端，再在 `RETARGETLAB_REMOTE_ROOT` 下 clone；不得用文件夹拖拽制造无历史副本；
@@ -453,7 +454,7 @@ CI（GitHub Actions，ubuntu-latest，Python 3.12）跑前三层。`lerobot` 那
 | M-1.0 | 按 §1.1.1 把已提交 Git 历史迁到远端数据盘，固定唯一工作树；检查私有样本远端授权/位置 | 远端 clone + gitignored 本地配置 | — | 0.5 |
 | M-1.1 | 远端 conda env + 依赖装通 + harness 环境检查 | `env/`、`harness/m_minus_1/doctor_env.py` | M-1.0 | 0.5 |
 | M-1.2 | 按 §6/§9.4/§9.5 固定 splits、SolveOptions、闸门判据与 T2 候选生成 recipe | `projects/private-sample-openarm/splits.yaml` + recipe | M-1.0 | 1 |
-| M-1.3 | 读 20 ep parquet，抽 600 帧 + 20 连续片段（**只从 calibration**） | harness 脚本 + 抽样结果 | M-1.2 | 1 |
+| M-1.3 | 从 calibration 12 ep 读取数值，抽 600 帧 + 20 连续片段；其余 episode 仅允许元数据/结构清点 | harness 脚本 + 抽样结果 | M-1.2 | 1 |
 | M-1.4 | 建可复现 OpenArm 资产：以现有 xacro 为权威、`openarm_bimanual_origin.urdf` 为参照，生成真实 collision、可移植 mesh 路径和动态手指的双臂 URDF并计哈希 | `assets/robots/openarm_bimanual/` | — | 1.5 |
 | M-1.5 | `assert_openarm_assets.py` + Pinocchio 加载：占位球、绝对路径、mesh 可解析、指关节 prismatic/mimic、TCP、限位与开闭方向 | JSON 核对记录 | M-1.4 | 1 |
 | M-1.6 | GeometryModel + 碰撞对（复用 `openarm.srdf`，补检 body↔link0） | harness 内 | M-1.4 | 1 |
@@ -462,7 +463,9 @@ CI（GitHub Actions，ubuntu-latest，Python 3.12）跑前三层。`lerobot` 那
 
 > **M-1.4 是本阶段唯一的硬骨头，也是最容易被跳过的一步。** 现成 `openarm_bimanual.urdf` 看起来能加载、能 FK、能跑 IK，但 collision 是占位球、mesh 路径不可移植、finger 被固定化。跳过资产重建会同时制造碰撞假绿和夹爪假验证。
 
-### M0 骨架与合成闭环（Panda，纯 CPU）
+### M0 通用骨架与合成闭环（纯 CPU，已有 Panda 回归夹具）
+
+这些是设计任务 ID，不是今日待办。Panda 夹具已用于基础测试；当前适配仍为 OpenArm，已有通用基础不要求重做。
 
 | # | 任务 | 依赖 | 估 |
 |---|---|---|---|
@@ -493,7 +496,7 @@ CI（GitHub Actions，ubuntu-latest，Python 3.12）跑前三层。`lerobot` 那
 | M1a.2 | `MappingSpec` 契约 + 校验器（对齐基线 §3.3） | M0.2 | 2 |
 | M1a.3 | 首个 `DataProfile`（钉 revision + `lerobot==0.6.1`） | M1a.2 | 1 |
 | M1a.4 | `normalize`：含四元数符号连续化、源夹爪 `(state+3)/5` → `aperture_fraction` | M1a.3 | 2.5 |
-| M1a.5 | 对**可访问的 20 ep**做结构与统计扫描并落覆盖声明；不访问上游公司全量 | M1a.1 | 0.5 |
+| M1a.5 | 对可访问 20 ep 做元数据/结构覆盖扫描；数值统计只在 calibration 上计算，留出数值到 M1c | M1a.1 | 0.5 |
 | M1a.6 | 纯关节空间跟踪延迟复核（`action.position` vs `state.position`），冲突则使 DataProfile 失效 | 图 + 结论 | M1a.5 | 0.5 |
 | M1a.7 | OpenArm `RobotProfile` 正式化（把 M-1 结论重新实现） | M-1.8、M0.5 | 2 |
 | M1a.8 | 双臂 IK + 双夹爪确定性映射；夹爪不进入 IK | M1a.7、M0.11 | 2 |
@@ -606,13 +609,13 @@ M-1 不直接拿 §6.3 的 `PASS=1 mm/0.5°` 当求解停止条件；那是 M0/M
 
 M-1 写 `harness/m_minus_1/assert_openarm_assets.py`，直接运行并输出机器可读 JSON；它不依赖 M0 的 pytest/CLI 骨架。必须断言：无占位球、无绝对 mesh 路径、mesh 全部可解析、finger prismatic/mimic/限位正确、TCP 存在、开闭端点改变指间距。M1a 正式化时把同一组规则**重新实现**到 `tests/contract/test_openarm_assets.py`，不得从 harness import。`doctor` 同理：M-1 是 `harness/m_minus_1/doctor_env.py`，M0.15 才做正式 CLI 命令。
 
-### 9.4 四元数与单位的单一出入口
+### 9.7 四元数与单位的单一出入口
 
 内部一律 SI（米、弧度），四元数一律 `wxyz`（与源元数据一致）。但 **Pinocchio 的 `SE3` / `Quaternion` 用 `xyzw`**——这个转换只允许出现在 `kinematics/transforms.py`，其他任何文件里出现 `[3, 0, 1, 2]` 这类重排下标即视为 bug。
 
 基线 §5.3.1 说内部一致性测试抓的是「关节顺序错位、TCP 重复施加、四元数分量搞反」这类**我们自己的 bug**。把转换收敛到一个文件，是让那类 bug 只有一个可能的藏身处。
 
-### 9.5 掩码列的 dtype
+### 9.8 掩码列的 dtype
 
 `valid.retarget` 注册为 `bool`、shape `[1]`；`retarget.status` 不进 `features`（它是 episode 级，写进 `meta/episodes/*` 与 `retarget` 段）。掩码列写入 `ExportProfile.normalization_exclude`。
 
@@ -633,7 +636,9 @@ M-1 写 `harness/m_minus_1/assert_openarm_assets.py`，直接运行并输出机�
 
 ---
 
-## 11. 第一天做什么
+## 11. 历史开工步骤（已执行，不作为当前待办）
+
+以下保留迁移前的第一天安排。当前代码已存在，不能据本节重新开始；今日停止点以 current-status 为准。
 
 按依赖排序，前四项无相互依赖，可并行：
 

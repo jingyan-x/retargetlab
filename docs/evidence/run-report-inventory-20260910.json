@@ -1,0 +1,2534 @@
+{
+  "schema_version": "documentation.run_report_inventory.v1",
+  "as_of": "2026-09-10",
+  "execution_status": "PAUSED_BY_USER_DOCUMENTATION_RECONCILIATION_ONLY",
+  "implementation_baseline_commit": "4cb68301786076725d8608616ac9f691fc2483ee",
+  "scope": "All existing files under projects/*/runs in the canonical remote repository; metadata-only inventory; original artifacts unchanged",
+  "source_dataset_reopened": false,
+  "private_values_in_inventory": false,
+  "inventory_is_not_a_gate_report": true,
+  "run_count": 26,
+  "file_count": 366,
+  "work_in_progress_code": [
+    {
+      "path": "harness/m_minus_1/diagnose_openarm_separated_frames.py",
+      "sha256": "3f400f47a6d0d0b30298a26bf981106183da03baff32dafbff194062692c64f0",
+      "git_state": "untracked_before_documentation_reconciliation"
+    },
+    {
+      "path": "tests/unit/test_openarm_separated_frames.py",
+      "sha256": "94f3efa5f6587f0694ef3cef55ebeb920a8c235ef5bb528606664f057788d246",
+      "git_state": "untracked_before_documentation_reconciliation"
+    }
+  ],
+  "runs": [
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260902-m1-001",
+      "target": "OpenArm",
+      "purpose": "初期 recipe / calibration 抽样材料",
+      "interpretation": "历史冻结材料；目录无完整预筛报告",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 3,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-001/calibration_sample.json",
+          "size_bytes": 18885,
+          "sha256": "adbac709fd4a429a6b67577c632327c334e32d8d298a0c0c72513e025c4891c3",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-001/recipe.sha256",
+          "size_bytes": 131,
+          "sha256": "5835c5c917054f3c0e2146c65349d771adbd70788c04ffd47fb5ea779a77bc25",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-001/recipe.yaml",
+          "size_bytes": 3909,
+          "sha256": "7fe8e75c359ad36eefbb172bc6ef2dc837377b73a17bf031c49a826ace36fb55",
+          "category": "recipe"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260902-m1-002",
+      "target": "OpenArm",
+      "purpose": "calibration 600 帧抽样登记",
+      "interpretation": "抽样材料；不等于 IK 已通过",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 2,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-002/calibration_sample.json",
+          "size_bytes": 18885,
+          "sha256": "adbac709fd4a429a6b67577c632327c334e32d8d298a0c0c72513e025c4891c3",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-002/recipe.yaml",
+          "size_bytes": 5145,
+          "sha256": "3ef45f7aead1bca763a3c8ca9b842307f8ac0162e2939f3d11cbeba59d1e40e6",
+          "category": "recipe"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260902-m1-003",
+      "target": "OpenArm",
+      "purpose": "smoke / 单帧 prescreen",
+      "interpretation": "仅诊断帧，不是注册 60 帧或 M-1 出口",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 4,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-003/compat-smoke-final.json",
+          "size_bytes": 3781,
+          "sha256": "304b4ccee990ebd8617416e291b714294ae163f24020aad6a833363dce09c050",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-003/prescreen-one-frame.json",
+          "size_bytes": 69583,
+          "sha256": "5a60e2be95107ed5ea9c12eb8e473467a470d5d5607511dadaf60ce65fa7797d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-003/recipe.yaml",
+          "size_bytes": 5928,
+          "sha256": "6b259decd9196d3a5d96a55eaf9ae4fdd91472e7301e06193f674966665c3477",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-003/smoke.json",
+          "size_bytes": 3433,
+          "sha256": "73b9edd5b6babbb38ebc8f9dccb1205d1845b0c9e10575b20e2141f5227d0a7b",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260902-m1-004",
+      "target": "OpenArm",
+      "purpose": "旧 identity + position-first 诊断",
+      "interpretation": "单帧报告存在；历史完整尺度运行曾中断",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 4,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-004/prescreen-one-frame.json",
+          "size_bytes": 69915,
+          "sha256": "c6ba6fae540370b4fc474104971415535b7ce729ac520fe6381aca80a44e6a81",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-004/recipe.sha256",
+          "size_bytes": 78,
+          "sha256": "486d68a95532c81c99150030bed5a903b3c4ecb36cd747e7c220686b4af41a3e",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-004/recipe.yaml",
+          "size_bytes": 6193,
+          "sha256": "48fe5a3e13d8681266452e3fc647d391dafc11315ecd965799dee859d88dc7b2",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260902-m1-004/smoke.json",
+          "size_bytes": 3819,
+          "sha256": "3795d0cc917f415f0e16f7588b2ed5a48a15af769bb8ffc3b23fad12dd63e3fd",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260903-m1-005",
+      "target": "OpenArm",
+      "purpose": "注册 60 帧、timing、coverage、DataProfile",
+      "interpretation": "注册预筛 RED；DataProfile 仍 REVIEW_REQUIRED",
+      "own_recipe_present": true,
+      "log_count": 29,
+      "file_count": 70,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-arm-calibration-final.json",
+          "size_bytes": 5921,
+          "sha256": "c42c01c151402ecc40bdac6ff3b792e630607104c9126875d3345d70b588f7a2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-arm-calibration-v2.json",
+          "size_bytes": 5910,
+          "sha256": "adfcad4505dd7aadd9caebe8288a128e80d8cd3b356d5434c3c432055f539c9d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-arm-calibration.json",
+          "size_bytes": 5607,
+          "sha256": "407ef05d7663b559bdcc7e678ad965c042b95427cca3a43fd941f93eb143ec64",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-calibration.json",
+          "size_bytes": 5957,
+          "sha256": "9033e79b29be27778aabf452c21dd0769f1ba8286eb7efd80dc4c64cf6e03167",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-gripper-calibration-final.json",
+          "size_bytes": 2375,
+          "sha256": "7b2dffe6c961e14fc12cb53f5a1eb9aa559cf9dc690ea87040c821dfe3bc1df8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-gripper-calibration-v2.json",
+          "size_bytes": 2364,
+          "sha256": "dcdf130ae6de654cc9f29ef9ccf5221574319cb67a681751d56b2ba1ed8062e2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/command-timing-gripper-calibration.json",
+          "size_bytes": 2249,
+          "sha256": "b97714959238bc989e4b71393248649bc4913ac4c0f9968621d7545d93030e60",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/data-profile-review-required-with-coverage.json",
+          "size_bytes": 8653,
+          "sha256": "e70346f375fa52c635bf3e5f53c363a0607b68275ee80b9183820c4d9746a804",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/data-profile-review-required.json",
+          "size_bytes": 8507,
+          "sha256": "84062870191a416bbb08b84798d1474bfb63ac3cef2878fb92a668023f7275fc",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/dataset-coverage-full.json",
+          "size_bytes": 5825,
+          "sha256": "8dad562db36b09b172f5ddc58c26c1b483d7d941dd7c6f25d176097b21eb6b26",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/merge-prescreens.log",
+          "size_bytes": 76259,
+          "sha256": "4ab6acabbe5371b71fc84e461762c5fbc278d2f7b18e79315e2e94ce7e529e08",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-calibration-60.json",
+          "size_bytes": 76259,
+          "sha256": "4ab6acabbe5371b71fc84e461762c5fbc278d2f7b18e79315e2e94ce7e529e08",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-calibration-60.log",
+          "size_bytes": 1600,
+          "sha256": "e86131c1129ecefb444818a56689ac03d4b30713e9d1013214246010398c6202",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-one-frame.json",
+          "size_bytes": 70142,
+          "sha256": "bdd14c53679ca609f83e49ee0e4fa4cbeea22c3917f1cc407953fb7ac458288a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-000.json",
+          "size_bytes": 5861,
+          "sha256": "63352961af46e3a8e31ff720b50b4b5f75c34b4d47730269c872d01ea9f69a5f",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-000.log",
+          "size_bytes": 7322,
+          "sha256": "d64099aac3969e1e9b0c6f705999bdf40d41c3c3f6d5ff2bab330a938efeb713",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-001.json",
+          "size_bytes": 5797,
+          "sha256": "18730249b226f698778e11270d6b39e9b17b43a079e8d53e33e6b820229a4591",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-001.log",
+          "size_bytes": 7042,
+          "sha256": "c0e835f0ab7889161f842d4b72a48d22124d1d9a08d2306daba25c685966014b",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-002.json",
+          "size_bytes": 5746,
+          "sha256": "5b753ea2d5dc9286ae1c57abb761a1f091af35317e585ac769e53cbbac94cd8c",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-002.log",
+          "size_bytes": 6982,
+          "sha256": "875c454f427599de4ac58123496d56f35124fc9dfc30ca5ef601b9c01b523965",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-003.json",
+          "size_bytes": 5794,
+          "sha256": "55c73ee5c716116bec7e2281f690b94d3074aed487eb8af6011c0a92391cc11d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-003.log",
+          "size_bytes": 7030,
+          "sha256": "83500a8b90a76c40ac9f1f7a51598d5ca953ecdf444a9ea768faa68513e08f7d",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-004.json",
+          "size_bytes": 5759,
+          "sha256": "3fb2052796297ef597db2412528effd4f97b39b0c6336926cac8019975b318ae",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-004.log",
+          "size_bytes": 6995,
+          "sha256": "be8b2c3a82860ecf2274b3eb71af2aefd5d0320af970f571bf95f6af15f0181e",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-005.json",
+          "size_bytes": 5796,
+          "sha256": "8c2fb9e64361469089bd0d4ca5e9363c5590452b5635706ff6414caa57016cd0",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-005.log",
+          "size_bytes": 6816,
+          "sha256": "4964d860e1467026deaf1172d1062e044561fb9c45af7dc57ac3b5446f4e90cd",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-006.json",
+          "size_bytes": 5704,
+          "sha256": "1a932b1eaeddc85b8078c887b85f8eec034f0a5019871218fa55436933b59e7d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-006.log",
+          "size_bytes": 6724,
+          "sha256": "a65b556de9d7e9b7c166f6a8111571b60cc8e0d67b567cedb2c8acf81f8e21fa",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-007.json",
+          "size_bytes": 5743,
+          "sha256": "a1e8200eee2102df4bcfea0d24cfa3924e051efd6d447735da453561cfa188b0",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-007.log",
+          "size_bytes": 6979,
+          "sha256": "0d8f6ebce71622a83583ab54143a72f149302b78d882ae1937c681ede37d9a2d",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-008.json",
+          "size_bytes": 5734,
+          "sha256": "900928ac9fb23c3d35c19a3c8149235f0856ef8682fb01cc41f4d1d2c70a2ea2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-008.log",
+          "size_bytes": 6754,
+          "sha256": "7ec1c038daa5f9a5c09321975450a8170285b50de66eaeac44f492d38118479d",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-009.json",
+          "size_bytes": 5868,
+          "sha256": "1de1c00a87e39cc73abe3ed51eca6e3ffa600c4794833d9f629fafb4000e9b67",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-009.log",
+          "size_bytes": 7329,
+          "sha256": "20bdd6b6ea8c529d3992ac0c09b7992590ee0546d67b43cd9f322406bff5d7d7",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-010.json",
+          "size_bytes": 5887,
+          "sha256": "36d4bfd791cbb20ce66fe257be2efd9a4099ab40e3e6c3756ad971bd62a4ccb3",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-010.log",
+          "size_bytes": 7123,
+          "sha256": "f2c87723c0486d5302f5f0c1d328b906295920da359c57dd048f7c64fe5eaaaa",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-011.json",
+          "size_bytes": 5896,
+          "sha256": "dec3f5b2aea1bfb47718b0befde5de5c863a5e41608f2cfdf11a38221b4c5861",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-011.log",
+          "size_bytes": 6916,
+          "sha256": "6da71d02ae0ad28b6db149d93d0695c3f47f1083da8dc54663ac406e8d8b3000",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-012.json",
+          "size_bytes": 5913,
+          "sha256": "2fb784ed8f4a20b96f40b05726e9c7c38a3ce1406f9dc106efcc240ec1aebb9b",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-012.log",
+          "size_bytes": 7149,
+          "sha256": "8aa5129a5825d01a0c68e0ad718eeb8fce7e0e3b905fa0b95ccb21f3a70f1839",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-013.json",
+          "size_bytes": 5879,
+          "sha256": "526da643045110657ca051b9ec830a442cf85e2605ffc41440bc2959e31f9189",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-013.log",
+          "size_bytes": 6899,
+          "sha256": "f98730f59d6858683e9f0f372062b3f2510f5783413efe8a809bb1b31cb9c77d",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-014.json",
+          "size_bytes": 5861,
+          "sha256": "dd8981d1b980de04cc289b5cc76aea4445b0521a004389a40333744534ed7007",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-014.log",
+          "size_bytes": 7097,
+          "sha256": "9f7fda91ce181f0f38f2c82cf4c04967a6e40ecda547573ff9c6b030625741e6",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-015.json",
+          "size_bytes": 5737,
+          "sha256": "725eef3abe2b7a797e051bfd387b0e1a034b556768c5f5bc907807b87063975d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-015.log",
+          "size_bytes": 6973,
+          "sha256": "9da8d5bb86db59913aa3997a7dbc2326ecdcdefa1843c1e28f571523dc89fe23",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-016.json",
+          "size_bytes": 5788,
+          "sha256": "3b2395f79f146531a3c3307f7ea0fecac72a895ca5f29c1c28192ad1bc95a6ae",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-016.log",
+          "size_bytes": 6808,
+          "sha256": "f6ced5265585c634a9d729f5a167c14be8d3085b94b0338494c82398d974e9d7",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-017.json",
+          "size_bytes": 5699,
+          "sha256": "7e89b65cab5b5846613c933dd9d4f074725c3d119e025d8f5d88772da619f324",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-017.log",
+          "size_bytes": 6719,
+          "sha256": "dcbc5ab5b977b0e1092a3be8e18ca5ab8b0cdea3efb331cd901453b74d410230",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-018.json",
+          "size_bytes": 5866,
+          "sha256": "e4446ca344c5d1fe0c5c88f016b73bf1edd5a33eb686f0207987e31932f66061",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-018.log",
+          "size_bytes": 7102,
+          "sha256": "1c401ae1e1041a42fae0b4f43604d94b79679d948f72fb48db26785c4eea73f3",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-019.json",
+          "size_bytes": 5835,
+          "sha256": "ee21cdc3bbc3b96f84dbbe9c04776dbb93618d781f4d347d8e94cad2efe3beb0",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-019.log",
+          "size_bytes": 6855,
+          "sha256": "b0c68e6f17283ea26a77bc93ccbb67f7a73c64c8a561b8c9aebe7b891641a78f",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-020.json",
+          "size_bytes": 5796,
+          "sha256": "d65fcfcc7daf6e81bff16486dd737669eaaf3736f398011d9f2a83301bfd65a6",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-020.log",
+          "size_bytes": 6816,
+          "sha256": "fea2c9d6648e1779a72fe0dc7bfb09c003fa3176c518cc27ff8a344362219c90",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-021.json",
+          "size_bytes": 5866,
+          "sha256": "357790459354ed649d68679f43f5ec4b5f20e56fa48023d5e8f78f75693c11e2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-021.log",
+          "size_bytes": 6886,
+          "sha256": "89a6eae254b6b6c13abad5a09903515eac2bb8c3cea0f948e6751af0dea589c2",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-022.json",
+          "size_bytes": 5856,
+          "sha256": "fed9f9bb1773ea1932d34ec06984e3b6214681606b8de1fc1eba6c71d2ffa8ed",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-022.log",
+          "size_bytes": 6876,
+          "sha256": "d63cc3dc8ea5c15afc135461be833dd2d3a5bce218dca978c1796fbc610ff3a1",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-023.json",
+          "size_bytes": 5887,
+          "sha256": "e1b7b8630b0fc3415e670e0cd1943475b17f13946651b491c004eef703077f17",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-023.log",
+          "size_bytes": 6907,
+          "sha256": "87964c76500a1cc032ea34ba3d6000cd4bf7be143e137aaca986ffeb2671679e",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-024.json",
+          "size_bytes": 5878,
+          "sha256": "3fe3807139b7a6a1c1f05f3015087f6f0e573bcf5c02c46f41957a97fc9b49ae",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-024.log",
+          "size_bytes": 7114,
+          "sha256": "dc710d559607c0db794c5ac0db4f665cf339daa747a7fc9c527ad75d55404a33",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-025.json",
+          "size_bytes": 5890,
+          "sha256": "af899de1d8d2797eea292abd20bdc165b02c41c887fff8b67da38c92114a760b",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-025.log",
+          "size_bytes": 6910,
+          "sha256": "c6a5fc09b6805f80c67549a3121e9384c2ea2f6e3b8bf92f0de92a637c3d6469",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-026.json",
+          "size_bytes": 5806,
+          "sha256": "2b38835a7a3b9f1a3179a78e5e4ecc6e17a3aff1766eb778df107425eccdf9f4",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/prescreen-parts/part-026.log",
+          "size_bytes": 6826,
+          "sha256": "6e0ba274d63e56ff45e7855184cba5a56f80f5a256b80c0ac7f122ff4d1336ca",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/recipe.sha256",
+          "size_bytes": 78,
+          "sha256": "596642a6440a5b8ec862ae69b75510ed79b51acebb35bee0b83123173231fb65",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260903-m1-005/recipe.yaml",
+          "size_bytes": 6502,
+          "sha256": "61161ee4dd8a87ae832bb44bfbd33b12532813b7faac184f17c9206bc191ff5e",
+          "category": "recipe"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-m1-openarm-006",
+      "target": "OpenArm",
+      "purpose": "旧 identity 映射 81 候选注册预筛",
+      "interpretation": "完整合并；最佳 nominal 30%，不能覆盖后续新映射",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 31,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-calibration-60.json",
+          "size_bytes": 75896,
+          "sha256": "aafd9e212ad12b1165dd4cfcc6b22c886493a514c498625f6bbbfc93665939f3",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-000.json",
+          "size_bytes": 5842,
+          "sha256": "7b425480762c61050dcf69126fcf411818503d67b0f5c45365fc59936b2f28ee",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-001.json",
+          "size_bytes": 5809,
+          "sha256": "f421e162f605ed7efc373b05989eb9e49a02d9b827820fc6ef5cd6b2777ec6cd",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-002.json",
+          "size_bytes": 5828,
+          "sha256": "fb7d05ab0a3fc41e103683888a0cbecf660640a58afacba9b564f81da44445e2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-003.json",
+          "size_bytes": 5956,
+          "sha256": "b0641853e636c8c80bf7b8dc7901959f007e98356c4a5d14f778785cd20fef99",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-004.json",
+          "size_bytes": 5906,
+          "sha256": "24898a08fc05f0e238a062af2db002c0c0a65660cf9227abf6d614e526745589",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-005.json",
+          "size_bytes": 5945,
+          "sha256": "852db57b779bdc0424efd6f1a1db23706608e2d8badc3197b5e72b60185c6710",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-006.json",
+          "size_bytes": 5924,
+          "sha256": "e51ff5eb066203d339b19855d7a03096801099b6499aadadfd5703e426f5d758",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-007.json",
+          "size_bytes": 5893,
+          "sha256": "c0b66c2da6aa1416a4aa7b3e7f08417182914c7bddf9e3aabb63d48498dd89dc",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-008.json",
+          "size_bytes": 5854,
+          "sha256": "cbe5de1323a7fb35381085fcbca43930645f44f3abe42aa8cc58d274413fab98",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-009.json",
+          "size_bytes": 5824,
+          "sha256": "e1da5cb1bc03f37986339d5e20ad771a5dc9352476be3f441a49f90f92235ee1",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-010.json",
+          "size_bytes": 5779,
+          "sha256": "f9317df12115a8645e5bb9bf5e33717c4b7c4e77e8befc7ceb847c05c944d156",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-011.json",
+          "size_bytes": 5787,
+          "sha256": "3109d82ab440fa62855c12654e4511ac1e66a6095ad33cff0f141ebfbc8a1130",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-012.json",
+          "size_bytes": 5898,
+          "sha256": "4045dae081335b57b3fb9fe22acb52ab650a5ca4d9e2990fd9d82495989bfe8c",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-013.json",
+          "size_bytes": 5864,
+          "sha256": "48935087d265aa2bec07ee9fd44058bd2ad55000e6e810446353335c72a68f97",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-014.json",
+          "size_bytes": 5932,
+          "sha256": "1658f95d67ed85f243622e9153d696d2a4b2689e0b27256478e6731c25893604",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-015.json",
+          "size_bytes": 5926,
+          "sha256": "dc95551356fbb02d1bca87581445c909eada0d879ec5ac89649acc5d6e456eab",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-016.json",
+          "size_bytes": 5952,
+          "sha256": "a4b32079d5b24db3f96429cba252a4878547a0837322aaf70c976c0add39e17f",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-017.json",
+          "size_bytes": 5964,
+          "sha256": "d505c5aab947664802e75ea7684f912e87bfda998823664a64a73f5af84f451d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-018.json",
+          "size_bytes": 5779,
+          "sha256": "9214bf1c3e707d82a54e0746e3670b479f0a378f82a42e15f09a851a8f467817",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-019.json",
+          "size_bytes": 5778,
+          "sha256": "0a45030401f662d6a1173c0e778d787af11ca6f85d9ee1fd87d971e6109b5f5a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-020.json",
+          "size_bytes": 5777,
+          "sha256": "da9d607a4523f11996200da7c1dd8914d3ec44c373f40d05fad4cf374d15e3a8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-021.json",
+          "size_bytes": 5818,
+          "sha256": "251a85000b35c2974f02015a7a4f063a5cc60bbc58d03013955977876e6edcc4",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-022.json",
+          "size_bytes": 5827,
+          "sha256": "404f25557ec4abe55c847333d08b42265862b0d8bef393c01fbc759dee315a30",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-023.json",
+          "size_bytes": 5782,
+          "sha256": "bc374f56501f0d330a92debb6684c18938c709c3ff48dae3b416d031ca3b976c",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-024.json",
+          "size_bytes": 5958,
+          "sha256": "edddcd3be151e2d242a8246b9eb8870b6dbc46a36f159711acf653048f5d8577",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-025.json",
+          "size_bytes": 5921,
+          "sha256": "b35afcd55235561350e6e7768aea8bf830ed70214ea87745ce79647809ffb213",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-parts/part-026.json",
+          "size_bytes": 5764,
+          "sha256": "96934f6e4809ae0154bb8c2e5d2c187ae8b7456d4547f93122e082ae051addeb",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "9aeafa18bccbedd65f27f9430434489a90f3756efea4d6cfb0fa868742b15417",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/recipe.yaml",
+          "size_bytes": 6644,
+          "sha256": "0865eadfc8c8155c73f87d9f333c2b47039c7694a3f386cfc6f6d02a9b953573",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1-openarm-006/smoke.json",
+          "size_bytes": 4072,
+          "sha256": "ff611ed2301253418be01d53762ddb522527cbd4fc808e6c39e27d67f404f1ed",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-m1b1-001",
+      "target": "OpenArm",
+      "purpose": "ExportProfile 契约",
+      "interpretation": "仅 profile，不是私有数据集导出完成",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-m1b1-001/export-profile.json",
+          "size_bytes": 1072,
+          "sha256": "db37586f85bd3e64a216a21fcb46d546654ccae42eebcb0f595401ed43d54cdf",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-openarm-recovery-001",
+      "target": "OpenArm",
+      "purpose": "旧 frame / side / rotation 诊断",
+      "interpretation": "历史假设比较，不作当前最佳",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 6,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-001/identity-direct-hand-tcp.json",
+          "size_bytes": 2172,
+          "sha256": "c73b736d2719ada87a763a1199138c9df5bb5e73f77e2f87de369730819b7129",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-001/identity-direct-link7.json",
+          "size_bytes": 2167,
+          "sha256": "f03f36cb7e41692aa9a73d1564458cd32c6d05d2b2cb04a97569e03a2eabaff2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-001/identity-swapped-hand-tcp.json",
+          "size_bytes": 2154,
+          "sha256": "e3fe986fd8f237c61ef7ab66c1b79427a3c746afe068ac3e955f4f32609e7a47",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-001/viser-left-inverse-direct-hand-tcp.json",
+          "size_bytes": 2223,
+          "sha256": "0f83eb761dbd3ace5927f5f0dd4df92b510674cc5514ee8b2878dc3ec5930611",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-001/viser-left-inverse-direct-link7.json",
+          "size_bytes": 2196,
+          "sha256": "478d5b444ecb9ea296498a841820d89a738e9450ac8f46a0d0787b56aaf26edd",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-001/viser-right-direct-hand-tcp.json",
+          "size_bytes": 2154,
+          "sha256": "a7863754c8753b7f3bd4d8cb6b811eb76ef85b075dcca87b8e67125d082c35d3",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-openarm-recovery-002",
+      "target": "OpenArm",
+      "purpose": "旧 Viser-left-inverse / link7 对照",
+      "interpretation": "历史完整双臂诊断 28/60；参考点/语义限制保留",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 5,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-002/identity-hand-tcp-t2-023.json",
+          "size_bytes": 2240,
+          "sha256": "0fd87cda072a334d3f3838168c8dd3eb6ade5ef0a02c2d2c011b425916e0eadf",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-002/identity-link7-t2-023.json",
+          "size_bytes": 2219,
+          "sha256": "9479ed6ab7bf48483204920d0d65c0540a67faab93b34d699e9365ebb5b243dc",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-002/viser-left-inverse-hand-tcp-t2-023.json",
+          "size_bytes": 2225,
+          "sha256": "47f62a0271cecfc1a64afb29f2b3faa24863c90b39111b077592bfec76cff82a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-002/viser-left-inverse-link7-t2-023-full-budget.json",
+          "size_bytes": 2245,
+          "sha256": "5edb15f1ab6be0c9a7bd47df717fbdfcaad101173e4ed1686537bbcbab90e643",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-002/viser-left-inverse-link7-t2-023.json",
+          "size_bytes": 2241,
+          "sha256": "3bfc1c4758aff84022a7d4decca56a299acbfd47ae57ed80fb05806c39fb6203",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-openarm-recovery-003",
+      "target": "OpenArm",
+      "purpose": "旧假设单臂隔离",
+      "interpretation": "60 帧左 40/60、右 34/60；不是当前基线",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 4,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-003/left-12.json",
+          "size_bytes": 1196,
+          "sha256": "07f78cd2bd504bed432ee7f2aa9a0fd8ae9a5eedbf1e569f0e7ee6fc5173131d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-003/left-60.json",
+          "size_bytes": 1199,
+          "sha256": "eb3e43f328be5edfbae061de2fd4e7ef5f240e25fc0f9cec2051337ec0eddd1d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-003/right-12.json",
+          "size_bytes": 1196,
+          "sha256": "7fc1999da34c5aeab016fad82280d98a2ac599e9df02f5572c08fc85ccdda9c7",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-003/right-60.json",
+          "size_bytes": 1197,
+          "sha256": "ba7891b55b4691fbb2de9cce966e49b5fd3b81e20c3c393f6e55bee223c8d22c",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-openarm-recovery-004",
+      "target": "OpenArm",
+      "purpose": "早期 frame-lineage",
+      "interpretation": "源语义未知的旧 blocker，已被后续证据覆盖",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-004/frame-lineage.json",
+          "size_bytes": 2285,
+          "sha256": "e036231036252e4ee2b8c54576f5530854b5a1bf8e9d8ea06888f7bcfaecfcc7",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260904-openarm-recovery-005",
+      "target": "OpenArm",
+      "purpose": "严格 world 轴旋转 96 候选",
+      "interpretation": "完整 legacy 候选族；没有独立 tool 右乘，不能作新模型的全局否定",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 4,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-005/axis-rotation-hand-tcp.json",
+          "size_bytes": 181626,
+          "sha256": "29d309d45004d94c536045adeb7660fd3a143a9473517e14f782f02ab76b70d7",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-005/axis-rotation-link7.json",
+          "size_bytes": 180989,
+          "sha256": "4a62d1c9fb29917de8565c4c4b73de4bcd3bd753a6b03b71b7466185e58c07fa",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-005/axis-rotation-prescreen-merged.json",
+          "size_bytes": 327809,
+          "sha256": "165c17aec153150abce18b886f6889baabcfd4a38bb4a3467abf8cab0aa4cde0",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260904-openarm-recovery-005/frame-lineage.json",
+          "size_bytes": 7553,
+          "sha256": "60dff9ae9e1dbb9b1d1cc3a1d1edac71ce0eada69df948cbd7106f0f234c9d93",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-001",
+      "target": "OpenArm",
+      "purpose": "MQ03 语义加入后的共用 tool 初探",
+      "interpretation": "已完成；旧 t2-023 下 hand_tcp/link7 比较，非当前最佳",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-001/tool-frame-prescreen.json",
+          "size_bytes": 15991,
+          "sha256": "cc9490c9ddf31cc16a18c7102b0b3ec7fa205d1382526f7687856dc828e105ce",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-002",
+      "target": "OpenArm",
+      "purpose": "旧 t2-023，24 个 tool 右乘",
+      "interpretation": "已完成；hand_tcp 两侧分别最佳 46.67% / 70%，不同工具候选",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-002/tool-rotation-prescreen.json",
+          "size_bytes": 110134,
+          "sha256": "2a9f39bb3c86b163c83b72d5e1f3432188964c1f89f30045e5857e158f6c2e61",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-003",
+      "target": "OpenArm",
+      "purpose": "旧网格 position-only",
+      "interpretation": "已完成；93.33% / 90%，同帧独立两侧 83.33%",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-003/position-t2-prescreen.json",
+          "size_bytes": 85824,
+          "sha256": "94c79b223e660ce326f679f154acb0c138542e0d410edd4c69601546a2a46a41",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-004",
+      "target": "OpenArm",
+      "purpose": "旧 t2-047，24 个 tool 右乘",
+      "interpretation": "已完成；两侧不同工具候选 78.33% / 88.33%",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-004/tool-rotation-t2-047.json",
+          "size_bytes": 109966,
+          "sha256": "bd5e7df3f1db9fe37bb79a7439ca57593e58ddd179812519e6bf95c05bb1c648",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-005",
+      "target": "OpenArm",
+      "purpose": "per-side tool，300 次/4 初值复核",
+      "interpretation": "当前 full-pose 对照基线；78.33% / 88.33%，左侧未达标",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-005/per-side-tool-full-budget.json",
+          "size_bytes": 2580,
+          "sha256": "28891b328d79255afe888e790b991490e5fdcd7b6fb3002278a2db152e7b61eb",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-006",
+      "target": "OpenArm",
+      "purpose": "per-side tool，10 个 T2 shortlist",
+      "interpretation": "已完成；无同一 T2 的两侧同时过 80%",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-006/per-side-tool-t2-shortlist.json",
+          "size_bytes": 37959,
+          "sha256": "54e0837835776942e66d98ea4383338fe4dfceaf846b675f6b195157bc136ba3",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-007",
+      "target": "OpenArm",
+      "purpose": "三个指定侧/点位的定向工具搜索",
+      "interpretation": "已完成；未恢复双侧 full-pose gate",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-007/targeted-tool-search.json",
+          "size_bytes": 107517,
+          "sha256": "252298e6e2e3588698bca204496fa5948c61bc25c38ccc4156e81e3bec705bf3",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260909-openarm-source-semantics-008",
+      "target": "OpenArm",
+      "purpose": "81 点局部细化 position-only",
+      "interpretation": "当前位置基线；95% / 90%，同帧独立两侧 85%",
+      "own_recipe_present": false,
+      "log_count": 0,
+      "file_count": 1,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260909-openarm-source-semantics-008/refined-position-t2.json",
+          "size_bytes": 87672,
+          "sha256": "759a473211dc2a139d9e405ad9514c63d1befdce3ba2616ceaedb0b2b14d30ff",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-separated-frames-001",
+      "target": "OpenArm",
+      "purpose": "错误接续后居中七点 / 共用工具对照",
+      "interpretation": "7/7 完成；旁路诊断，不替代 9 月 9 日最佳",
+      "own_recipe_present": true,
+      "log_count": 6,
+      "file_count": 15,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "7f7772c144c43dfb0874c8a495d7cbb0eab9f9d4115acd97348f48c246f12a7a",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/recipe.yaml",
+          "size_bytes": 7279,
+          "sha256": "eaea2df09348ee1156bde09c3f58697fbaab19b6e9e427c0e7014f04e2021700",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-000.json",
+          "size_bytes": 5543,
+          "sha256": "c8cbecadac0aa9bc4049dd8a2c407bf248c5933948affe57943747c82b65ccca",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-001.json",
+          "size_bytes": 5512,
+          "sha256": "15e7c6c9bc50e32e6d41b6fc491efd10ff088ba95719132b096a867e45ff2c73",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-002.json",
+          "size_bytes": 5519,
+          "sha256": "f7212f0c1befeacbacc83a1da41d0ed1c84d70fdcda5759eb75022fe902a70b5",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-003.json",
+          "size_bytes": 5534,
+          "sha256": "96342064a86aa898d6a33756f6b585cea01e74b9c69e25c5abacb5ebc330daf8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-004.json",
+          "size_bytes": 5530,
+          "sha256": "f91582761655bd6df237eeac0a55411db3a77ae4aaf4c1aea66efa1e69865578",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-005.json",
+          "size_bytes": 5564,
+          "sha256": "e93c75cd81bbd5f010814fc0fe22264487b25eb1759662d2c1996c8383d75c55",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/results/sep-006.json",
+          "size_bytes": 5505,
+          "sha256": "b96b5af490e9ddeb92aa5cf1c2138c85af900cee690bdd36015ebecb4a0ed7c4",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/sep-001.log",
+          "size_bytes": 1058,
+          "sha256": "d6ccb44da8af4d75e71c784f990be423218cefa134dbe3980fe01ddbe0377bf6",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/sep-002.log",
+          "size_bytes": 1058,
+          "sha256": "5027b4abd696fb4a94e6ef74f1ec35f3b5feb95cf27ff8ab5cff9c19b07236b8",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/sep-003.log",
+          "size_bytes": 1058,
+          "sha256": "bd5063f835602026812ed1fd48f96c3534958324247254c146a6c551a394da28",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/sep-004.log",
+          "size_bytes": 1058,
+          "sha256": "c3c8e9a0a14427eb227c8e7b5f57ef83f4326be9a7e9371769df25c97756ac48",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/sep-005.log",
+          "size_bytes": 1043,
+          "sha256": "67b3c5592019087a8c0d6623f5277caecd563665623af6c83c093eae7b2d26ef",
+          "category": "log"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-001/sep-006.log",
+          "size_bytes": 1057,
+          "sha256": "d7eb7e473191c721ff40dc1f707ece23d5145b6d9f50200415c76a248f2285dc",
+          "category": "log"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-separated-frames-002",
+      "target": "OpenArm",
+      "purpose": "居中 full-budget + target-only FK 对照",
+      "interpretation": "已完成；私有 full-pose 15% / 15%；FK 对照 11/12、12/12",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 5,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "a1fdf7082ce9d71b7c63d90985ece290e1b4536230ca3df89faa1dd96d1620a0",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/recipe.yaml",
+          "size_bytes": 6676,
+          "sha256": "4f5095216809a0c2d288c99ce8c65b4cd0541adeee1dc28ed59c28a130132daf",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/results/sep-000.json",
+          "size_bytes": 5489,
+          "sha256": "4752ceffd82e7ceb2f2ebc29f05f38b332d18941d1dae8ef308a06d90f3ff537",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/target-only-fk-recovery-script.py",
+          "size_bytes": 1831,
+          "sha256": "365ad698dd6a6b964f200fd689eb090210c7e9535a1c24bbcd76ff978d72b54e",
+          "category": "saved_executed_script"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-002/target-only-fk-recovery.json",
+          "size_bytes": 2530,
+          "sha256": "599b528df55c7dbe4b49e3bce31cd886c7fd510db28359ff46ce166ef1d5838d",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-separated-frames-003",
+      "target": "OpenArm",
+      "purpose": "旧 t2-023 共用工具 full-budget",
+      "interpretation": "已完成；63.33% / 38.33%；旁路诊断，不作当前最佳",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 3,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-003/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "76a4e3ac8c9378b6f87e3c7c66d9e04059a1ea6794891e409fdad1e31ddae4cd",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-003/recipe.yaml",
+          "size_bytes": 6717,
+          "sha256": "959b5fed1ec264cf9ce62581b29ab5bc53ed37cc6469669f235173637d0a0524",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-003/results/sep-legacy-023.json",
+          "size_bytes": 5564,
+          "sha256": "c7e690ed9617d4c412ea8a003ed95c148bd571434c57d64941a3593e464bdbae",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-separated-frames-004",
+      "target": "OpenArm",
+      "purpose": "恢复旧最佳与细化点 full-pose",
+      "interpretation": "用户暂停，1/2 完成；旧最佳复现 78.33% / 88.33%，细化点无完整报告",
+      "own_recipe_present": true,
+      "log_count": 0,
+      "file_count": 4,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-004/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "e343571a79ba27f761fdbf92c49ddf606c16af9f6a5e0f79a932991c852611bc",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-004/recipe.yaml",
+          "size_bytes": 7210,
+          "sha256": "e1dff5005031a6d978af1337c0938d424c19981609d2b24a59b9da6be9e3066a",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-004/results/restored-t2-047.json",
+          "size_bytes": 5593,
+          "sha256": "522d1a7055878edc736d9b0d3ced2de8b1b04ed4c12dec43e88f8de246279ef9",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-004/stop-receipt.json",
+          "size_bytes": 818,
+          "sha256": "13e1c92c52538b79d95aeec51a2a0a1f2a0d2281480f138f3762f166fc7a6d47",
+          "category": "retrospective_stop_receipt"
+        }
+      ]
+    },
+    {
+      "project_alias": "target-reselection-panda",
+      "run_id": "20260903-m1-panda-001",
+      "target": "Panda",
+      "purpose": "早期反向 side mapping",
+      "interpretation": "已废弃方向，不能选作 Panda 或 OpenArm 基线",
+      "own_recipe_present": true,
+      "log_count": 27,
+      "file_count": 59,
+      "files": [
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-81.json",
+          "size_bytes": 74714,
+          "sha256": "46ba83291e0a86b80de01e9c427f97591be2eb1eaf1d6a3d6a55b0b3352a1a49",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-0.json",
+          "size_bytes": 8279,
+          "sha256": "75093b46c07a8e10e2cd673e74c383fce5dc15eddf9365fb49d7e748fbe9cda7",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-0.log",
+          "size_bytes": 9299,
+          "sha256": "fc5b514d6730172c9b62e941e1996823f5cfe5333937cad6f3ce98e37946adfe",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-12.json",
+          "size_bytes": 8266,
+          "sha256": "8373b55085c4d82e0bcebb1f9c11c1020c4c6ba0d52238d4c6f0a81626ac02ca",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-12.log",
+          "size_bytes": 9286,
+          "sha256": "fd54776c59a659ef73bf3106c87cbb211440b37334ce3526ab9ea80c23f91dad",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-15.json",
+          "size_bytes": 8263,
+          "sha256": "7ed81d59ba4554344d4a38d493dc7e38b77cdb750edf54ea7245dc78cb5608e0",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-15.log",
+          "size_bytes": 9283,
+          "sha256": "b1aaa3dd6bbc66379b0df3f878ac8d9d5cf667534bf326de832ade44abcfc973",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-18.json",
+          "size_bytes": 8266,
+          "sha256": "f229b4495b08a78fe3fb0118286f413e96b5a78cf602c3b9ac7b3de8a9f47ac8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-18.log",
+          "size_bytes": 9286,
+          "sha256": "4b83bb757311fabb0ed4e7666b50ea1f88649d05a1af5e4935754b1f239d28bd",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-21.json",
+          "size_bytes": 8260,
+          "sha256": "44a28130e5e91eeb9a2f7b450684409393be1bfb7bb06be89889c957394664fc",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-21.log",
+          "size_bytes": 9280,
+          "sha256": "6c2fd64aa321068486ab0eee5c93a8c3024e579e9ddecfef6307d3ab7ab56310",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-24.json",
+          "size_bytes": 8264,
+          "sha256": "73c828e7a64f0c7e050bc433fff4fa7ef2984ecd7b722bb20a80417657f95cce",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-24.log",
+          "size_bytes": 9284,
+          "sha256": "a3b02957680a8c7296b938c7f0cb66f804cedec477b9edf61845b5ed324c4009",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-27.json",
+          "size_bytes": 8276,
+          "sha256": "7d1992068a134fb874474f92799a95e771d48df06476fb1fefc92ee067f86b12",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-27.log",
+          "size_bytes": 9296,
+          "sha256": "4164b7c4ff0c394e324443cb2c4008048344b327a2d3b70930e1e3fc5b3894a6",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-3.json",
+          "size_bytes": 8268,
+          "sha256": "1f0266d68bb5394726d8393c403dab2d11b8ad302263272e23146419c234496f",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-3.log",
+          "size_bytes": 9288,
+          "sha256": "6ffdc5d53ea5e68944e9e4f506e4492ed98e5834dab86120b9de31ca3a28b02b",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-30.json",
+          "size_bytes": 8271,
+          "sha256": "80a801937e429c3642f8d8f53f17a3fa3f414e565b6ae4f964ea9c57b0913543",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-30.log",
+          "size_bytes": 9291,
+          "sha256": "eb42674c960f9a9ce15184f39e49b815f53b6c8658bcb0afad1db06b2f0caacb",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-33.json",
+          "size_bytes": 8267,
+          "sha256": "689ef65ed33c1ba9ca8962ec9fa6f9c3d0a3577f2ac34a83d20063790d19a428",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-33.log",
+          "size_bytes": 9287,
+          "sha256": "8feffef993541d045bf6be79013205336b406ac1be16d0cf41dc3fb155e23c56",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-36.json",
+          "size_bytes": 8270,
+          "sha256": "ca7ed1c65b6a802d9e3fbe2161ee78679b01f3158d938f40c002aa3b9a1f408d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-36.log",
+          "size_bytes": 9290,
+          "sha256": "65d4da8e5180b07f030255e13cffea8eb79b21c72d2f5c4169828daffa85ca81",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-39.json",
+          "size_bytes": 8259,
+          "sha256": "f363cf9da065d4d91f983211dfb91bb333705fed0a0c56cba417877d084aba79",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-39.log",
+          "size_bytes": 9279,
+          "sha256": "ecc528d0110e96e5734c5f4fbdff527beadd92c4fc8328995d7f499492039040",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-42.json",
+          "size_bytes": 8258,
+          "sha256": "6430f201cdf28a9939b468f22a2bc19db1cfd61c6cc30b146dd3754b35c822ed",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-42.log",
+          "size_bytes": 9278,
+          "sha256": "47b45b7a2f6cd7675893cdef27ed973c9ede60352b699b87049398ba8471a6fa",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-45.json",
+          "size_bytes": 8262,
+          "sha256": "07e28ac1a7a2832b8dfe44e5c015a8e184c3f0cfe97c7fe9595574ad9843245a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-45.log",
+          "size_bytes": 9282,
+          "sha256": "1ead0b296d01671ab300a6a45732dc17735a8a3834e3c780a06ae802993a257c",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-48.json",
+          "size_bytes": 8262,
+          "sha256": "f4017993eb301c64168ab2b5a5248df334519af8ce5aec9a2d2f224b067534cb",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-48.log",
+          "size_bytes": 9282,
+          "sha256": "859b582aa9411ae0b449de9dd5c40fb5e67bfbad37e08f4a97696ea5991284d9",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-51.json",
+          "size_bytes": 8262,
+          "sha256": "db81033224744e10a334afd8a81c25f810b83e9f44989356f1e2102ae4aeeabb",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-51.log",
+          "size_bytes": 9282,
+          "sha256": "73d7add399e02c6be74259face78928f5363408448886cf7cd16ae238513bab9",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-54.json",
+          "size_bytes": 8271,
+          "sha256": "6d83c49589b0f8fc876b8f740fc3ab63f4d1eae05895c75c2b83873d2d813395",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-54.log",
+          "size_bytes": 9291,
+          "sha256": "57f78a96fdb952185590602858342a95c5f1820a2cd7e81d2b0115a6f17b0c61",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-57.json",
+          "size_bytes": 8260,
+          "sha256": "a7b18ce60082ca8ade8293d2308edbf733441ea4836bf7974350c86100a8e11c",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-57.log",
+          "size_bytes": 9280,
+          "sha256": "6bc2a08f5d092acf945811bf8569ec239bba45675a573c90bb1a6648de39cf5c",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-6.json",
+          "size_bytes": 8265,
+          "sha256": "98a1d939f007e8c9c962a9eeb055d95d86dccd624ec6ed4bdfb5ace7479b27f6",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-6.log",
+          "size_bytes": 9285,
+          "sha256": "9e1f3c41f0184973c2d0db5392d4b8fce47d9dfa6d3392d37378f8989737370e",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-60.json",
+          "size_bytes": 8262,
+          "sha256": "b49036b9100284a6150e84e25b5974cbce7c2d499ee59b1a94d2d2e75bab569c",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-60.log",
+          "size_bytes": 9282,
+          "sha256": "9b78fbf81ac98cd5a2735bece4c18bc5462acecc26bdcb5e59f2171e22508952",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-63.json",
+          "size_bytes": 8271,
+          "sha256": "79117082d60c395e5df5f19cac8f097a4e7528de561e73eab992681829374234",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-63.log",
+          "size_bytes": 9516,
+          "sha256": "42246ea07c255ccff1809f3ec7cf2c5931fea02c0a3b3969bb88652cb8d1319f",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-66.json",
+          "size_bytes": 8272,
+          "sha256": "952d329007ed7c324e18664f47c4a1a3b009b055fde3bd0fb0a52101a1f436d9",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-66.log",
+          "size_bytes": 9292,
+          "sha256": "fc00e0307d5dc2347a83339275cd97f31f39a6d3eedc63ee08a47f348e93d9ec",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-69.json",
+          "size_bytes": 8263,
+          "sha256": "34f1d9df180874ba3151e1c916d054ad3afd6096b610548aa5976babca39c255",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-69.log",
+          "size_bytes": 9283,
+          "sha256": "de3d79913f33f3e10d08746c5b305e5592d39458736d28b06f62e3eb68659066",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-72.json",
+          "size_bytes": 8261,
+          "sha256": "c0e3c6aac254adefb15c427449d5257b9dbdabd6d6c8eb230469d9453d99d2a9",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-72.log",
+          "size_bytes": 9281,
+          "sha256": "15468d63cd250f545f0648dcb790f8b6749422cc057a9971ad3a523c38548083",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-75.json",
+          "size_bytes": 8258,
+          "sha256": "49765403f7ac9fc0503b44dd25462e5555ce7e47cb9d9461fc31cafbd836203b",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-75.log",
+          "size_bytes": 9278,
+          "sha256": "973d73ca23a658bba7a5d80a8ee7cb549f3440523a97b297ed7b9403f68cf125",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-78.json",
+          "size_bytes": 8261,
+          "sha256": "fa48fa4b86db03ff4600066e5befd4104dd289e1328fab4a6654c8b41382e236",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-78.log",
+          "size_bytes": 9281,
+          "sha256": "38ba3041f37818582062a2d649b5bfe79bdde6c9a6b542b699321e13d34d0176",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-9.json",
+          "size_bytes": 8274,
+          "sha256": "b4341eca548660d02411018c6e43f56df85bdaa52c002095cc3210d0695c2d12",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/prescreen-one-frame-parts/part-9.log",
+          "size_bytes": 9294,
+          "sha256": "6463c744402b02ff212b09fba56b1b34f6210358f603b9b39ada3eb11cd33a3e",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/recipe.sha256",
+          "size_bytes": 139,
+          "sha256": "6f02829d295d7453cf7c52ff689a7e1bd5de2d9ca3456bb20acdfce858f2aeb9",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/recipe.yaml",
+          "size_bytes": 6941,
+          "sha256": "74d5407e94031ff9a69b84c0a1921642df026359c9b4e1f42bcd0fff5da4be9a",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/smoke-v2.json",
+          "size_bytes": 6618,
+          "sha256": "dd88457237f324645d2885608cb544add7499050f5a58db3d78ec199c8d2fe0f",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260903-m1-panda-001/smoke.json",
+          "size_bytes": 6621,
+          "sha256": "9f4692d1fb179c294e477b31ab330466aaa198b512352b95e84d900a10f266ea",
+          "category": "json_artifact"
+        }
+      ]
+    },
+    {
+      "project_alias": "target-reselection-panda",
+      "run_id": "20260904-m1-panda-002",
+      "target": "Panda",
+      "purpose": "修正 side mapping 的独立目标重选",
+      "interpretation": "历史 YELLOW；600 帧 nominal 99.17%，不代表 OpenArm",
+      "own_recipe_present": true,
+      "log_count": 65,
+      "file_count": 137,
+      "files": [
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-015.json",
+          "size_bytes": 90926,
+          "sha256": "b46252c04c33e07c191f97da60a63f4156f4330a566ad3b82be094b128f9cf72",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-015.log",
+          "size_bytes": 91932,
+          "sha256": "1d605418b37a52054889da4cbbaa82c0de0f464c33a078535758537325e5051c",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-034.json",
+          "size_bytes": 90930,
+          "sha256": "8503c1e9a0fb594d9c7afef51421f4c9839425bad397ff4eaade80e881bcd32e",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-034.log",
+          "size_bytes": 92152,
+          "sha256": "2c6873d781a5538e878fe0312cb82686cb0e21d6bea9abc4895155897688b626",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-042.json",
+          "size_bytes": 90853,
+          "sha256": "4debf6779a8a9d9ce2071c6e3a45a620f8b1c609e0e0dc20ce3709310a9d21de",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-042.log",
+          "size_bytes": 91859,
+          "sha256": "bbce0e6dbf760c2064615707416f27a8c0943faaf4fd08d040c9b4d60aefcd28",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-043.json",
+          "size_bytes": 90814,
+          "sha256": "c9f42931a927f093cd25a9297dfe6f2734d3a8dbf2c8566b6c87febae595c26e",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-043.log",
+          "size_bytes": 91820,
+          "sha256": "dfe336a507608ea9a6e0445a7bc2c32cfa6c5cfecc004de9371ca009d8cbc180",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-053.json",
+          "size_bytes": 90788,
+          "sha256": "dfd16482ae271a230476dd6d6e8655d96a983c38c6225f952949bd1a91f2de4e",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-053.log",
+          "size_bytes": 91794,
+          "sha256": "0efe14ff64b30a7d9c85dc1ef1046152bb173b56a1941136e8fadc88bbace449",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-062.json",
+          "size_bytes": 90784,
+          "sha256": "ccf5c19a6e715b2278429b9d73d79930919e06e954f9504c98592bf464722704",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-062.log",
+          "size_bytes": 91790,
+          "sha256": "8dfc42f2d18aa2e3a2fa68c7ff70ade63358ad1cc907a9a8007e338d27a2e3bd",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-070.json",
+          "size_bytes": 90822,
+          "sha256": "5a5140fb02bf0a0fbce17c162df01b5fd2ee2376b5da7f2e7709ce0e9ba38893",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-070.log",
+          "size_bytes": 91828,
+          "sha256": "11faab63a30c4137a0485781841cd3e5ffd545d577307a6594a5faf72b6378aa",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-079.json",
+          "size_bytes": 90847,
+          "sha256": "fd62a6b38ae1a7c13e737a054abf2eb925c91fece3c13eedcc236296cac2c2f1",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-079.log",
+          "size_bytes": 91853,
+          "sha256": "ed6bd652f2d2af7511adb4df1f84a71e38424ea5fbb901959eacd21270cf746d",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-080.json",
+          "size_bytes": 90785,
+          "sha256": "5b044e720b87e12a0ecc925eac556b87805d751502a2cd51276a5e20752f5d29",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-candidate-parts/full-t2-080.log",
+          "size_bytes": 91791,
+          "sha256": "f1207e7edc62154aef7fe7442a40cf293e65cff4e0a9909fa5e2d26c8104d583",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/full-top9.json",
+          "size_bytes": 156016,
+          "sha256": "124cacb1bf2e34c4de27c3b5ce5ceed9176fb4917a8f3dda02fd4bbf94d1fe82",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/merge-full.log",
+          "size_bytes": 156016,
+          "sha256": "124cacb1bf2e34c4de27c3b5ce5ceed9176fb4917a8f3dda02fd4bbf94d1fe82",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/merge-prescreens.log",
+          "size_bytes": 77323,
+          "sha256": "9cf1d7a3407dbd1fff5e69918759bbb84f339378208e4af2c2010a6b431a2700",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/openarm-harness-regression-smoke.json",
+          "size_bytes": 4069,
+          "sha256": "03983f0a5896a8ad899619057bef24effc9d4e342b7994da72905a8bbd77c4a1",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/panda-asset-assertions.json",
+          "size_bytes": 1175,
+          "sha256": "a7f2696380449012762710034f1a79670387b8db57a25b477431a3d7ed7e53d8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/panda-collision-probe.json",
+          "size_bytes": 1430,
+          "sha256": "fe64dfd107ea2641e201551d752fd2d30f1dcf58592d74e8b6bfc93f01fa309a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-0.json",
+          "size_bytes": 8384,
+          "sha256": "004f50065b993231202f25098999c10870c7419c8b3d734c5e9cb5a731e746f8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-0.log",
+          "size_bytes": 9620,
+          "sha256": "1101a5e1c58744d96fcca420a9a3b7e395f731b64d2074c3c59e2db923d57a2b",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-12.json",
+          "size_bytes": 8299,
+          "sha256": "6d8ad71940c371c524cf24fc7d93a0fabbabc7d270bf875a53da62b7c26f82ec",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-12.log",
+          "size_bytes": 9319,
+          "sha256": "2d7e21492a29c121c2705c50cdf383879a29c58dfd1fec28f0e214ca9eec9358",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-15.json",
+          "size_bytes": 8329,
+          "sha256": "ed4bd4d82ff15db8a38c267e41e429e976ffd4532dd69975ca3b33cd818370c6",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-15.log",
+          "size_bytes": 9349,
+          "sha256": "d5c4984a37abb6f2c6907c13fde7a09d417280144d040ff690ee4939ad7a5432",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-18.json",
+          "size_bytes": 8400,
+          "sha256": "10e23f1f576987fc49e2e056f6c4df909a369e940b87d5d80f1f1ef2d19115c8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-18.log",
+          "size_bytes": 9420,
+          "sha256": "9e19463a487bc7cebe0bd0e131d12282eb988bf2132d6c57370ac1e8018e6284",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-21.json",
+          "size_bytes": 8329,
+          "sha256": "ea9a7a2210ba68a2c2f8e70921e1d037d80837d4f21710d734544786ca620b59",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-21.log",
+          "size_bytes": 9349,
+          "sha256": "9089e53fa2c4e108e7c46290f45c295b8c781632b79c78cfc29c86ae657f79ec",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-24.json",
+          "size_bytes": 8358,
+          "sha256": "d9d4a6d2b4fd296d950eb42bb8d5efe1ef8aba292b84c1eae633544e7cbf7c0a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-24.log",
+          "size_bytes": 9378,
+          "sha256": "2a7fc5a699d802fbc178242b8a3d481618bf9250530b898b74f21ea24ac6f4b9",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-27.json",
+          "size_bytes": 8395,
+          "sha256": "db4044bfa042aba76522badbfec55298877487eb69aece606dfea7dcf3c7bee2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-27.log",
+          "size_bytes": 9415,
+          "sha256": "40558673f2ba7d4d4bbc3f2f69112a1f012c43141337afff8565906e8c0490d6",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-3.json",
+          "size_bytes": 8328,
+          "sha256": "f97ed04ea7bbbd57677813c4646a3424c4b0605b642ebe260d4cd7bed40a742b",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-3.log",
+          "size_bytes": 9348,
+          "sha256": "63cf4395f8571888b0570ec817a771c072c3ca1ffc9f2e066ac6587e0ac0514d",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-30.json",
+          "size_bytes": 8269,
+          "sha256": "10db610a0e950d4523e4cce87e99d1f3e7dc7f2d08b7582ebee7f0df27310c70",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-30.log",
+          "size_bytes": 9289,
+          "sha256": "392e29db878458eaa951c054724ec7224233a6b28a28feb38efb73a12d8c565e",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-33.json",
+          "size_bytes": 8331,
+          "sha256": "1d95a4fa91686b17006c75e41d6b37896d28d578cbef53a324c5eb0bfeddca00",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-33.log",
+          "size_bytes": 9351,
+          "sha256": "3428015290661104ee6566aebfb13dea35dfbd276ca16e42c8da10236f756794",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-36.json",
+          "size_bytes": 8367,
+          "sha256": "800530209715a0e08cc6be6da3c643ce5713d18dc9a203f7921141c0e9fc1991",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-36.log",
+          "size_bytes": 9387,
+          "sha256": "b6f509adc484734b886ceee9d70c7e9fbc0289ec20bfdb44700651aff512fa1a",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-39.json",
+          "size_bytes": 8378,
+          "sha256": "5414466a7251ce404985835a2027f71efae7abd67b73b83026e35b3fe52c2766",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-39.log",
+          "size_bytes": 9398,
+          "sha256": "6e4e9ac0e464e6d0f81b3783cefaed40a7ea65a3fe1c849cd41882a0cf4ae319",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-42.json",
+          "size_bytes": 8289,
+          "sha256": "eb93aca52aa49b500cdb9e7f173aff10f40a6ee06e616cd119f4be076c4fe1f5",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-42.log",
+          "size_bytes": 9309,
+          "sha256": "fc46dd4417e12d993672e73f8a40ab015ede6650f8f23f478f5ebd6e9e39603f",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-45.json",
+          "size_bytes": 8458,
+          "sha256": "6385522bae4a72eb1117cf7eda1f82a023361f4588ff639ac090514c4e0ee7c2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-45.log",
+          "size_bytes": 9478,
+          "sha256": "ed4f1ee968af741785110b5f00bf33372f1b5bbdbe8171b4e816659d2cca73c3",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-48.json",
+          "size_bytes": 8326,
+          "sha256": "f72506abaeb294509630f682dcc21b6a74c343ab090b0dca712a098786409aaf",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-48.log",
+          "size_bytes": 9346,
+          "sha256": "349b539c0017621f313b2801b8b6470a15c3fe9f4e7f7981d17827408dbef6ce",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-51.json",
+          "size_bytes": 8297,
+          "sha256": "8d9e83428872ba553e4c2bd7a340b42cbaf726b7dd1949478a7420fca752769b",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-51.log",
+          "size_bytes": 9317,
+          "sha256": "f8e6341b3f1f352a0b26fb27ffc263bccaf7bb65a40f50ed72c8a87b01afa675",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-54.json",
+          "size_bytes": 8454,
+          "sha256": "21e3e3f886663691f7e5e32c331ac2832e07c5901aa36bae093fb0f12faa3aea",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-54.log",
+          "size_bytes": 9690,
+          "sha256": "4ecde1f4ad0b616d09096c0e9fe197365bbc7fdfb43ce1536c8e0205d291c02a",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-57.json",
+          "size_bytes": 8299,
+          "sha256": "84efbd0812d927c23cbd617993b8f1c51fd6ea3edad70dbb44d8b02900dc0711",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-57.log",
+          "size_bytes": 9319,
+          "sha256": "93532ba7bdb2c4ae6ba22fd00fe2c9b1c830c14ac1d2ac9c315a21e5093915d3",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-6.json",
+          "size_bytes": 8378,
+          "sha256": "8d4b9ae4946bbc7795c91be1fd60e19fd8b896fc092dfd711a9f73fb92c10b2a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-6.log",
+          "size_bytes": 9398,
+          "sha256": "74a8bcf4f156a3fcef41dcd96a39e9017ab17958c1c091fdc94498ecc3028e1a",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-60.json",
+          "size_bytes": 8361,
+          "sha256": "9ff7e77221ea9a82618f17c5ad94e00680b41debb9ca89b0fa600a10fc542adc",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-60.log",
+          "size_bytes": 9381,
+          "sha256": "7042fbc3b4fb5bd811e8e831aa931ea70529a2c2fd38517b27992178bc808340",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-63.json",
+          "size_bytes": 8463,
+          "sha256": "f705af301b485f59cba97c87fd8d2b1baa1e0a8a23cfda781a0fa3eddecb5aab",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-63.log",
+          "size_bytes": 9483,
+          "sha256": "466f952818e4440f2ab22c61a4fc822277d111cb5c7e81928fc999ce75533569",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-66.json",
+          "size_bytes": 8403,
+          "sha256": "480d85e95d80ded6728447726d966478e308ba978ebaa9db75268e86f2d8d061",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-66.log",
+          "size_bytes": 9423,
+          "sha256": "86f8682f3b283b721e433620eee5651ede85ed5f5ae5c18f634240120ac690ab",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-69.json",
+          "size_bytes": 8326,
+          "sha256": "76039532864af9901575da2762084b7ac1e9f0a30239f4d037f3604744226011",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-69.log",
+          "size_bytes": 9346,
+          "sha256": "94f43d0369d75462949683b131bf7dae75f27c92330af9a02a53556fd705ecec",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-72.json",
+          "size_bytes": 8443,
+          "sha256": "3e88dc9c03b72dc2da1cc21153d614e95e260a64f2f58a68e2154df57c058cfb",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-72.log",
+          "size_bytes": 9463,
+          "sha256": "c7eba1c8a714ff728003af3398c28851fd03a16678164a30b232184147c51808",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-75.json",
+          "size_bytes": 8361,
+          "sha256": "389a62f63b691be976297da8ca68123ba91dcb71d96a14438194fa81d1ae0079",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-75.log",
+          "size_bytes": 9381,
+          "sha256": "987ed8f1c484d2f1f8a8af1d1fc66c1acc9b4d524885f59e486e9574e4d0d100",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-78.json",
+          "size_bytes": 8293,
+          "sha256": "632c5c3bab2a5ddb21c5808af380d3d902f57287187570677af80335cd068041",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-78.log",
+          "size_bytes": 9313,
+          "sha256": "47501426296d64c43888a96cc5c3073ea565fa6b14317f05a969300553a6345f",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-9.json",
+          "size_bytes": 8488,
+          "sha256": "af2081a957dac4bd2d981c81cd417011336c94b40d8fc3f36a4102ed7e3f11b8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60-parts/part-9.log",
+          "size_bytes": 9508,
+          "sha256": "3a1e3e5cb1666ecc9df579bcc522ef0004c4b0a04ac8c864f32cafb4e476d917",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-calibration-60.json",
+          "size_bytes": 77323,
+          "sha256": "9cf1d7a3407dbd1fff5e69918759bbb84f339378208e4af2c2010a6b431a2700",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-81.json",
+          "size_bytes": 74512,
+          "sha256": "672c940398fc1e0fde9b0e103a1afc2a61223c01862f91ec5b241d0c459f9a77",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-0.json",
+          "size_bytes": 8262,
+          "sha256": "b93311fead1660469a846aa70cdf7043a09d68b2c0d5f245db18c95b3d714e06",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-0.log",
+          "size_bytes": 9282,
+          "sha256": "415da1e8e2d0af9eb06b2c2693df7c85230e28f5f50009ac970430ab14d1d2d1",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-12.json",
+          "size_bytes": 8256,
+          "sha256": "4d4685e336b2f07603384af41886b0b758bc945f031eeb29ce35817882fee904",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-12.log",
+          "size_bytes": 9276,
+          "sha256": "1235ed857d97df70db872006a0bcf8507a1a41aecd76ae11d985d84b7474757d",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-15.json",
+          "size_bytes": 8256,
+          "sha256": "b64aa1d4a4abb831d7107482d34e654f5657c896d0954d02396ac1fb3adae674",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-15.log",
+          "size_bytes": 9276,
+          "sha256": "0d877b207ff64ff528934584a5b1dca86f1bc3eebb01e66f83eefb196526b34d",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-18.json",
+          "size_bytes": 8268,
+          "sha256": "34ce1515de675823512471e6fb246c94d9dfe500a83e212f99d76411885bee9e",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-18.log",
+          "size_bytes": 9288,
+          "sha256": "6051b3211142ebb70a8702e6d75cc4034ba7ace32a80600ce152027b0abb9715",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-21.json",
+          "size_bytes": 8257,
+          "sha256": "835a1fc8957cb1f29dc205431b9315a65b5883985409d993df54388a87efab51",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-21.log",
+          "size_bytes": 9277,
+          "sha256": "a8c388b85f9c9c124511ce0b96af05e277a260707ceac9acba57d42f84366fa8",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-24.json",
+          "size_bytes": 8258,
+          "sha256": "a9921c12b4d759be66a37b6f26c48a0361905b4925ca0d380be5bed5f834e0f8",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-24.log",
+          "size_bytes": 9278,
+          "sha256": "1e2dacf4193c3ce4b2ea912a8a11877f45ca8d10c3d87acb5901c05e85ef50e4",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-27.json",
+          "size_bytes": 8263,
+          "sha256": "82b35299bce8821716a1a76a0a47fea31ff136990f0812bbfd0062e8d20e4f29",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-27.log",
+          "size_bytes": 9283,
+          "sha256": "c1d7f7edddf4d95b952dc0b2783fabb4229cc1cf77fd64df0f4fa8218862b5be",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-3.json",
+          "size_bytes": 8258,
+          "sha256": "35f0c5c2063cad84669e59637ce3691148e236c60aad2690205ab82c4d8f9133",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-3.log",
+          "size_bytes": 9278,
+          "sha256": "1969a4ce7fbdecef06c4c88ace2dac5c0636e06c37ae581e332f99838ab8d3d7",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-30.json",
+          "size_bytes": 8261,
+          "sha256": "7dca5e78803c832c0d1bf6f5786c50a8073072e77e886213f56743ace3ad13aa",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-30.log",
+          "size_bytes": 9281,
+          "sha256": "040b2c59c0a370bcf066ef89598cc5991271bd4afd82a246532feed5c36dfd5c",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-33.json",
+          "size_bytes": 8260,
+          "sha256": "961abbf6a44786f77fae011b8c259adf11a0fe9b7cec4c3f25123b084ad87f80",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-33.log",
+          "size_bytes": 9280,
+          "sha256": "82c31b08f1715af8f8b5ab59611e1d490d8cceeaf394b029b715067471242c9b",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-36.json",
+          "size_bytes": 8260,
+          "sha256": "b474a6bb51715dcdada7c3f05e0e618b9abf55ffa080a982e3152d0ccfa16691",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-36.log",
+          "size_bytes": 9280,
+          "sha256": "88a3c192f01df52e588ee78e8c31f154e67885297cf923cf23815edfcda484e0",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-39.json",
+          "size_bytes": 8262,
+          "sha256": "add421f83e52c8b8cd48252680264691f63a60d32c6d2a1ff3286a03dd70da4d",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-39.log",
+          "size_bytes": 9282,
+          "sha256": "2153ccddb5bb0dd3f07bf6f5a74f91c6645a6afcfe100c4010875b5384a49eb1",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-42.json",
+          "size_bytes": 8258,
+          "sha256": "a760b830be0bb3713cd32822c9b8f5f81c5fb7145f3b2a00d2f97b6dee5c2ba7",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-42.log",
+          "size_bytes": 9278,
+          "sha256": "6198cb63ab098c02ff47e240a0d4569b91d1e2518e5edf7650187e655607975b",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-45.json",
+          "size_bytes": 8252,
+          "sha256": "c560cbbfae8ffe0f315a5fce36ba6f4086093bceac624eb056cee8a0323a6431",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-45.log",
+          "size_bytes": 9272,
+          "sha256": "1157c0dbd8a51e7f5be00c97eb493254fedcad70451c1da2de95f571c4d5ebbc",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-48.json",
+          "size_bytes": 8260,
+          "sha256": "826787cb113436429ab62cdaa34502d03f8171ce7cd6e81a1a40543f002e2457",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-48.log",
+          "size_bytes": 9280,
+          "sha256": "2482dc235eef86074c6ca0f14fbf5c08704976f67d0b30afbf2c366589dd2df9",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-51.json",
+          "size_bytes": 8256,
+          "sha256": "e11bc6b5f48a9237d6f34ab3bad4a20a3eaced07740a5e4ec052a1bbb838e43a",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-51.log",
+          "size_bytes": 9276,
+          "sha256": "9ea6418460eb170cec7f97122947fe2cb2778f63edbfff9ad3ec757a05d5ccef",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-54.json",
+          "size_bytes": 8263,
+          "sha256": "b72e158b1a11be67cb572e5cb68211cd6ea8f005898eb293ce16c55b67aace64",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-54.log",
+          "size_bytes": 9283,
+          "sha256": "637ef7b84736057ff43fafcbbe2126325b4a485675f85ee4eda788ff87f89987",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-57.json",
+          "size_bytes": 8257,
+          "sha256": "1d369f3fdd2a5ec62f630ed59021b1e6f65dc79b49c317e7222c9494c4888966",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-57.log",
+          "size_bytes": 9277,
+          "sha256": "88ad3d2c11605f6b386844370618a18e7f68e5c8b6a97f1618742f876a900ddf",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-6.json",
+          "size_bytes": 8258,
+          "sha256": "e5d0b8babb9fcdc2dba780a36b1247c074aaf1e902d2b066da2b693889715520",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-6.log",
+          "size_bytes": 9278,
+          "sha256": "fe1604551c2028b89623c2da66052a48202c393237215e243e31c91c9ff3225e",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-60.json",
+          "size_bytes": 8256,
+          "sha256": "ca5426b687b7d6b6ca81fa80a1694f54a24b5859b465aa980058173418ca89e0",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-60.log",
+          "size_bytes": 9276,
+          "sha256": "75148dd12c0f4b84e690276cc0947d34d3db9a7db8363cf5aa5894a0727bb53c",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-63.json",
+          "size_bytes": 8257,
+          "sha256": "00f99ee61002f8282a39e3cfebd41a0553613781b6010486546cec3ea03251ca",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-63.log",
+          "size_bytes": 9277,
+          "sha256": "d9992592ad8a6e796adf981408cc9349b75baacd00875bdaab65e8ac6aaa3ec1",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-66.json",
+          "size_bytes": 8255,
+          "sha256": "947c077523e893bec19b0b0f1e9778ccc8808ccd69e0401e5202cb55de3ab7be",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-66.log",
+          "size_bytes": 9275,
+          "sha256": "61372fbfd42f3877a8065b3820e8513ac3abcc271d7b76216b5dd4a2338aed70",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-69.json",
+          "size_bytes": 8246,
+          "sha256": "044bc10251190184775b988567c201156e9400f2154c17ed2582b630a4693956",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-69.log",
+          "size_bytes": 9266,
+          "sha256": "669484740eaf5363c84ae5bcff7c062421776564cbf4ebdd0bc4ba13b2cc6a78",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-72.json",
+          "size_bytes": 8256,
+          "sha256": "c162814b9b715b21b2b0ed0e70fcd6ef909203a7a8044def0306f297274b9153",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-72.log",
+          "size_bytes": 9276,
+          "sha256": "b7affd40870b3d6152f53d5ef590b0745d7536e19cb283afc93dff59fa85f8cc",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-75.json",
+          "size_bytes": 8255,
+          "sha256": "6a33d55237c48e93767b4f9805f7c12ab90e89456e3b556646a116a30a71fe96",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-75.log",
+          "size_bytes": 9275,
+          "sha256": "c1f6b5a124f6fb77c3f65942c609d6cc1d9fd94e708cc9613f1fe7e26b5aa2bb",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-78.json",
+          "size_bytes": 8255,
+          "sha256": "48234bdbce3bc6cbe6ffa4dc4def6be0060fa48b0ca4f41a3e93f8347c68a002",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-78.log",
+          "size_bytes": 9275,
+          "sha256": "6a40f7eec1b43a793db5105acb4c398d3b10db941c2afb34b35d5995536a448b",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-9.json",
+          "size_bytes": 8264,
+          "sha256": "56bd627f587a53dc07c9ad62bf67a0d960fbc471c92a43ec72465c1f8272c5c2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/prescreen-one-frame-parts/part-9.log",
+          "size_bytes": 9284,
+          "sha256": "fd93c118321a752795810001ebf4a62853f21dd1661dd54b02bb096b7cd1261d",
+          "category": "log"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/recipe.sha256",
+          "size_bytes": 139,
+          "sha256": "663f45ac3c630e62ff1a3600abde5414feeff39769af137bd192c4c369696208",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/recipe.yaml",
+          "size_bytes": 6962,
+          "sha256": "40d149739a89881a2ca27666d76dba790fd13e3bf6ece21e0bffcd5b94416a65",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/target-reselection-panda/runs/20260904-m1-panda-002/smoke.json",
+          "size_bytes": 6613,
+          "sha256": "fd2cbc22705744c35975d19ee9879fab976d4e17359d69eb3cf99da3f530c6f9",
+          "category": "json_artifact"
+        }
+      ]
+    }
+  ]
+}
