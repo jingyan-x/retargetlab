@@ -149,3 +149,33 @@ def test_map_grippers_cli_binds_real_profile_without_arm_poses(tmp_path: Path, c
     )
     assert mapped.frames[0].joint_positions["openarm_left_finger_joint1"] == 0.0
     assert mapped.frames[0].joint_positions["openarm_right_finger_joint1"] == 0.044
+
+
+def test_geometric_outer_bound_never_rejects_target_fk_poses():
+    import sys
+
+    import pinocchio as pin
+
+    raw_asset_dir = os.environ.get("RETARGETLAB_OPENARM_ASSET_DIR")
+    if not raw_asset_dir:
+        pytest.skip("set RETARGETLAB_OPENARM_ASSET_DIR for the target-FK bound check")
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "harness/m_minus_1"))
+    import probe_openarm_reachability as harness
+    from inspect_openarm_reachability_bounds import arm_bounds, summarize_bounds
+
+    asset = Path(raw_asset_dir)
+    model, _, _ = harness.prepare_geometry(asset, harness.discover_manifest_srdf(asset, None))
+    centers, radii = arm_bounds(model)
+    wrists = {"left": [], "right": []}
+    rng = np.random.default_rng(20260910)
+    data = model.createData()
+    for _ in range(64):
+        q = harness.random_target_configuration(model, rng)
+        pin.framesForwardKinematics(model, data, q)
+        for side in wrists:
+            wrists[side].append(
+                data.oMf[model.getFrameId(f"openarm_{side}_link7")].translation.copy()
+            )
+    report = summarize_bounds(wrists, centers, radii, 0.0)
+    assert report["fixed_current_placement"]["any_arm_certified_impossible_frames"] == 0
+    assert report["any_common_rigid_placement"]["bimanual_span_certified_impossible_frames"] == 0
