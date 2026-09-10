@@ -15,6 +15,7 @@ import diagnose_openarm_separated_frames as separated
 import numpy as np
 import pinocchio as pin
 import probe_openarm_reachability as harness
+from scipy.optimize import minimize
 
 SIDES = ("left", "right")
 
@@ -43,6 +44,61 @@ def arm_bounds(model):
 
 def wrist_tolerance(position_tolerance, orientation_tolerance, tcp_length):
     return position_tolerance + 2 * tcp_length * math.sin(orientation_tolerance / 2)
+
+
+def enclosing_ball(points):
+    """Primal upper and dual lower bounds on the minimum enclosing radius."""
+    points = np.asarray(points, dtype=float)
+    initial_center = points.mean(axis=0)
+    initial_radius2 = np.max(np.sum((points - initial_center) ** 2, axis=1))
+    initial = np.r_[initial_center, initial_radius2]
+    result = minimize(
+        lambda x: x[3],
+        initial,
+        jac=lambda x: np.array([0.0, 0.0, 0.0, 1.0]),
+        method="SLSQP",
+        bounds=[(None, None)] * 3 + [(0.0, None)],
+        constraints=[
+            {
+                "type": "ineq",
+                "fun": lambda x: x[3] - np.sum((points - x[:3]) ** 2, axis=1),
+                "jac": lambda x: np.c_[2 * (points - x[:3]), np.ones(len(points))],
+            }
+        ],
+        options={"ftol": 1e-12, "maxiter": 300},
+    )
+    center = result.x[:3]
+    upper = float(np.max(np.linalg.norm(points - center, axis=1)))
+    # Any nonnegative weights summing to one give a valid Jensen dual bound;
+    # optimality of the numerical optimizer is not required for that inequality.
+    weights = np.maximum(np.asarray(result.multipliers), 0.0)
+    if weights.sum() == 0:
+        weights = np.ones(len(points))
+    weights /= weights.sum()
+    weighted_center = weights @ points
+    lower2 = weights @ np.sum(points * points, axis=1) - weighted_center @ weighted_center
+    lower = math.sqrt(max(0.0, float(lower2)))
+    return center, lower, upper, bool(result.success)
+
+
+def common_translation_bound(wrists, centers, radii, slack):
+    if not np.isclose(radii["left"], radii["right"], atol=1e-12, rtol=0):
+        raise ValueError("common enclosing-ball audit requires equal target arm radii")
+    relative_points = np.concatenate([np.asarray(wrists[side]) - centers[side] for side in SIDES])
+    center, lower, upper, success = enclosing_ball(relative_points)
+    allowed = radii["left"] + slack
+    return {
+        "scope": "fixed current world rotation; optimize one common translation only",
+        "minimum_required_outer_radius_lower_bound_m": lower,
+        "enclosing_outer_radius_upper_bound_m": upper,
+        "allowed_radius_with_pose_tolerance_m": allowed,
+        "primal_dual_gap_m": upper - lower,
+        "optimizer_success": success,
+        "candidate_translation_delta_m": (-center).tolist(),
+        "a_translation_satisfies_outer_bounds": upper <= allowed + 1e-10,
+        "all_translations_ruled_out_by_lower_bound": lower > allowed + 1e-10,
+        "passing_outer_bounds_does_not_prove_ik_feasibility": True,
+    }
 
 
 def summarize_bounds(wrists, centers, radii, slack):
@@ -88,6 +144,9 @@ def summarize_bounds(wrists, centers, radii, slack):
             "maximum_allowed_wrist_span_m": float(span_limit),
             "single_arm_trajectory_diameters": diameters,
         },
+        "fixed_rotation_common_translation": common_translation_bound(
+            wrists, centers, radii, slack
+        ),
         "inside_bound_is_not_a_feasibility_certificate": True,
     }
 
@@ -222,6 +281,7 @@ def main():
                     "any_placement_span_impossible_frames": r["any_common_rigid_placement"][
                         "bimanual_span_certified_impossible_frames"
                     ],
+                    "translation_fit": r["fixed_rotation_common_translation"],
                     "trajectory_conflict_pairs": {
                         side: v["pairwise_conflict_count"]
                         for side, v in r["any_common_rigid_placement"][

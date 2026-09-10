@@ -33,3 +33,32 @@ def test_global_span_and_diameter_checks_do_not_depend_on_translation():
         ]
         == 1
     )
+
+
+def test_enclosing_ball_dual_bound_detects_tetrahedron_beyond_pairwise_test():
+    from inspect_openarm_reachability_bounds import enclosing_ball
+
+    points = np.array([[1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1]]) / math.sqrt(3)
+    center, lower, upper, success = enclosing_ball(points)
+    assert success
+    assert np.allclose(center, 0, atol=1e-8)
+    assert abs(lower - 1) < 1e-8
+    assert abs(upper - 1) < 1e-8
+    # Every pair fits diameter 1.8, but no radius-.9 ball contains all four.
+    assert np.max(np.linalg.norm(points[:, None] - points[None, :], axis=2)) < 1.8
+    assert lower > 0.9
+
+
+def test_translation_candidate_is_checked_against_actual_enclosing_radius():
+    from inspect_openarm_reachability_bounds import common_translation_bound
+
+    centers = {"left": np.zeros(3), "right": np.zeros(3)}
+    wrists = {
+        "left": np.array([[2.5, 0, 0], [3.5, 0, 0]]),
+        "right": np.array([[3, 0.5, 0], [3, -0.5, 0]]),
+    }
+    r = common_translation_bound(wrists, centers, {"left": 1.0, "right": 1.0}, 0.0)
+    assert np.allclose(r["candidate_translation_delta_m"], [-3, 0, 0], atol=1e-8)
+    assert r["a_translation_satisfies_outer_bounds"]
+    assert not r["all_translations_ruled_out_by_lower_bound"]
+    assert r["passing_outer_bounds_does_not_prove_ik_feasibility"]
