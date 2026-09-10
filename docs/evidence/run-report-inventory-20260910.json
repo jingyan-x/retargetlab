@@ -1,26 +1,14 @@
 {
   "schema_version": "documentation.run_report_inventory.v1",
   "as_of": "2026-09-10",
-  "execution_status": "PAUSED_BY_USER_DOCUMENTATION_RECONCILIATION_ONLY",
-  "implementation_baseline_commit": "4cb68301786076725d8608616ac9f691fc2483ee",
+  "execution_status": "DEVELOPMENT_RESUMED_BIMANUAL_DIAGNOSTIC_COMPLETED",
+  "implementation_baseline_commit": "a96085aff8a5fb81cba2ec4019787e4548d1bcce",
   "scope": "All existing files under projects/*/runs in the canonical remote repository; metadata-only inventory; original artifacts unchanged",
   "source_dataset_reopened": false,
   "private_values_in_inventory": false,
   "inventory_is_not_a_gate_report": true,
-  "run_count": 26,
-  "file_count": 366,
-  "work_in_progress_code": [
-    {
-      "path": "harness/m_minus_1/diagnose_openarm_separated_frames.py",
-      "sha256": "3f400f47a6d0d0b30298a26bf981106183da03baff32dafbff194062692c64f0",
-      "git_state": "untracked_before_documentation_reconciliation"
-    },
-    {
-      "path": "tests/unit/test_openarm_separated_frames.py",
-      "sha256": "94f3efa5f6587f0694ef3cef55ebeb920a8c235ef5bb528606664f057788d246",
-      "git_state": "untracked_before_documentation_reconciliation"
-    }
-  ],
+  "run_count": 28,
+  "file_count": 377,
   "runs": [
     {
       "project_alias": "private-sample-openarm",
@@ -1331,6 +1319,96 @@
       ]
     },
     {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-separated-frames-005",
+      "target": "OpenArm",
+      "purpose": "细化候选完整位姿单臂",
+      "interpretation": "完成；49/60、50/60，两侧均过80%；同帧独立两侧40/60",
+      "own_recipe_present": true,
+      "log_count": 1,
+      "file_count": 5,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/execution.json",
+          "size_bytes": 342,
+          "sha256": "e5df9e6938db2d2b401ae5d9032d153902154771ea619f1a76fa524b03c3f5ee",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "66458d31ee9e5c2453d3cd9cf90fff3470f222eb50248ee7ffc002c02c04f4c8",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/recipe.yaml",
+          "size_bytes": 7313,
+          "sha256": "60d0ac91936a34eb2bc126348f3be1af0b5255ba1fe5e8cbc9d136f35c684d75",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/results/refined-t2-020.json",
+          "size_bytes": 6552,
+          "sha256": "2181fd1f24c6bcbab6367fca1ed34ddba8a453f871cfd63f316a2838a8b53a42",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/solver.log",
+          "size_bytes": 1077,
+          "sha256": "88054c256585f56358c37d96cafaa4f2569bbffcb8f23b9f6f7493530ce9e39e",
+          "category": "log"
+        }
+      ]
+    },
+    {
+      "project_alias": "private-sample-openarm",
+      "run_id": "20260910-openarm-separated-frames-006",
+      "target": "OpenArm",
+      "purpose": "双臂联合完整位姿与碰撞验证",
+      "interpretation": "完成；40/60 nominal，碰撞0、越界0，20帧残差失败；双臂仍RED",
+      "own_recipe_present": true,
+      "log_count": 1,
+      "file_count": 6,
+      "files": [
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/execution.json",
+          "size_bytes": 364,
+          "sha256": "0470b9f5f07dc56dc1acbf2a134e7d3cc62d4cedfda82c4ff40dc8ef79af3d77",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/geometry-audit.json",
+          "size_bytes": 700,
+          "sha256": "cabf25b4cbfbd0b1dbd1574e0368cd7b94ca9c09563e755c20c397db10dc7008",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/recipe.sha256",
+          "size_bytes": 65,
+          "sha256": "0c0fa870fdae9410d33841714fb347507569f082d6463dbea02b5ed412854dca",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/recipe.yaml",
+          "size_bytes": 7608,
+          "sha256": "cd4b730f9badc760e0c1b6521601f33a9b733ce0e2553687e732ef625b231c61",
+          "category": "recipe"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/results/refined-t2-020.json",
+          "size_bytes": 5800,
+          "sha256": "29b08b9cec7bc978004c702e206e69980c9bf5ffc0c235d9188e639fab04cda2",
+          "category": "json_artifact"
+        },
+        {
+          "path": "projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/solver.log",
+          "size_bytes": 1054,
+          "sha256": "861583c0d3adf1a2ac007a43664b383d6641f46e6f7f26b605a1c36e208141eb",
+          "category": "log"
+        }
+      ]
+    },
+    {
       "project_alias": "target-reselection-panda",
       "run_id": "20260903-m1-panda-001",
       "target": "Panda",
@@ -2529,6 +2607,19 @@
           "category": "json_artifact"
         }
       ]
+    }
+  ],
+  "phase": "resumed-development-checkpoint",
+  "code_snapshot": [
+    {
+      "path": "harness/m_minus_1/diagnose_openarm_separated_frames.py",
+      "sha256": "8b06f7bb23a8f954cbdcb4faf5f69c65f7344de8d8e4066dd5a6cd8f46343170",
+      "git_state": "committed"
+    },
+    {
+      "path": "tests/unit/test_openarm_separated_frames.py",
+      "sha256": "fc9db1d1670e66c469d0249c592e6a82807b75062b31a64cd54675700ee41585",
+      "git_state": "committed"
     }
   ]
 }

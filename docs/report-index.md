@@ -1,8 +1,8 @@
 # 报告与运行索引
 
-整理日期：2026-09-10。当前状态见 [current-status.md](current-status.md)。本页只整理现有记录，不启动实验。
+整理日期：2026-09-10。当前状态见 [current-status.md](current-status.md)。包含整理记录及用户授权恢复后的新增实验。
 
-本次覆盖远端仓库 projects/*/runs 的 **26 个 run、366 个文件**。完整相对路径、大小和 SHA-256 见 [文件级清单](evidence/run-report-inventory-20260910.json)。
+本次覆盖远端仓库 projects/*/runs 的 **28 个 run、377 个文件**。完整相对路径、大小和 SHA-256 见 [文件级清单](evidence/run-report-inventory-20260910.json)。
 
 ## 当前采用的证据
 
@@ -15,7 +15,10 @@
 | OA-LEGACY-M1 | `projects/private-sample-openarm/runs/20260904-m1-openarm-006/prescreen-calibration-60.json` | `aafd9e212ad12b1165dd4cfcc6b22c886493a514c498625f6bbbfc93665939f3` |
 | PA-HISTORICAL | `projects/target-reselection-panda/runs/20260904-m1-panda-002/full-top9.json` | `124cacb1bf2e34c4de27c3b5ce5ceed9176fb4917a8f3dda02fd4bbf94d1fe82` |
 
-85% 是 OA-POS-BEST 的 **position-only、未检查碰撞、同帧两侧分别求解成功**；完整位姿基线是 OA-POSE-BASE 的 78.33% / 88.33%，且已由 OA-POSE-REPRO 复现。两种口径不得互相替代。
+| OA-POSE-PASS | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-005/results/refined-t2-020.json` | `2181fd1f24c6bcbab6367fca1ed34ddba8a453f871cfd63f316a2838a8b53a42` |
+| OA-BIMANUAL | `projects/private-sample-openarm/runs/20260910-openarm-separated-frames-006/results/refined-t2-020.json` | `29b08b9cec7bc978004c702e206e69980c9bf5ffc0c235d9188e639fab04cda2` |
+
+85% 是 OA-POS-BEST 的 **position-only、未检查碰撞、同帧两侧分别求解成功**；完整位姿基线是 OA-POSE-BASE 的 78.33% / 88.33%，且已由 OA-POSE-REPRO 复现。两种口径不得互相替代。恢复后OA-POSE-PASS达到81.67%/83.33%；OA-BIMANUAL联合成功40/60（66.67%），碰撞0、越界0，仍未过双臂门槛。
 
 ## 全部运行目录
 
@@ -47,6 +50,8 @@ OpenArm 行的路径前缀为 projects/private-sample-openarm/runs/，Panda 行�
 | `20260910-openarm-separated-frames-002` | OpenArm / 居中 full-budget + target-only FK 对照 | 已完成；私有 full-pose 15% / 15%；FK 对照 11/12、12/12 | 有 | 0 / 5 |
 | `20260910-openarm-separated-frames-003` | OpenArm / 旧 t2-023 共用工具 full-budget | 已完成；63.33% / 38.33%；旁路诊断，不作当前最佳 | 有 | 0 / 3 |
 | `20260910-openarm-separated-frames-004` | OpenArm / 恢复旧最佳与细化点 full-pose | 用户暂停，1/2 完成；旧最佳复现 78.33% / 88.33%，细化点无完整报告 | 有 | 0 / 4 |
+| `20260910-openarm-separated-frames-005` | OpenArm / 续跑细化full-pose单臂 | 完成；49/60、50/60，首次双侧过80%；独立相交40/60 | 有 | 1 / 5 |
+| `20260910-openarm-separated-frames-006` | OpenArm / 联合full-pose与碰撞后检 | 完成；40/60，碰撞0、越界0，20帧残差失败；双臂RED | 有 | 1 / 6 |
 | `20260903-m1-panda-001` | Panda / 早期反向 side mapping | 已废弃方向，不能选作 Panda 或 OpenArm 基线 | 有 | 27 / 59 |
 | `20260904-m1-panda-002` | Panda / 修正 side mapping 的独立目标重选 | 历史 YELLOW；600 帧 nominal 99.17%，不代表 OpenArm | 有 | 65 / 137 |
 
@@ -54,13 +59,13 @@ OpenArm 行的路径前缀为 projects/private-sample-openarm/runs/，Panda 行�
 
 source-semantics-001 共用工具初探 → 002 在旧点位枚举 tool 右乘 → 003 找到位置覆盖较好的旧网格 t2-047 → 004 在该点分别筛左右工具 → 005 用 300 次/4 初值复核 → 006 比较十个位置候选 → 007 做定向工具检查 → 008 将 position-only 局部细化至 95% / 90% / 85%。
 
-002–008 的报告在远端存在，但此前未进入 development-log / MappingSpec 的后续结论。008 之后计划过的细化点完整位姿工具搜索没有完整运行报告，不能把计划当结果。
+002–008 的报告在远端存在，但此前未进入 development-log / MappingSpec 的后续结论。008之后当时计划的工具搜索未形成完整报告；本轮固定既有per-side工具的细化点复核已在run005完成，不能将两种实验混称。
 
-这些诊断没有各自独立冻结的 recipe.yaml；报告中的 recipe_basis 指向旧 recipe，实际目标、工具矩阵、网格或预算由报告及原执行记录补充。它们是已完成的诊断证据，不伪装成注册 M-1。恢复执行时应使用新的完整 recipe；本轮 004 已登记两个候选，但只完成一个。
+这些诊断没有各自独立冻结的 recipe.yaml；报告中的 recipe_basis 指向旧 recipe，实际目标、工具矩阵、网格或预算由报告及原执行记录补充。它们是已完成的诊断证据，不伪装成注册 M-1。恢复执行时应使用新的完整 recipe；本轮004只完成一个候选后中断；005以新recipe完成剩余细化候选，006完成后续双臂诊断。
 
 ## 中断、旁路与状态含义
 
-- separated-frames-004：stop-receipt.json 是本次整理时补写的审计回执，明确源于实际 SIGINT / KeyboardInterrupt；它不是伪造的原始 solver 日志。restored-t2-047 完成，refined-t2-020 中断。
+- separated-frames-004：stop-receipt.json 是本次整理时补写的审计回执，明确源于实际 SIGINT / KeyboardInterrupt；它不是伪造的原始 solver 日志。restored-t2-047完成，refined-t2-020当时中断；后续新run005续跑成功，不改写004回执。
 - separated-frames-001–003：从过时基线启动的旁路对照，保留用于追溯，不取代已经存在的更好结果。
 - 旧 source-semantics-006 的 joint_nominal_rate 字段取两臂 nominal rate 的较小值，并非同帧双臂成功率。
 - PASS 表示报告生成成功，RED/YELLOW 表示相应 recipe 的闸门，REVIEW_REQUIRED 表示语义/Profile 待审核；不可混成一个“项目已通过”。
@@ -76,11 +81,11 @@ source-semantics-001 共用工具初探 → 002 在旧点位枚举 tool 右乘 �
 | 目标资产 | projects/private-sample-openarm/robots/openarm_bimanual/ | manifest、URDF、SRDF、Profile；与轨迹通过率分开 |
 | 私有 DataProfile | 20260903-m1-005/data-profile-review-required-with-coverage.json | 落盘版本仍为 REVIEW_REQUIRED，未自动升级 |
 | 历史工程记录 | development-log.md | 已合并为里程碑主线；代码切片不等于阶段验收 |
-| 本轮代码 WIP | harness/m_minus_1/diagnose_openarm_separated_frames.py；tests/unit/test_openarm_separated_frames.py | 停止前已新增但未提交，本次仅登记哈希，不继续改实现 |
+| 本轮诊断实现 | harness/m_minus_1/diagnose_openarm_separated_frames.py；tests/unit/test_openarm_separated_frames.py | 已提交d51cc8c/a96085a；含输入指纹与双臂前置gate，代码哈希在清单中 |
 
 ## 证据缺口与下一次接续规则
 
 1. 源 FK 独立报告缺失、部分诊断独立 recipe / 原始日志缺失，均已明确记录，不重新读原始数据来填补。
 2. 早期全 20 ep 数值分析与后设 12/8 split 的关系需审计。各 run 的 held_out=false 只覆盖该次运行，不证明历史完全未见过。
-3. 任何恢复都从 current-status 和 OA-POSE-REPRO / OA-POS-BEST 开始；候选必须附 run ID 与参数，不能仅说 t2-020。
+3. 接续从current-status、OA-POSE-PASS / OA-BIMANUAL开始，历史对照为OA-POSE-REPRO / OA-POS-BEST；候选必须附 run ID 与参数，不能仅说 t2-020。
 4. 改映射、目标帧、位置网格或 solver budget 时新建 recipe；完成、失败、中断都记录，不能只保存高分。
