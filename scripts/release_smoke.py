@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -103,6 +104,63 @@ def main():
         )
         assert checked["status"] == "PASSED" and checked["masked_training_windows"] == 130
         assert len(checked["image_shapes"]) == 3
+        for horizon in (1, 8, 32):
+            checked_horizon = run(
+                f"reader-{backend}-h{horizon}",
+                [
+                    "verify-reader",
+                    "--dataset",
+                    str(dataset),
+                    "--horizon",
+                    str(horizon),
+                    "--output",
+                    str(output / f"reader-{backend}-h{horizon}.json"),
+                ],
+                reader=True,
+            )
+            assert checked_horizon["status"] == "PASSED"
+            assert checked_horizon["normalized_batch_shapes"]["action"] == [2, horizon, 16]
+        if backend == "pink":
+            # Make a synthetic-only reader fixture with exactly one eligible window.
+            # Keep original videos/values; copy files before changing the mask.
+            singleton = output / "singleton-reader-fixture"
+            shutil.copytree(dataset, singleton)
+            prepare = """
+import sys
+from pathlib import Path
+import pyarrow as pa
+import pyarrow.parquet as pq
+root = Path(sys.argv[1])
+for path in (root / 'data').rglob('*.parquet'):
+    table = pq.read_table(path)
+    field = table.schema.field('valid.retarget')
+    mask = [float(0 <= i < 16) for i in table['index'].to_pylist()]
+    table = table.set_column(table.schema.get_field_index('valid.retarget'), field,
+                             pa.array(mask, type=field.type))
+    pq.write_table(table, path)
+(root / 'TEST-FIXTURE.txt').write_text(
+    'Synthetic reader fixture: overridden mask; inherited manifests/reports '
+    'do not describe this fixture. Not a training delivery.')
+"""
+            subprocess.run(
+                [str(reader_python), "-c", prepare, str(singleton)], cwd=output, env=env, check=True
+            )
+            single = run(
+                "reader-singleton",
+                [
+                    "verify-reader",
+                    "--dataset",
+                    str(singleton),
+                    "--horizon",
+                    "16",
+                    "--output",
+                    str(output / "reader-singleton.json"),
+                ],
+                reader=True,
+            )
+            assert single["masked_training_windows"] == 1
+            assert single["checked_batch_size"] == 1
+            assert single["normalized_batch_shapes"]["action"] == [1, 16, 16]
         views.append(
             {
                 "id": f"demo-{backend}",

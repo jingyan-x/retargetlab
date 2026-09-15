@@ -76,8 +76,9 @@ def verify_training_reader(root: Path, horizon: int = 16) -> dict:
             }
         )
     batch = next(iter(DataLoader(wrapped, batch_size=2, num_workers=0, shuffle=False)))
-    assert tuple(batch["observation.state"].shape) == (2, 16)
-    assert tuple(batch["action"].shape) == (2, horizon, 16)
+    batch_size = min(2, len(wrapped))
+    assert tuple(batch["observation.state"].shape) == (batch_size, 16)
+    assert tuple(batch["action"].shape) == (batch_size, horizon, 16)
     stats = json.loads((root / "meta/stats.json").read_text())
     normalized_shapes = {}
     for key in ["observation.state", "action"]:
@@ -96,6 +97,7 @@ def verify_training_reader(root: Path, horizon: int = 16) -> dict:
         "dataset_rows": len(table),
         "masked_training_windows": len(wrapped),
         "action_horizon": horizon,
+        "checked_batch_size": batch_size,
         "episodes_with_checked_windows": len({r["episode_index"] for r in checked}),
         "checked_windows": checked,
         "image_shapes": image_shapes,
