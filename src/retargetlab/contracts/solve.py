@@ -33,12 +33,14 @@ class SolveOptions(BaseModel):
     enable_self_collision_barrier: bool = True
     self_collision_min_distance_m: float = Field(default=0.001, gt=0.0)
     collision_barrier_pair_budget: int = Field(default=16, gt=0)
+    self_collision_recovery_margin_m: float = Field(default=0.0, ge=0, allow_inf_nan=False)
+    self_collision_refinement_steps: int = Field(default=0, ge=0)
 
     @field_validator("qp_solver")
     @classmethod
     def only_supported_qp_solver(cls, value: str) -> str:
-        if value != "osqp":
-            raise ValueError("M0 currently supports only the registered osqp solver")
+        if value not in {"osqp", "daqp"}:
+            raise ValueError("supported QP solvers are osqp and daqp; DAQP is registered for Mink")
         return value
 
 
@@ -48,6 +50,7 @@ class IKStatus(StrEnum):
     CONVERGED = "CONVERGED"
     MAX_ITER = "MAX_ITER"
     QP_FAILED = "QP_FAILED"
+    COLLISION_VIOLATION = "COLLISION_VIOLATION"
     LIMIT_VIOLATION = "LIMIT_VIOLATION"
     NUMERICAL_FAILURE = "NUMERICAL_FAILURE"
     RESIDUAL_TOO_HIGH = "RESIDUAL_TOO_HIGH"
@@ -67,3 +70,5 @@ class IKResult(BaseModel):
     solver: str = Field(min_length=1)
     collision_free: bool | None = None
     joint_limit_violation: bool = False
+    collision_clearance_ok: bool | None = None
+    minimum_distance_m: float | None = Field(default=None, allow_inf_nan=False)

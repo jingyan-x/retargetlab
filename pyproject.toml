@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "retargetlab"
-version = "0.1.0.dev0"
+version = "0.1.0rc4"
+readme = "README.md"
 description = "Traceable end-effector trajectory retargeting primitives"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,10 +17,34 @@ dependencies = [
 retargetlab = "retargetlab.cli.main:app"
 
 [project.optional-dependencies]
+pipeline = [
+  "pin==4.1.0", "pin-pink==4.3.0", "qpsolvers[osqp]==4.13.0",
+  "scipy>=1.11", "pyarrow>=15", "PyYAML>=6", "xacro==2.1.1",
+  "mujoco==3.13.0", "mink==1.3.0", "daqp==0.9.1",
+  "trimesh==5.1.0", "pycollada==0.9.3", "Pillow==12.3.0", "av==15.1.0",
+]
+
+collision-mesh = [
+  "coacd==1.0.14",
+]
+replay = [
+  "Pillow==12.3.0",
+]
+video = [
+  "av==15.1.0",
+]
+mink = [
+  "mujoco==3.13.0",
+  "mink==1.3.0",
+  "daqp==0.9.1",
+  "trimesh==5.1.0",
+  "pycollada==0.9.3",
+]
 solver = [
   "pin>=3.7",
-  "pink>=3.0",
+  "pin-pink>=4.3",
   "qpsolvers[osqp]>=4.0",
+  "scipy>=1.11",
 ]
 data = [
   "pyarrow>=15",
@@ -29,6 +54,10 @@ viz = [
 ]
 lerobot = [
   "lerobot==0.6.1",
+  "datasets>=4.8,<5",
+  "pyarrow>=21,<30",
+  "pandas>=2,<3",
+  "av==15.1.0",
 ]
 dev = [
   "mypy>=1.11",
@@ -59,3 +88,6 @@ python_version = "3.12"
 warn_unused_configs = true
 disallow_untyped_defs = true
 no_implicit_optional = true
+
+[tool.setuptools.package-data]
+"retargetlab.replay" = ["viewer.html", "*.js", "vendor/*.js", "vendor/LICENSE", "vendor/README.md"]

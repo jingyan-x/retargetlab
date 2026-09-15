@@ -132,11 +132,68 @@ EXIT_ERROR = 1
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="retargetlab")
+    parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    demo = subparsers.add_parser(
+        "demo-init", help="create synthetic EEF/video data from a pinned public OpenArm checkout"
+    )
+    demo.add_argument("--openarm-source", required=True, type=Path)
+    demo.add_argument("--output", required=True, type=Path)
+    demo.add_argument("--json", action="store_true")
+    replay_build = subparsers.add_parser(
+        "replay-build", help="build a saved-q interactive replay bundle"
+    )
+    replay_build.add_argument("--config", required=True, type=Path)
+    replay_build.add_argument("--output", required=True, type=Path)
+    replay_build.add_argument("--json", action="store_true")
+    replay_serve = subparsers.add_parser("replay", help="serve a saved-q WebGL viewer on loopback")
+    replay_serve.add_argument("--bundle", required=True, type=Path)
+    replay_serve.add_argument("--port", type=int, default=8790)
+    reader = subparsers.add_parser(
+        "verify-reader", help="verify an export using the actual masked LeRobot loader"
+    )
+    reader.add_argument("--dataset", required=True, type=Path)
+    reader.add_argument("--output", required=True, type=Path)
+    reader.add_argument("--horizon", type=int, default=16)
+    reader.add_argument("--json", action="store_true")
+
     doctor = subparsers.add_parser("doctor", help="check the local runtime")
+    doctor.add_argument(
+        "--scope", choices=("core", "solver", "pipeline", "reader"), default="solver"
+    )
     doctor.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
+    process = subparsers.add_parser(
+        "process", help="process a registered EEF layout with Pink or Mink and write diagnostics"
+    )
+    process.add_argument("--config", required=True, type=Path)
+    process.add_argument("--output", required=True, type=Path)
+    process.add_argument("--json", action="store_true", help="emit JSON to stdout")
+
+    training_export = subparsers.add_parser(
+        "training-export", help="export same-embodiment data with explicit training quality"
+    )
+    training_export.add_argument("--processing-run", required=True, type=Path)
+    training_export.add_argument("--policy", required=True, type=Path)
+    training_export.add_argument("--output", required=True, type=Path)
+    training_export.add_argument("--media-audit", type=Path)
+    training_export.add_argument("--json", action="store_true")
+
+    mujoco_build = subparsers.add_parser(
+        "build-mujoco-model", help="derive a named MuJoCo model from a verified profile"
+    )
+    mujoco_build.add_argument("--profile", required=True, type=Path)
+    mujoco_build.add_argument("--output", required=True, type=Path)
+    mujoco_build.add_argument("--kinematic-inertia-repair", action="store_true")
+    mujoco_build.add_argument("--json", action="store_true")
+    mujoco_validate = subparsers.add_parser(
+        "validate-mujoco-model", help="compare saved MuJoCo FK with Pinocchio"
+    )
+    mujoco_validate.add_argument("--model", required=True, type=Path)
+    mujoco_validate.add_argument("--processing-run", required=True, type=Path)
+    mujoco_validate.add_argument("--output", required=True, type=Path)
+    mujoco_validate.add_argument("--json", action="store_true")
     build_robot_profile = subparsers.add_parser(
         "build-robot-profile", help="build a versioned target robot profile artifact"
     )
@@ -266,9 +323,7 @@ def _parser() -> argparse.ArgumentParser:
     verify_synthetic_table.add_argument("--output", required=True, type=Path)
     verify_synthetic_table.add_argument("--preflight", type=Path)
     verify_synthetic_table.add_argument("--report", type=Path)
-    verify_synthetic_table.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_synthetic_table.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     build_synthetic_preflight = subparsers.add_parser(
         "build-synthetic-table-preflight",
@@ -318,18 +373,14 @@ def _parser() -> argparse.ArgumentParser:
         help="JSON array of episode metadata records",
     )
     build_lerobot_plan.add_argument("--output", required=True, type=Path)
-    build_lerobot_plan.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    build_lerobot_plan.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_plan = subparsers.add_parser(
         "verify-lerobot-metadata-plan",
         help="verify a metadata-only LeRobot v3 export plan",
     )
     verify_lerobot_plan.add_argument("--plan", required=True, type=Path)
-    verify_lerobot_plan.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_plan.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     write_lerobot_skeleton = subparsers.add_parser(
         "write-lerobot-metadata-skeleton",
@@ -342,9 +393,7 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional write manifest; keep it outside --output-root",
     )
-    write_lerobot_skeleton.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    write_lerobot_skeleton.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_skeleton = subparsers.add_parser(
         "verify-lerobot-metadata-skeleton",
@@ -352,9 +401,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     verify_lerobot_skeleton.add_argument("--plan", required=True, type=Path)
     verify_lerobot_skeleton.add_argument("--output-root", required=True, type=Path)
-    verify_lerobot_skeleton.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_skeleton.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     write_lerobot_partial = subparsers.add_parser(
         "write-lerobot-partial-dataset",
@@ -368,9 +415,7 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional write manifest; keep it outside --output-root",
     )
-    write_lerobot_partial.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    write_lerobot_partial.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_partial = subparsers.add_parser(
         "verify-lerobot-partial-dataset",
@@ -379,9 +424,7 @@ def _parser() -> argparse.ArgumentParser:
     verify_lerobot_partial.add_argument("--plan", required=True, type=Path)
     verify_lerobot_partial.add_argument("--output-root", required=True, type=Path)
     verify_lerobot_partial.add_argument("--target-table-report", required=True, type=Path)
-    verify_lerobot_partial.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_partial.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     build_lerobot_bindings = subparsers.add_parser(
         "build-lerobot-replay-bindings",
@@ -395,18 +438,14 @@ def _parser() -> argparse.ArgumentParser:
         help="JSON object mapping episode indices to target replay bundle paths",
     )
     build_lerobot_bindings.add_argument("--output", required=True, type=Path)
-    build_lerobot_bindings.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    build_lerobot_bindings.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_bindings = subparsers.add_parser(
         "verify-lerobot-replay-bindings",
         help="verify a multi-episode replay binding manifest",
     )
     verify_lerobot_bindings.add_argument("--manifest", required=True, type=Path)
-    verify_lerobot_bindings.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_bindings.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     build_lerobot_table_bindings = subparsers.add_parser(
         "build-lerobot-target-table-bindings",
@@ -451,18 +490,14 @@ def _parser() -> argparse.ArgumentParser:
         help="JSON object mapping episode indices to boolean frame arrays",
     )
     build_lerobot_mask.add_argument("--output", required=True, type=Path)
-    build_lerobot_mask.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    build_lerobot_mask.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_mask = subparsers.add_parser(
         "verify-lerobot-retarget-mask",
         help="verify a row-preserving retarget validity mask",
     )
     verify_lerobot_mask.add_argument("--mask", required=True, type=Path)
-    verify_lerobot_mask.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_mask.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     write_lerobot_multi = subparsers.add_parser(
         "write-lerobot-multi-episode-dataset",
@@ -486,9 +521,7 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional write manifest; keep it outside --output-root",
     )
-    write_lerobot_multi.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    write_lerobot_multi.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_multi = subparsers.add_parser(
         "verify-lerobot-multi-episode-dataset",
@@ -507,9 +540,7 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional verified row mask; keep it outside --output-root",
     )
-    verify_lerobot_multi.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_multi.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     write_lerobot_statistics = subparsers.add_parser(
         "write-lerobot-statistics",
@@ -533,9 +564,7 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional statistics write manifest; keep it outside --output-root",
     )
-    write_lerobot_statistics.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    write_lerobot_statistics.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_statistics = subparsers.add_parser(
         "verify-lerobot-statistics",
@@ -576,18 +605,14 @@ def _parser() -> argparse.ArgumentParser:
         help="optional verified row mask; keep it outside --output-root",
     )
     build_lerobot_loader.add_argument("--output", required=True, type=Path)
-    build_lerobot_loader.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    build_lerobot_loader.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_loader = subparsers.add_parser(
         "verify-lerobot-loader-preflight",
         help="verify a saved local LeRobot loader preflight",
     )
     verify_lerobot_loader.add_argument("--preflight", required=True, type=Path)
-    verify_lerobot_loader.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_loader.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     write_lerobot_compat = subparsers.add_parser(
         "write-lerobot-loader-compatible-dataset",
@@ -600,18 +625,14 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help="optional compatibility receipt; keep it outside --output-root",
     )
-    write_lerobot_compat.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    write_lerobot_compat.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_compat = subparsers.add_parser(
         "verify-lerobot-loader-compatible-dataset",
         help="verify an explicit zero-based LeRobot loader view",
     )
     verify_lerobot_compat.add_argument("--manifest", required=True, type=Path)
-    verify_lerobot_compat.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    verify_lerobot_compat.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     build_lerobot_compat_preflight = subparsers.add_parser(
         "build-lerobot-loader-compatible-preflight",
@@ -648,9 +669,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     run_lerobot_acceptance.add_argument("--config", required=True, type=Path)
     run_lerobot_acceptance.add_argument("--output", required=True, type=Path)
-    run_lerobot_acceptance.add_argument(
-        "--json", action="store_true", help="emit JSON to stdout"
-    )
+    run_lerobot_acceptance.add_argument("--json", action="store_true", help="emit JSON to stdout")
 
     verify_lerobot_acceptance = subparsers.add_parser(
         "verify-lerobot-acceptance",
@@ -844,7 +863,7 @@ def _dependency(name: str, distribution: str) -> dict[str, str]:
     return result
 
 
-def _doctor_payload() -> tuple[dict[str, Any], int]:
+def _doctor_payload(scope: str = "solver") -> tuple[dict[str, Any], int]:
     dependencies = {
         name: _dependency(name, distribution)
         for name, distribution in (
@@ -859,17 +878,33 @@ def _doctor_payload() -> tuple[dict[str, Any], int]:
             ("torch", "torch"),
             ("datasets", "datasets"),
             ("huggingface_hub", "huggingface-hub"),
+            ("mink", "mink"),
+            ("mujoco", "mujoco"),
+            ("av", "av"),
+            ("xacro", "xacro"),
+            ("yaml", "PyYAML"),
+            ("torchvision", "torchvision"),
+            ("pandas", "pandas"),
         )
     }
-    required = ("numpy", "pydantic", "pinocchio", "pink", "qpsolvers", "osqp")
+    core = ("numpy", "pydantic")
+    solver = (*core, "pinocchio", "pink", "qpsolvers", "osqp")
+    scopes = {
+        "core": core,
+        "solver": solver,
+        "pipeline": (*solver, "mink", "mujoco", "pyarrow", "av", "xacro", "yaml"),
+        "reader": (*core, "lerobot", "torch", "torchvision", "datasets", "pyarrow", "pandas", "av"),
+    }
+    required = scopes[scope]
     missing = [name for name in required if dependencies[name]["status"] == "missing"]
     optional_missing = [
         name
-        for name in ("pyarrow", "lerobot", "torch", "datasets", "huggingface_hub")
-        if dependencies[name]["status"] == "missing"
+        for name in dependencies
+        if name not in required and dependencies[name]["status"] == "missing"
     ]
     payload = {
         "command": "doctor",
+        "scope": scope,
         "retargetlab_version": __version__,
         "python_version": ".".join(str(part) for part in sys.version_info[:3]),
         "dependencies": dependencies,
@@ -1338,8 +1373,7 @@ def _build_lerobot_plan_payload(
     if not isinstance(raw_episodes, list):
         raise ValueError("episode metadata must be a JSON array")
     features = {
-        name: FeatureDeclaration.model_validate(value)
-        for name, value in raw_features.items()
+        name: FeatureDeclaration.model_validate(value) for name, value in raw_features.items()
     }
     tasks = tuple(LeRobotTaskMetadata.model_validate(value) for value in raw_tasks)
     episodes = tuple(LeRobotEpisodeMetadata.model_validate(value) for value in raw_episodes)
@@ -2463,8 +2497,169 @@ def app(argv: list[str] | None = None) -> int:
     """Run the CLI and return a documented process exit code."""
 
     args = _parser().parse_args(argv)
+    if args.command in ("demo-init", "replay-build", "replay", "verify-reader"):
+        try:
+            from contextlib import redirect_stdout
+
+            with redirect_stdout(sys.stderr):
+                if args.command == "demo-init":
+                    from retargetlab.demo import create_demo
+
+                    payload = create_demo(args.openarm_source, args.output)
+                elif args.command == "replay-build":
+                    from retargetlab.replay.bundle import build
+
+                    payload = build(args.config, args.output)
+                elif args.command == "replay":
+                    from retargetlab.replay.server import serve
+
+                    serve(args.bundle, args.port)
+                    return EXIT_OK
+                else:
+                    from retargetlab.run.training_reader_acceptance import verify_training_reader
+
+                    if args.output.exists():
+                        raise FileExistsError(args.output)
+                    payload = verify_training_reader(args.dataset, args.horizon)
+                    with args.output.open("x") as handle:
+                        json.dump(payload, handle, indent=2)
+                        handle.write("\n")
+        except KeyboardInterrupt:
+            return EXIT_OK
+        except ImportError as exc:
+            _emit(
+                {"command": args.command, "status": "ENVIRONMENT_ERROR", "error": str(exc)},
+                getattr(args, "json", False),
+                sys.stdout,
+            )
+            return EXIT_ENVIRONMENT
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            _emit(
+                {"command": args.command, "status": "INVALID_INPUT", "error": str(exc)},
+                getattr(args, "json", False),
+                sys.stdout,
+            )
+            return EXIT_SEMANTIC
+        except (RuntimeError, AssertionError) as exc:
+            _emit(
+                {"command": args.command, "status": "VALIDATION_ERROR", "error": str(exc)},
+                getattr(args, "json", False),
+                sys.stdout,
+            )
+            return EXIT_ERROR
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command == "process":
+        try:
+            from contextlib import redirect_stdout
+
+            from retargetlab.run.process import process_dataset
+
+            with redirect_stdout(sys.stderr):
+                payload = process_dataset(
+                    args.config,
+                    args.output,
+                    progress=lambda completed, total: print(
+                        f"process: {completed}/{total} stream-frames", file=sys.stderr
+                    ),
+                )
+        except ImportError as exc:
+            _emit(
+                {"command": "process", "status": "ENVIRONMENT_ERROR", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_ENVIRONMENT
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            _emit(
+                {"command": "process", "status": "INVALID_INPUT", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_SEMANTIC
+        except RuntimeError as exc:
+            _emit(
+                {"command": "process", "status": "PROCESSING_ERROR", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_ERROR
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
+    if args.command in ("build-mujoco-model", "validate-mujoco-model"):
+        try:
+            if args.command == "build-mujoco-model":
+                from retargetlab.contracts import RobotProfile
+                from retargetlab.robot.mujoco_model import build_mujoco_model
+
+                profile = RobotProfile.model_validate_json(args.profile.read_text())
+                payload = build_mujoco_model(
+                    profile,
+                    args.output,
+                    kinematic_inertia_repair=args.kinematic_inertia_repair,
+                )
+            else:
+                from retargetlab.run.mujoco_validation import validate_mujoco_model
+
+                payload = validate_mujoco_model(args.model, args.processing_run, args.output)
+        except ImportError as exc:
+            _emit(
+                {
+                    "command": args.command,
+                    "status": "ENVIRONMENT_ERROR",
+                    "error": str(exc),
+                },
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_ENVIRONMENT
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            _emit(
+                {"command": args.command, "status": "INVALID_INPUT", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_SEMANTIC
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK if payload["status"] in ("COMPLETED", "PASSED") else EXIT_ERROR
+    if args.command == "training-export":
+        try:
+            from retargetlab.run.training_export import export_training_dataset
+
+            payload = export_training_dataset(
+                args.processing_run,
+                args.policy,
+                args.output,
+                media_audit=args.media_audit,
+                progress=lambda done, total: print(
+                    f"training-export: {done}/{total} frames", file=sys.stderr
+                ),
+            )
+        except ImportError as exc:
+            _emit(
+                {"command": args.command, "status": "ENVIRONMENT_ERROR", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_ENVIRONMENT
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            _emit(
+                {"command": args.command, "status": "INVALID_INPUT", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_SEMANTIC
+        except RuntimeError as exc:
+            _emit(
+                {"command": args.command, "status": "EXPORT_ERROR", "error": str(exc)},
+                args.json,
+                sys.stdout,
+            )
+            return EXIT_ERROR
+        _emit(payload, args.json, sys.stdout)
+        return EXIT_OK
     if args.command == "doctor":
-        payload, exit_code = _doctor_payload()
+        payload, exit_code = _doctor_payload(args.scope)
         _emit(payload, args.json, sys.stdout)
         return exit_code
     if args.command == "inspect":

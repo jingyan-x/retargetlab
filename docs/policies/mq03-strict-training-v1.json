@@ -1,0 +1,16 @@
+{
+  "policy_id": "mq03_strict_training_v1",
+  "robot_id": "moqi_mq03_fixed_body",
+  "terminal_links": {"left": [], "right": []},
+  "position_tolerance_m": 0.005,
+  "orientation_tolerance_deg": 2.0,
+  "joint_limit_numeric_epsilon_rad": 0.000001,
+  "maximum_speed_ratio": 1.000001,
+  "source_fk_position_tolerance_m": 0.0001,
+  "source_fk_orientation_tolerance_rad": 0.0001,
+  "source_fk_tolerance_reason": "The fixed body uses rounded measured waist constants; source consistency is checked separately from the 5mm/2deg IK acceptance.",
+  "baseline_evidence": {"kind": "SOURCE_JOINT_REFERENCE_ONLY", "claim": "Recorded joint columns support numerical comparison. No MQ03 training or physical execution validation is claimed."},
+  "rule": "All target self-collision pairs exclude the row. Source-existing and new pairs are recorded separately, without inheriting the OpenArm cross-terminal exception.",
+  "gripper": "Preserve recorded raw gripper values. Collision evaluation uses the registered static gripper geometry.",
+  "use": "Development data and reader validation; no physical execution certification."
+}

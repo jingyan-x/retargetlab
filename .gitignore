@@ -36,3 +36,10 @@ reports/
 *.tmp
 *.swp
 
+
+# Local Python build products
+build/
+dist/
+*.egg-info/
+
+.venv-*/
