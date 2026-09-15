@@ -17,7 +17,7 @@ retargetlab --version
 retargetlab doctor --scope pipeline --json
 ```
 
-开发安装使用 `python -m pip install -e '.[pipeline,dev]'`。实际 LeRobot 读取建议使用独立环境安装 `[lerobot]`，避免下游训练依赖影响求解环境。这里只提供本地候选，项目开源许可证和公开发布渠道待确定；随包第三方文件保留各自许可证。
+开发安装使用 `python -m pip install -e '.[pipeline,dev]'`。实际 LeRobot 读取建议使用独立环境安装 `[lerobot]`，避免下游训练依赖影响求解环境。项目自身代码采用 [MIT 许可证](LICENSE)。发布入口为 [GitHub Releases](https://github.com/jingyan-x/retargetlab/releases)；随包第三方文件保留各自许可证。
 
 ## 快速开始：公开模型与合成数据
 

@@ -5,8 +5,8 @@
 - [x] Run the installed-wheel public-model smoke workflow with both backends and the separate actual LeRobot reader.
 - [x] Run development regression and final-float32 native-clearance boundary tests.
 - [x] Prepare a pinned-action GitHub workflow for validation, artifact upload and tagged release publication.
-- [ ] Confirm the project license and publication destination. The existing origin is `jingyan-x/retargetlab`.
-- [ ] Add the chosen LICENSE and update release notes to remove the pending-license notice.
+- [x] MIT selected by the maintainer; publish to `jingyan-x/retargetlab`.
+- [x] Add MIT LICENSE, package metadata and license files; preserve vendored Three.js MIT notices.
 - [ ] Push the release branch, open the review, and observe GitHub-hosted validation.
 - [ ] Tag the exact validated version and verify the resulting GitHub Release and asset hashes.
 

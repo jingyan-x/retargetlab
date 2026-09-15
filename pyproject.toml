@@ -1,11 +1,13 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "retargetlab"
 version = "0.1.0rc4"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "src/retargetlab/replay/vendor/LICENSE"]
 description = "Traceable end-effector trajectory retargeting primitives"
 requires-python = ">=3.12"
 dependencies = [

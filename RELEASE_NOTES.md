@@ -20,4 +20,4 @@ The development regression completed 218 tests with one LeRobot test skipped in 
 
 Dynamic gripper calibration, exact physical collision certification, held-out robot evaluation, dynamics, training and real hardware execution remain outside v0.1 scope.
 
-Project license selection and the public release decision are pending. Third-party components retain their own licenses.
+Project code is released under the MIT License. Third-party components retain their own licenses.
