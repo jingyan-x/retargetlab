@@ -28,12 +28,28 @@ def main():
         "RELEASE_NOTES.md",
         "docs/v0.1-usage.md",
         "docs/v0.1-acceptance.md",
+        "docs/skill-guide.md",
+        "docs/data-policy.md",
+        "docs/current-status.md",
         "env/v0.1-process-linux-py312.txt",
         "env/v0.1-reader-linux-py312.txt",
     ]
     for optional in ("LICENSE", "NOTICE"):
         if (root / optional).is_file():
             names.append(optional)
+    names += [
+        "skills/retargetlab/" + name
+        for name in (
+            "SKILL.md",
+            "LICENSE",
+            "agents/openai.yaml",
+            "references/install.md",
+            "references/usage.md",
+            "references/inputs.md",
+            "references/decisions.md",
+            "scripts/install_full.py",
+        )
+    ]
     source_files = [root / name for name in names]
     source_files += [
         p
