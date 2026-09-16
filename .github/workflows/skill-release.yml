@@ -1,0 +1,70 @@
+name: Skill validation and release
+
+on:
+  push:
+    branches: ['codex/skill-release']
+    tags: ['skill-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Validate public tree and package the Skill
+        run: python scripts/build_skill_release.py
+      - name: Install the complete published CLI runtime
+        run: python skills/retargetlab/scripts/install_full.py --prefix "$RUNNER_TEMP/retargetlab-full"
+      - name: Verify installation boundaries
+        env:
+          RETARGETLAB_INSTALL_PREFIX: ${{ runner.temp }}/retargetlab-full
+        run: python tests/skill/test_install_full.py -v
+      - name: Exercise public synthetic workflows
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/enactic/openarm_description.git "$RUNNER_TEMP/openarm"
+          git -C "$RUNNER_TEMP/openarm" checkout 6148297241fb0402eafe2c6eed455ae4e90d4552
+          python scripts/release_smoke.py --process-python "$RUNNER_TEMP/retargetlab-full/process/bin/python" --reader-python "$RUNNER_TEMP/retargetlab-full/reader/bin/python" --openarm-source "$RUNNER_TEMP/openarm" --output "$RUNNER_TEMP/skill-smoke"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: skill-package
+          path: skill-dist/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: skill-validation-logs
+          path: |
+            ${{ runner.temp }}/retargetlab-full/installation*.json
+            ${{ runner.temp }}/retargetlab-full/*-freeze.txt
+            ${{ runner.temp }}/retargetlab-full/logs/*.log
+            ${{ runner.temp }}/skill-smoke/*.json
+            ${{ runner.temp }}/skill-smoke/*.stdout
+            ${{ runner.temp }}/skill-smoke/*.stderr
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/skill-v')
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Publish verified Skill package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          test -s skills/retargetlab/LICENSE
+          version=$(python -c 'import runpy; print(runpy.run_path("scripts/build_skill_release.py")["VERSION"])')
+          test "$GITHUB_REF_NAME" = "skill-v$version"
+          gh run download "$GITHUB_RUN_ID" --name skill-package --dir skill-dist
+          (cd skill-dist && sha256sum -c SHA256SUMS)
+          gh release create "$GITHUB_REF_NAME" skill-dist/* --verify-tag --prerelease --title "RetargetLab Skill $version" --notes-file SKILL_RELEASE_NOTES.md

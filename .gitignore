@@ -43,3 +43,16 @@ dist/
 *.egg-info/
 
 .venv-*/
+
+# Local data/model sources and internal research documentation
+/source/
+/external/
+/datasets/
+/outputs/
+/tooling/
+/releases/
+/docs/evidence/
+/docs/archive/
+*.npy
+*.npz
+/skill-dist/

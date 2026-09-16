@@ -1,5 +1,9 @@
-# RetargetLab documentation
+# Documentation
 
-Current software documentation: [Usage](v0.1-usage.md), [Acceptance](v0.1-acceptance.md), [Release notes](../RELEASE_NOTES.md).
+- [Install and use the Skill](skill-guide.md)
+- [CLI inputs and usage](v0.1-usage.md)
+- [Current capabilities](current-status.md)
+- [Public validation](v0.1-acceptance.md)
+- [Data and licensing boundary](data-policy.md)
 
-Other documents are historical research records, not current release requirements.
+Internal experiment logs, private-data inventories and superseded laboratory plans are maintained outside the current public documentation. The public example uses a pinned third-party OpenArm model and generated synthetic data.

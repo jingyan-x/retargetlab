@@ -4,6 +4,10 @@ EEF 轨迹处理工具：配置输入与机器人，连续求解 observation/act
 
 当前候选版本为 **0.1.0rc4**。支持 Linux / Python 3.12；Pink + Pinocchio、Mink + MuJoCo 两套后端。已登记的真实数据布局为 OpenArm EEF sidecar 与 MQ03 EEF。v0.1 不宣称任意机器人自动适配、动力学执行或训练效果。
 
+## Agent Skill
+
+已提供[RetargetLab Skill](docs/skill-guide.md)：安装与使用两个独立流程，默认完整安装，使用时不自动修改依赖。Skill基线为CLI 0.1.0rc4。
+
 ## 安装
 
 从候选 wheel 安装处理环境（完整记录见 [首版验收](docs/v0.1-acceptance.md)）：
@@ -62,4 +66,4 @@ retargetlab verify-reader --dataset demo/dataset --output demo/reader-report.jso
 
 `processed/` 保存配置、来源指纹、逐流诊断 Parquet 和报告；`dataset/` 保存 LeRobot 元数据、数值表、视频及 `retarget/` 质量/策略；`replay/` 保存按关节名回放的数据；`reader-report.json` 记录实际读取验收。
 
-先阅读 [输入与配置](docs/v0.1-usage.md)，再替换所支持的数据/机器人配置。缺失语义或不支持的布局会报错，不自动猜测坐标或单位。已有项目研究记录入口在 [docs/README.md](docs/README.md)，其中历史状态不等于首版发布验收。
+先阅读 [输入与配置](docs/v0.1-usage.md)，再替换所支持的数据/机器人配置。缺失语义或不支持的布局会报错，不自动猜测坐标或单位。公开文档入口在 [docs/README.md](docs/README.md)。内部验证使用实验室私有数据，不随工具分发；见[数据与许可边界](docs/data-policy.md)。

@@ -1,0 +1,3 @@
+interface:
+  display_name: "RetargetLab"
+  short_description: "Install full RetargetLab environments and operate EEF workflows"
